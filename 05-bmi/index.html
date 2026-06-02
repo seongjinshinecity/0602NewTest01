@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMI 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background-color: #F2F4F6;
+    }
+    /* number input 화살표 제거 */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] { -moz-appearance: textfield; }
+
+    /* 부드러운 등장 애니메이션 */
+    @keyframes pop {
+      0% { transform: scale(0.92); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop { animation: pop 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+
+    @keyframes slideUp {
+      0% { transform: translateY(8px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // ========================================
+    // 🎨 디자인 시스템 / 상수
+    // ========================================
+    // 포인트 컬러: 라이트블루 / 라이트그린 두 계열만 사용
+    const LIGHT_BLUE = '#3B82F6';
+    const LIGHT_BLUE_SOFT = '#EAF2FE';
+    const LIGHT_GREEN = '#22C55E';
+    const LIGHT_GREEN_SOFT = '#E7F8EE';
+
+    // 대한비만학회 한국인 기준 분류 (라이트블루 / 라이트그린 계열로만 구분)
+    const CATEGORIES = [
+      { key: 'under',  label: '저체중',   min: -Infinity, max: 18.5,     color: '#60A5FA', soft: '#EAF2FE' }, // 연한 블루
+      { key: 'normal', label: '정상',     min: 18.5,      max: 23,       color: '#22C55E', soft: '#E7F8EE' }, // 그린
+      { key: 'over',   label: '과체중',   min: 23,        max: 25,       color: '#86C56B', soft: '#EEF7E8' }, // 옐로우그린
+      { key: 'obese',  label: '비만',     min: 25,        max: 30,       color: '#2563EB', soft: '#E3EDFD' }, // 진한 블루
+      { key: 'severe', label: '고도비만', min: 30,        max: Infinity, color: '#1D4ED8', soft: '#DCE6FB' }, // 더 진한 블루
+    ];
+
+    function getCategory(bmi) {
+      return CATEGORIES.find((c) => bmi >= c.min && bmi < c.max) || CATEGORIES[0];
+    }
+
+    // ----------------------------------------
+    // NumberField: 라벨 + 단위가 붙은 큼직한 입력 필드
+    // ----------------------------------------
+    function NumberField({ label, unit, value, onChange, placeholder }) {
+      const [focused, setFocused] = useState(false);
+      return (
+        <div>
+          <label className="block text-[15px] font-bold text-gray-500 mb-2 ml-1">
+            {label}
+          </label>
+          <div
+            className="flex items-center rounded-2xl px-5 py-4 transition-all duration-200"
+            style={{
+              boxShadow: focused ? `0 0 0 2px ${LIGHT_BLUE}` : 'none',
+              backgroundColor: focused ? '#FFFFFF' : '#F2F4F6',
+            }}
+          >
+            <input
+              type="number"
+              inputMode="decimal"
+              value={value}
+              placeholder={placeholder}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onChange={(e) => onChange(e.target.value)}
+              aria-label={label}
+              className="flex-1 w-full bg-transparent outline-none text-2xl font-bold text-gray-900 placeholder:text-gray-300 placeholder:font-medium"
+            />
+            <span className="text-lg font-bold text-gray-400 ml-2 select-none">{unit}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------------------------------
+    // CategoryBadge: BMI 분류 칩
+    // ----------------------------------------
+    function CategoryBadge({ category }) {
+      return (
+        <span
+          className="inline-flex items-center font-bold rounded-full text-sm px-3.5 py-1.5"
+          style={{ backgroundColor: category.soft, color: category.color }}
+        >
+          {category.label}
+        </span>
+      );
+    }
+
+    // ----------------------------------------
+    // Gauge: 15~35 구간 게이지 바
+    // ----------------------------------------
+    function Gauge({ bmi, category }) {
+      const MIN = 15, MAX = 35;
+      const clamped = Math.min(Math.max(bmi, MIN), MAX);
+      const percent = ((clamped - MIN) / (MAX - MIN)) * 100;
+      const pos = (v) => ((v - MIN) / (MAX - MIN)) * 100;
+
+      // 분류 경계(18.5, 23, 25, 30)에 맞춘 단계형 그라데이션
+      const stops = [
+        [0, CATEGORIES[0].color], [pos(18.5), CATEGORIES[0].color],
+        [pos(18.5), CATEGORIES[1].color], [pos(23), CATEGORIES[1].color],
+        [pos(23), CATEGORIES[2].color], [pos(25), CATEGORIES[2].color],
+        [pos(25), CATEGORIES[3].color], [pos(30), CATEGORIES[3].color],
+        [pos(30), CATEGORIES[4].color], [100, CATEGORIES[4].color],
+      ];
+      const gradient = `linear-gradient(to right, ${stops.map(([at, c]) => `${c} ${at}%`).join(', ')})`;
+
+      return (
+        <div className="mt-2">
+          <div className="relative h-4 rounded-full" style={{ background: gradient }}>
+            <div
+              className="absolute top-1/2 transition-all duration-500 ease-out"
+              style={{ left: `${percent}%`, transform: 'translate(-50%, -50%)' }}
+            >
+              <div
+                className="w-7 h-7 rounded-full bg-white flex items-center justify-center"
+                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}
+              >
+                <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: category.color }} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-between mt-3 px-0.5 text-xs font-bold text-gray-400">
+            <span>15</span><span>18.5</span><span>23</span><span>25</span><span>30</span><span>35</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 결과 카드
+    // ========================================
+    function ResultCard({ bmi }) {
+      const category = getCategory(bmi);
+      return (
+        <div className="bg-white rounded-3xl p-7 animate-pop" style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[15px] font-bold text-gray-400">나의 BMI 지수</span>
+            <CategoryBadge category={category} />
+          </div>
+
+          <div className="flex items-end gap-2 mb-6">
+            <span className="text-6xl font-black tracking-tight" style={{ color: category.color }}>
+              {bmi.toFixed(1)}
+            </span>
+            <span className="text-lg font-bold text-gray-300 mb-2">kg/m²</span>
+          </div>
+
+          <Gauge bmi={bmi} category={category} />
+
+          <div
+            className="mt-6 rounded-2xl px-5 py-4 text-[15px] font-medium leading-relaxed"
+            style={{ backgroundColor: category.soft, color: '#374151' }}
+          >
+            현재 <b style={{ color: category.color }}>{category.label}</b> 구간이에요.
+            {category.key === 'normal'
+              ? ' 건강한 체중을 잘 유지하고 있어요!'
+              : ' 꾸준한 관리로 정상 범위를 향해 가봐요.'}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 빈 상태 안내
+    // ========================================
+    function EmptyState() {
+      return (
+        <div
+          className="bg-white rounded-3xl p-9 text-center animate-slide-up"
+          style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.06)' }}
+        >
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-5 flex items-center justify-center text-3xl"
+            style={{ backgroundColor: LIGHT_BLUE_SOFT }}
+          >
+            📏
+          </div>
+          <p className="text-lg font-bold text-gray-700 mb-1">키와 몸무게를 입력해주세요</p>
+          <p className="text-[15px] font-medium text-gray-400">입력하면 BMI 지수가 바로 계산돼요</p>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [height, setHeight] = useState('');
+      const [weight, setWeight] = useState('');
+
+      const bmi = useMemo(() => {
+        const h = parseFloat(height);
+        const w = parseFloat(weight);
+        if (!h || !w || h <= 0 || w <= 0) return null;
+        const m = h / 100;
+        const value = w / (m * m);
+        return isFinite(value) ? value : null;
+      }, [height, weight]);
+
+      return (
+        <div className="min-h-screen w-full flex justify-center px-5 py-10">
+          <div className="w-full max-w-md">
+            {/* 헤더 */}
+            <header className="mb-7 px-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: LIGHT_BLUE }} />
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: LIGHT_GREEN }} />
+              </div>
+              <h1 className="text-3xl font-black text-gray-900 leading-tight">BMI 계산기</h1>
+              <p className="text-[15px] font-medium text-gray-400 mt-1.5">
+                키와 몸무게로 체질량지수를 확인해요
+              </p>
+            </header>
+
+            {/* 입력 카드 */}
+            <div className="bg-white rounded-3xl p-7 mb-5" style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.06)' }}>
+              <div className="space-y-5">
+                <NumberField label="키" unit="cm" value={height} onChange={setHeight} placeholder="170" />
+                <NumberField label="몸무게" unit="kg" value={weight} onChange={setWeight} placeholder="65" />
+              </div>
+            </div>
+
+            {/* 결과 / 빈 상태 */}
+            {bmi !== null ? <ResultCard bmi={bmi} /> : <EmptyState />}
+
+            {/* 분류 기준 안내 */}
+            <div className="bg-white rounded-3xl p-6 mt-5" style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.06)' }}>
+              <p className="text-[15px] font-bold text-gray-700 mb-4 ml-1">
+                BMI 분류 기준 <span className="text-gray-300 font-medium">· 대한비만학회</span>
+              </p>
+              <div className="space-y-1.5">
+                {CATEGORIES.map((c) => {
+                  const range =
+                    c.key === 'under' ? '18.5 미만'
+                    : c.key === 'normal' ? '18.5 ~ 22.9'
+                    : c.key === 'over' ? '23 ~ 24.9'
+                    : c.key === 'obese' ? '25 ~ 29.9'
+                    : '30 이상';
+                  const active = bmi !== null && getCategory(bmi).key === c.key;
+                  return (
+                    <div
+                      key={c.key}
+                      className="flex items-center justify-between rounded-2xl px-4 py-3 transition-all"
+                      style={{ backgroundColor: active ? c.soft : 'transparent' }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color }} />
+                        <span className="text-[15px] font-bold" style={{ color: active ? c.color : '#374151' }}>
+                          {c.label}
+                        </span>
+                      </div>
+                      <span className="text-sm font-bold text-gray-400">{range}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="text-center text-xs font-medium text-gray-300 mt-7">
+              본 결과는 참고용이며 의학적 진단을 대신하지 않아요
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 렌더링
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

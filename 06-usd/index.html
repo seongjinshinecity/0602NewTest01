@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>달러 환율 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* 숫자 입력 시 스피너 제거 (text input 사용하므로 보조 차원) */
+    input[type="text"] { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 to-slate-200 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useCallback, useMemo } = React;
+
+    // ========================================
+    // 🔧 유틸리티 함수
+    // ========================================
+
+    const DEFAULT_RATE = 1380; // 1 USD = 1,380 KRW (기본 환율)
+
+    // 입력 문자열에서 숫자만 추출 (소수점 허용)
+    function sanitizeNumberInput(str) {
+      // 숫자와 소수점만 남기고, 소수점은 하나만 허용
+      let cleaned = str.replace(/[^0-9.]/g, '');
+      const firstDot = cleaned.indexOf('.');
+      if (firstDot !== -1) {
+        cleaned =
+          cleaned.slice(0, firstDot + 1) +
+          cleaned.slice(firstDot + 1).replace(/\./g, '');
+      }
+      return cleaned;
+    }
+
+    // 숫자를 천 단위 콤마로 포맷 (소수점 입력 중 상태 보존)
+    function formatWithCommas(str) {
+      if (str === '' || str === undefined || str === null) return '';
+      const negative = false;
+      const [intPartRaw, decPart] = str.split('.');
+      const intPart = (intPartRaw || '').replace(/^0+(?=\d)/, '') || '0';
+      const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      if (str.includes('.')) {
+        return withCommas + '.' + (decPart !== undefined ? decPart : '');
+      }
+      return withCommas;
+    }
+
+    // 결과 표시용 포맷 (자릿수 제한 적용)
+    function formatResult(num, decimals) {
+      if (!isFinite(num)) return '0';
+      return num.toLocaleString('ko-KR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: decimals,
+      });
+    }
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트
+    // ========================================
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-xl ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Button({
+      children,
+      variant = 'primary',
+      onClick,
+      className = '',
+      type = 'button',
+      'aria-label': ariaLabel,
+    }) {
+      const base =
+        'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+      const variants = {
+        primary:
+          'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 px-5 py-3',
+        ghost:
+          'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400 px-5 py-3',
+      };
+      return (
+        <button
+          type={type}
+          onClick={onClick}
+          aria-label={ariaLabel}
+          className={`${base} ${variants[variant]} ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // 통화 입력 필드 (라벨 + 콤마 포맷 + 통화 기호)
+    function CurrencyField({ label, symbol, code, value, onChange, accent }) {
+      return (
+        <div>
+          <label className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-slate-600">{label}</span>
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded-full ${accent}`}
+            >
+              {code}
+            </span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 pointer-events-none">
+              {symbol}
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="0"
+              aria-label={`${label} 금액 입력`}
+              className="w-full pl-10 pr-4 py-4 text-right text-2xl font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 환율 계산기 페이지 컴포넌트
+    // ========================================
+
+    function ExchangeCalculator() {
+      // 환율 (문자열로 보관, 콤마 포맷)
+      const [rateRaw, setRateRaw] = useState(String(DEFAULT_RATE));
+      // USD / KRW 입력값 (문자열, 콤마 미포함 raw)
+      const [usdRaw, setUsdRaw] = useState('1');
+      const [krwRaw, setKrwRaw] = useState(String(DEFAULT_RATE));
+      const [lastEdited, setLastEdited] = useState('usd'); // 'usd' | 'krw'
+
+      const rate = useMemo(() => {
+        const r = parseFloat(rateRaw);
+        return isFinite(r) && r > 0 ? r : 0;
+      }, [rateRaw]);
+
+      // 환율 변경 시
+      const handleRateChange = useCallback(
+        (val) => {
+          const clean = sanitizeNumberInput(val);
+          setRateRaw(clean);
+          const r = parseFloat(clean);
+          if (!isFinite(r) || r <= 0) return;
+          // 마지막으로 수정한 쪽을 기준으로 반대쪽 재계산
+          if (lastEdited === 'usd') {
+            const u = parseFloat(usdRaw);
+            setKrwRaw(isFinite(u) ? String(u * r) : '');
+          } else {
+            const k = parseFloat(krwRaw);
+            setUsdRaw(isFinite(k) ? String(k / r) : '');
+          }
+        },
+        [lastEdited, usdRaw, krwRaw]
+      );
+
+      // USD 입력 시 → KRW 자동 계산
+      const handleUsdChange = useCallback(
+        (val) => {
+          const clean = sanitizeNumberInput(val);
+          setUsdRaw(clean);
+          setLastEdited('usd');
+          const u = parseFloat(clean);
+          if (clean === '' || !isFinite(u)) {
+            setKrwRaw('');
+            return;
+          }
+          setKrwRaw(rate > 0 ? String(u * rate) : '');
+        },
+        [rate]
+      );
+
+      // KRW 입력 시 → USD 자동 계산
+      const handleKrwChange = useCallback(
+        (val) => {
+          const clean = sanitizeNumberInput(val);
+          setKrwRaw(clean);
+          setLastEdited('krw');
+          const k = parseFloat(clean);
+          if (clean === '' || !isFinite(k)) {
+            setUsdRaw('');
+            return;
+          }
+          setUsdRaw(rate > 0 ? String(k / rate) : '');
+        },
+        [rate]
+      );
+
+      // 초기화
+      const handleReset = useCallback(() => {
+        setRateRaw(String(DEFAULT_RATE));
+        setUsdRaw('1');
+        setKrwRaw(String(DEFAULT_RATE));
+        setLastEdited('usd');
+      }, []);
+
+      // 표시용 값 (raw 숫자를 보기 좋게 반올림 후 콤마)
+      const usdDisplay = useMemo(() => {
+        if (usdRaw === '') return '';
+        const n = parseFloat(usdRaw);
+        if (!isFinite(n)) return usdRaw;
+        // 사용자가 직접 입력 중인 경우 원본 유지, 계산값이면 소수 2자리로 정리
+        if (lastEdited === 'usd') return formatWithCommas(usdRaw);
+        return formatResult(n, 2);
+      }, [usdRaw, lastEdited]);
+
+      const krwDisplay = useMemo(() => {
+        if (krwRaw === '') return '';
+        const n = parseFloat(krwRaw);
+        if (!isFinite(n)) return krwRaw;
+        if (lastEdited === 'krw') return formatWithCommas(krwRaw);
+        return formatResult(Math.round(n), 0);
+      }, [krwRaw, lastEdited]);
+
+      const rateDisplay = formatWithCommas(rateRaw);
+
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            {/* 헤더 */}
+            <header className="text-center mb-6">
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center justify-center gap-2">
+                <span>💵</span> 달러 환율 계산기
+              </h1>
+              <p className="text-sm text-slate-500 mt-2">
+                USD ↔ KRW 실시간 양방향 환전
+              </p>
+            </header>
+
+            <Card className="p-6 sm:p-8">
+              {/* 환율 설정 */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <label className="block text-sm font-medium text-blue-800 mb-2">
+                  적용 환율 (1 USD 당 KRW)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold pointer-events-none">
+                    ₩
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={rateDisplay}
+                    onChange={(e) => handleRateChange(e.target.value)}
+                    aria-label="환율 입력"
+                    className="w-full pl-9 pr-4 py-3 text-right text-lg font-bold text-blue-900 bg-white border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <p className="text-xs text-blue-600 mt-2 text-right">
+                  1 USD = {rateDisplay || '0'} KRW
+                </p>
+              </div>
+
+              {/* USD 입력 */}
+              <div className="space-y-4">
+                <CurrencyField
+                  label="미국 달러"
+                  symbol="$"
+                  code="USD"
+                  value={usdDisplay}
+                  onChange={handleUsdChange}
+                  accent="bg-green-100 text-green-700"
+                />
+
+                {/* 변환 표시 아이콘 */}
+                <div className="flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xl">
+                    ⇅
+                  </div>
+                </div>
+
+                <CurrencyField
+                  label="대한민국 원"
+                  symbol="₩"
+                  code="KRW"
+                  value={krwDisplay}
+                  onChange={handleKrwChange}
+                  accent="bg-blue-100 text-blue-700"
+                />
+              </div>
+
+              {/* 초기화 버튼 */}
+              <div className="mt-8">
+                <Button
+                  variant="ghost"
+                  onClick={handleReset}
+                  className="w-full"
+                  aria-label="입력값 초기화"
+                >
+                  <span>↺</span> 초기화
+                </Button>
+              </div>
+            </Card>
+
+            <footer className="text-center mt-6 text-xs text-slate-400">
+              환율은 직접 입력·수정할 수 있습니다. 참고용으로만 사용하세요.
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App 컴포넌트
+    // ========================================
+
+    function App() {
+      return <ExchangeCalculator />;
+    }
+
+    // ========================================
+    // 렌더링
+    // ========================================
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

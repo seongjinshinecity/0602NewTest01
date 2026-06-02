@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D-day 카운트다운 ✨</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Google Fonts: Pixar 느낌의 둥근 폰트 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* ========================================
+       전역 폰트 & 배경
+       ======================================== */
+    html, body { height: 100%; }
+    body {
+      font-family: 'Nunito', 'Baloo 2', sans-serif;
+      /* 하늘 → 부드러운 핑크/피치 그라데이션 (Up 영화 느낌) */
+      background: linear-gradient(180deg, #8fd3fe 0%, #bfe7ff 35%, #ffe1c7 75%, #ffd1dc 100%);
+      overflow-x: hidden;
+    }
+    .font-baloo { font-family: 'Baloo 2', cursive; }
+
+    /* ========================================
+       애니메이션
+       ======================================== */
+    /* 숫자가 바뀔 때 통통 튀는 효과 */
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.28) rotate(-2deg); }
+      65%  { transform: scale(0.92); }
+      100% { transform: scale(1); }
+    }
+    .animate-pop { animation: pop 0.55s cubic-bezier(.34,1.56,.64,1); }
+
+    /* 둥실둥실 떠다니는 구름/별 */
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-22px); }
+    }
+    .floaty       { animation: floaty 6s ease-in-out infinite; }
+    .floaty-slow  { animation: floaty 9s ease-in-out infinite; }
+    .floaty-fast  { animation: floaty 4.5s ease-in-out infinite; }
+
+    /* 반짝이는 별 */
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.35; transform: scale(0.85); }
+      50%      { opacity: 1;    transform: scale(1.15); }
+    }
+    .twinkle { animation: twinkle 3s ease-in-out infinite; }
+
+    /* D-day 라벨 부드러운 펄스 */
+    @keyframes softpulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.04); }
+    }
+    .softpulse { animation: softpulse 2.8s ease-in-out infinite; }
+
+    /* 입체 카드 안쪽 하이라이트 */
+    .inset-highlight {
+      box-shadow:
+        inset 0 4px 8px rgba(255,255,255,0.85),
+        inset 0 -6px 14px rgba(0,0,0,0.10),
+        0 18px 30px rgba(60, 80, 120, 0.25);
+    }
+    /* 통통한 버튼 입체감 */
+    .chunky-shadow {
+      box-shadow:
+        inset 0 3px 6px rgba(255,255,255,0.55),
+        inset 0 -5px 10px rgba(0,0,0,0.18),
+        0 10px 0 rgba(0,0,0,0.12),
+        0 14px 22px rgba(0,0,0,0.20);
+    }
+    .chunky-shadow:active { transform: translateY(4px); }
+
+    /* 스크롤바 살짝 귀엽게 */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-thumb { background: #ffb3c1; border-radius: 999px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks 추출
+    // ========================================
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    // 통통한 3D 버튼
+    function Button({ children, variant = 'primary', size = 'md', onClick, className = '', ...rest }) {
+      const variants = {
+        primary:   'bg-gradient-to-b from-[#ff8db4] to-[#ff5c8a] text-white',
+        secondary: 'bg-gradient-to-b from-[#7fd1ff] to-[#3aa6f0] text-white',
+        sunny:     'bg-gradient-to-b from-[#ffe07a] to-[#ffb43a] text-[#7a4a00]',
+        mint:      'bg-gradient-to-b from-[#9bf0c8] to-[#3fd99a] text-[#0a5a3a]',
+      };
+      const sizes = {
+        sm: 'px-4 py-2 text-sm',
+        md: 'px-6 py-3 text-base',
+        lg: 'px-8 py-4 text-lg',
+      };
+      return (
+        <button
+          onClick={onClick}
+          className={`font-baloo font-bold rounded-full chunky-shadow transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-white/60 ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // 부드러운 둥근 카드
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white/80 backdrop-blur-md rounded-[2.5rem] inset-highlight ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // 시간 단위 표시용 통통한 카드 (일/시/분/초)
+    function TimeCard({ value, label, color, animateKey }) {
+      const [pop, setPop] = useState(false);
+      const prev = useRef(value);
+
+      useEffect(() => {
+        if (prev.current !== value) {
+          setPop(true);
+          prev.current = value;
+          const t = setTimeout(() => setPop(false), 560);
+          return () => clearTimeout(t);
+        }
+      }, [value]);
+
+      const padded = String(Math.max(0, value)).padStart(2, '0');
+
+      return (
+        <div className="flex flex-col items-center">
+          <div
+            className={`w-20 h-24 sm:w-28 sm:h-32 rounded-[1.75rem] flex items-center justify-center inset-highlight ${color}`}
+          >
+            <span
+              key={animateKey}
+              className={`font-baloo font-extrabold text-4xl sm:text-6xl text-white drop-shadow-[0_3px_2px_rgba(0,0,0,0.25)] ${pop ? 'animate-pop' : ''}`}
+            >
+              {padded}
+            </span>
+          </div>
+          <span className="mt-2 font-baloo font-bold text-base sm:text-lg text-[#5b4a7a]">
+            {label}
+          </span>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🌥️ 장식 요소 (구름 / 별 / 풍선)
+    // ========================================
+    function Cloud({ className = '', scale = 1 }) {
+      return (
+        <svg viewBox="0 0 200 120" className={className} style={{ transform: `scale(${scale})` }} aria-hidden="true">
+          <g fill="#ffffff" opacity="0.92">
+            <ellipse cx="60" cy="80" rx="55" ry="38" />
+            <ellipse cx="110" cy="65" rx="50" ry="42" />
+            <ellipse cx="150" cy="85" rx="45" ry="34" />
+            <ellipse cx="100" cy="95" rx="80" ry="25" />
+          </g>
+        </svg>
+      );
+    }
+
+    function Star({ className = '', color = '#fff3a8' }) {
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill={color} aria-hidden="true">
+          <path d="M12 2l2.9 6.3L22 9.3l-5 4.7 1.3 6.9L12 17.8 5.7 20.9 7 14 2 9.3l7.1-1z"/>
+        </svg>
+      );
+    }
+
+    function DecorLayer() {
+      return (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden z-0" aria-hidden="true">
+          <Cloud className="floaty-slow absolute top-[8%] left-[5%] w-44 opacity-90" />
+          <Cloud className="floaty absolute top-[20%] right-[6%] w-56 opacity-80" />
+          <Cloud className="floaty-fast absolute bottom-[14%] left-[10%] w-40 opacity-75" />
+          <Cloud className="floaty-slow absolute bottom-[6%] right-[14%] w-52 opacity-70" />
+
+          <Star className="twinkle absolute top-[14%] left-[40%] w-7" />
+          <Star className="twinkle absolute top-[30%] left-[22%] w-5" color="#ffd1dc" style={{ animationDelay: '0.8s' }} />
+          <Star className="twinkle absolute top-[12%] right-[30%] w-6" color="#bfe7ff" />
+          <Star className="twinkle absolute bottom-[28%] right-[24%] w-5" color="#fff3a8" />
+          <Star className="twinkle absolute bottom-[40%] left-[48%] w-4" color="#9bf0c8" />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🎉 색종이(컨페티) 효과 (D-day / 목표 달성 시)
+    // ========================================
+    function Confetti({ active }) {
+      const pieces = useMemo(() => {
+        const colors = ['#ff5c8a', '#ffb43a', '#3fd99a', '#3aa6f0', '#b06bff', '#fff3a8'];
+        return Array.from({ length: 80 }, (_, i) => ({
+          id: i,
+          left: Math.random() * 100,
+          delay: Math.random() * 0.8,
+          dur: 2.5 + Math.random() * 2,
+          size: 8 + Math.random() * 10,
+          color: colors[i % colors.length],
+          rot: Math.random() * 360,
+        }));
+      }, []);
+
+      if (!active) return null;
+      return (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden z-40" aria-hidden="true">
+          <style>{`
+            @keyframes fall {
+              0%   { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(110vh) rotate(720deg); opacity: 0.9; }
+            }
+          `}</style>
+          {pieces.map(p => (
+            <span
+              key={p.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: `${p.left}%`,
+                width: p.size,
+                height: p.size * 0.6,
+                background: p.color,
+                borderRadius: '3px',
+                transform: `rotate(${p.rot}deg)`,
+                animation: `fall ${p.dur}s linear ${p.delay}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // ========================================
+    // ⏱️ 카운트다운 계산 로직
+    // ========================================
+    function calcRemaining(targetISO) {
+      const now = new Date();
+      const target = new Date(targetISO + 'T00:00:00');
+      const diff = target.getTime() - now.getTime();
+
+      const past = diff < 0;
+      const abs = Math.abs(diff);
+
+      const totalSeconds = Math.floor(abs / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      // 자정 기준 D-day 라벨 계산
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const dayDiff = Math.round((target.getTime() - startOfToday.getTime()) / 86400000);
+
+      return { past, days, hours, minutes, seconds, dayDiff, diff };
+    }
+
+    function ddayLabel(dayDiff) {
+      if (dayDiff === 0) return 'D-DAY';
+      if (dayDiff > 0) return `D-${dayDiff}`;
+      return `D+${Math.abs(dayDiff)}`;
+    }
+
+    // ========================================
+    // 📄 메인 페이지 컴포넌트
+    // ========================================
+    function CountdownApp() {
+      // 기본 목표 날짜: 오늘로부터 30일 뒤
+      const defaultDate = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d.toISOString().slice(0, 10);
+      }, []);
+
+      const [target, setTarget] = useState(defaultDate);
+      const [title, setTitle] = useState('나의 특별한 날');
+      const [remaining, setRemaining] = useState(() => calcRemaining(defaultDate));
+      const tick = useRef(0);
+
+      // 1초마다 실시간 갱신
+      useEffect(() => {
+        const update = () => {
+          setRemaining(calcRemaining(target));
+          tick.current += 1;
+        };
+        update(); // 즉시 한 번
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+      }, [target]);
+
+      const isDday = remaining.dayDiff === 0;
+      const isCelebrate = remaining.past || isDday;
+
+      const label = ddayLabel(remaining.dayDiff);
+
+      // 분위기에 맞는 메시지
+      const message = useMemo(() => {
+        if (isDday) return '🎉 드디어 오늘이에요! 즐거운 하루 되세요!';
+        if (remaining.past) return '🎈 그날이 지났어요! 멋진 추억이 되었길 바라요!';
+        if (remaining.dayDiff <= 3) return '💖 정말 얼마 안 남았어요! 두근두근!';
+        if (remaining.dayDiff <= 7) return '✨ 한 주도 채 안 남았어요!';
+        return '☁️ 그날을 향해 한 걸음씩!';
+      }, [remaining, isDday]);
+
+      const timeColors = {
+        days:    'bg-gradient-to-b from-[#ff8db4] to-[#ff5c8a]',
+        hours:   'bg-gradient-to-b from-[#ffd36e] to-[#ffac33]',
+        minutes: 'bg-gradient-to-b from-[#8be0ff] to-[#3aa6f0]',
+        seconds: 'bg-gradient-to-b from-[#a7f3c9] to-[#3fd99a]',
+      };
+
+      return (
+        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-10 z-10">
+          <DecorLayer />
+          <Confetti active={isCelebrate} />
+
+          {/* 헤더 */}
+          <header className="relative z-10 text-center mb-8 floaty-slow">
+            <h1 className="font-baloo font-extrabold text-4xl sm:text-6xl text-white drop-shadow-[0_4px_0_rgba(255,92,138,0.55)]">
+              D-day 카운트다운
+            </h1>
+            <p className="mt-2 font-bold text-lg text-white/90 drop-shadow-[0_2px_0_rgba(0,0,0,0.15)]">
+              소중한 그날까지, 함께 세어봐요 ☁️✨
+            </p>
+          </header>
+
+          {/* 메인 카드 */}
+          <Card className="relative z-10 w-full max-w-2xl p-6 sm:p-10 flex flex-col items-center">
+            {/* 제목 입력 */}
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              aria-label="이벤트 제목"
+              placeholder="이벤트 이름을 입력하세요"
+              className="w-full text-center font-baloo font-bold text-xl sm:text-2xl text-[#5b4a7a] bg-transparent border-b-4 border-dashed border-[#ffb3c1] focus:border-[#ff5c8a] focus:outline-none pb-2 mb-6 placeholder:text-[#c9bdd9]"
+            />
+
+            {/* 큰 D-day 라벨 */}
+            <div
+              className={`softpulse mb-6 px-10 py-4 rounded-full inset-highlight ${
+                isCelebrate
+                  ? 'bg-gradient-to-b from-[#ffd36e] to-[#ffac33]'
+                  : 'bg-gradient-to-b from-[#ff8db4] to-[#ff5c8a]'
+              }`}
+            >
+              <span className="font-baloo font-extrabold text-5xl sm:text-7xl text-white drop-shadow-[0_4px_2px_rgba(0,0,0,0.25)]">
+                {label}
+              </span>
+            </div>
+
+            {/* 메시지 */}
+            <p className="font-bold text-base sm:text-xl text-[#5b4a7a] text-center mb-8 min-h-[2rem]">
+              {message}
+            </p>
+
+            {/* 일/시/분/초 카드 */}
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 mb-8">
+              <TimeCard value={remaining.days}    label="일"  color={timeColors.days}    animateKey={`d${remaining.days}`} />
+              <span className="font-baloo font-extrabold text-3xl text-[#c9bdd9] hidden sm:block">:</span>
+              <TimeCard value={remaining.hours}   label="시"  color={timeColors.hours}   animateKey={`h${remaining.hours}`} />
+              <span className="font-baloo font-extrabold text-3xl text-[#c9bdd9] hidden sm:block">:</span>
+              <TimeCard value={remaining.minutes} label="분"  color={timeColors.minutes} animateKey={`m${remaining.minutes}`} />
+              <span className="font-baloo font-extrabold text-3xl text-[#c9bdd9] hidden sm:block">:</span>
+              <TimeCard value={remaining.seconds} label="초"  color={timeColors.seconds} animateKey={`s${remaining.seconds}`} />
+            </div>
+
+            {/* 날짜 선택 */}
+            <div className="w-full flex flex-col items-center gap-3">
+              <label htmlFor="target-date" className="font-baloo font-bold text-lg text-[#5b4a7a]">
+                🎯 목표 날짜 선택
+              </label>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center">
+                <input
+                  id="target-date"
+                  type="date"
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  className="font-baloo font-bold text-lg text-[#5b4a7a] bg-white rounded-full px-6 py-3 inset-highlight focus:outline-none focus:ring-4 focus:ring-[#ffb3c1] cursor-pointer"
+                />
+                <Button variant="sunny" size="md" onClick={() => setTarget(defaultDate)}>
+                  🔄 기본값
+                </Button>
+              </div>
+              <p className="text-sm font-semibold text-[#8a7aa8] mt-1">
+                목표 날짜: {new Date(target + 'T00:00:00').toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' })}
+              </p>
+            </div>
+          </Card>
+
+          {/* 푸터 */}
+          <footer className="relative z-10 mt-8 text-center">
+            <p className="font-bold text-white/80 drop-shadow-[0_1px_0_rgba(0,0,0,0.15)]">
+              made with 🧡 in a sunny sky
+            </p>
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App & Rendering
+    // ========================================
+    function App() {
+      return <CountdownApp />;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

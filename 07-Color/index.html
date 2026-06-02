@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>컬러 변형 생성기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* 네이티브 컬러 피커를 큰 원형 스와치로 보이게 커스텀 */
+    input[type="color"] {
+      -webkit-appearance: none;
+      appearance: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      background: transparent;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9999px; }
+    input[type="color"]::-moz-color-swatch { border: none; border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 to-slate-200 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🔧 색상 변환 유틸리티
+    //   "같은 정보, 다른 형태" — 하나의 색을 HEX / RGB / HSL 로 자유롭게 변환
+    // ========================================
+
+    // "#1a2b3c" → { r, g, b }  (3자리 단축형 #abc 도 허용)
+    function hexToRgb(hex) {
+      let h = hex.replace('#', '').trim();
+      if (h.length === 3) {
+        h = h.split('').map((c) => c + c).join('');
+      }
+      if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+      };
+    }
+
+    function rgbToHex({ r, g, b }) {
+      const toHex = (n) =>
+        Math.round(Math.max(0, Math.min(255, n)))
+          .toString(16)
+          .padStart(2, '0');
+      return ('#' + toHex(r) + toHex(g) + toHex(b)).toUpperCase();
+    }
+
+    // RGB(0~255) → HSL(h:0~360, s:0~100, l:0~100)
+    function rgbToHsl({ r, g, b }) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h = 0;
+      let s = 0;
+      const l = (max + min) / 2;
+      const d = max - min;
+      if (d !== 0) {
+        s = d / (1 - Math.abs(2 * l - 1));
+        switch (max) {
+          case r: h = ((g - b) / d) % 6; break;
+          case g: h = (b - r) / d + 2; break;
+          default: h = (r - g) / d + 4;
+        }
+        h *= 60;
+        if (h < 0) h += 360;
+      }
+      return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+    }
+
+    // HSL → RGB
+    function hslToRgb({ h, s, l }) {
+      s /= 100; l /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (h < 60) { r = c; g = x; }
+      else if (h < 120) { r = x; g = c; }
+      else if (h < 180) { g = c; b = x; }
+      else if (h < 240) { g = x; b = c; }
+      else if (h < 300) { r = x; b = c; }
+      else { r = c; b = x; }
+      return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255),
+      };
+    }
+
+    // 랜덤 HEX 생성 — 너무 어둡거나 흐릿하지 않게 채도/밝기 범위를 제한
+    function randomHex() {
+      const h = Math.floor(Math.random() * 360);
+      const s = 55 + Math.floor(Math.random() * 35); // 55~90%
+      const l = 40 + Math.floor(Math.random() * 30); // 40~70%
+      return rgbToHex(hslToRgb({ h, s, l }));
+    }
+
+    // 밝기(L) 를 조정한 새 HEX 생성
+    function adjustLightness(hex, deltaL) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return hex;
+      const hsl = rgbToHsl(rgb);
+      const newL = Math.max(0, Math.min(100, hsl.l + deltaL));
+      return rgbToHex(hslToRgb({ ...hsl, l: newL }));
+    }
+
+    // 배경색에 대비되는 글자색 (밝은 배경=어두운 글자)
+    function readableText(hex) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return '#000';
+      // 상대 휘도 (W3C 근사)
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      return lum > 0.55 ? '#1e293b' : '#f8fafc';
+    }
+
+    // 흰 배경 위에서 읽히도록 보정한 강조색 (너무 밝으면 어둡게)
+    function accentOnWhite(hex) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return hex;
+      const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+      return lum > 0.6 ? adjustLightness(hex, -(Math.round((lum - 0.4) * 80))) : hex;
+    }
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트
+    // ========================================
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl shadow-xl ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // 클릭하면 값을 클립보드에 복사하는 칩 (같은 정보의 다른 표현형 표시용)
+    // accent: 현재 색 — 강조선/글자색이 선택한 색을 따라간다
+    function CopyChip({ label, value, accent, onCopy }) {
+      const ink = accentOnWhite(accent);
+      const tint = adjustLightness(accent, 44); // 아주 옅은 배경 틴트
+      return (
+        <button
+          type="button"
+          onClick={() => onCopy(value)}
+          title="클릭하여 복사"
+          style={{ backgroundColor: tint, borderLeft: `4px solid ${accent}` }}
+          className="group flex items-center justify-between w-full gap-3 px-4 py-3 border border-slate-200 rounded-xl transition-transform hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-offset-1"
+        >
+          <span
+            className="text-xs font-bold uppercase tracking-wider opacity-70"
+            style={{ color: ink }}
+          >
+            {label}
+          </span>
+          <span className="font-mono text-sm font-semibold" style={{ color: ink }}>
+            {value}
+          </span>
+        </button>
+      );
+    }
+
+    // 변형 색 스와치 (밝은/어두운 팔레트의 한 칸)
+    function Swatch({ hex, tag, isBase, onCopy }) {
+      const text = readableText(hex);
+      return (
+        <button
+          type="button"
+          onClick={() => onCopy(hex)}
+          title="클릭하여 HEX 복사"
+          style={{ backgroundColor: hex, color: text }}
+          className={`relative flex items-center justify-between px-4 h-14 w-full transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+            isBase ? 'ring-2 ring-offset-2 ring-slate-800' : ''
+          }`}
+        >
+          <span className="text-xs font-semibold opacity-80">{tag}</span>
+          <span className="font-mono text-sm font-bold">{hex}</span>
+        </button>
+      );
+    }
+
+    // 복사 완료 토스트
+    function Toast({ message }) {
+      if (!message) return null;
+      return (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-lg z-50">
+          {message}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 컬러 변형 생성기 페이지
+    // ========================================
+
+    // 밝은 변형 5단계 (위 → 가장 밝음), 어두운 변형 5단계 (아래 → 가장 어두움)
+    const STEPS = [10, 20, 30, 40, 50]; // L(밝기) 가감 폭
+
+    function ColorVariantGenerator() {
+      const [hex, setHex] = useState(randomHex); // 시작 색은 매번 랜덤
+      const [draft, setDraft] = useState(hex); // 텍스트 입력 중간 상태
+      const [toast, setToast] = useState('');
+
+      // 토스트 표시 (중복 타이머 방지)
+      const showToast = useCallback((msg) => {
+        setToast(msg);
+        window.clearTimeout(showToast._t);
+        showToast._t = window.setTimeout(() => setToast(''), 1500);
+      }, []);
+
+      const copy = useCallback(
+        (value) => {
+          navigator.clipboard?.writeText(value).then(
+            () => showToast(`복사됨 · ${value}`),
+            () => showToast('복사 실패')
+          );
+        },
+        [showToast]
+      );
+
+      // 유효한 색이면 hex 갱신 (피커 ↔ 텍스트 입력 동기화)
+      const commit = useCallback((raw) => {
+        let v = raw.trim();
+        if (v && v[0] !== '#') v = '#' + v;
+        const rgb = hexToRgb(v);
+        if (rgb) setHex(rgbToHex(rgb));
+      }, []);
+
+      // 컬러 피커 변경 → 즉시 반영 (같은 정보, 다른 입력 형태)
+      const handlePicker = useCallback((val) => {
+        setHex(val.toUpperCase());
+        setDraft(val.toUpperCase());
+      }, []);
+
+      // 🎲 랜덤 베이스 색 생성
+      const handleRandom = useCallback(() => {
+        const next = randomHex();
+        setHex(next);
+        setDraft(next);
+        showToast(`랜덤 색 · ${next}`);
+      }, [showToast]);
+
+      // 텍스트 입력 변경
+      const handleText = useCallback(
+        (val) => {
+          setDraft(val);
+          let v = val.trim();
+          if (v && v[0] !== '#') v = '#' + v;
+          if (hexToRgb(v)) {
+            setHex(rgbToHex(hexToRgb(v)));
+          }
+        },
+        []
+      );
+
+      const rgb = useMemo(() => hexToRgb(hex), [hex]);
+      const hsl = useMemo(() => (rgb ? rgbToHsl(rgb) : null), [rgb]);
+
+      const rgbStr = rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : '-';
+      const hslStr = hsl ? `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)` : '-';
+
+      // 밝은 변형: 가장 밝은 것이 맨 위 (STEPS 역순)
+      const lighter = useMemo(
+        () =>
+          [...STEPS].reverse().map((d) => ({
+            hex: adjustLightness(hex, d),
+            tag: `+${d}`,
+          })),
+        [hex]
+      );
+
+      // 어두운 변형: 위에서부터 점점 어두움
+      const darker = useMemo(
+        () => STEPS.map((d) => ({ hex: adjustLightness(hex, -d), tag: `-${d}` })),
+        [hex]
+      );
+
+      const baseText = readableText(hex);
+
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl">
+            {/* 헤더 */}
+            <header className="text-center mb-6">
+              <h1 className="text-3xl font-extrabold text-slate-800 flex items-center justify-center gap-2">
+                <span>🎨</span> 컬러 변형 생성기
+              </h1>
+              <p className="text-sm text-slate-500 mt-2">
+                HEX 또는 컬러 피커로 색을 고르면 밝은 · 어두운 변형 5단계를 만들어 줘요
+              </p>
+              <p className="text-xs text-indigo-400 mt-1 font-medium">
+                같은 정보, 다른 형태 · HEX ↔ RGB ↔ HSL
+              </p>
+            </header>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* 왼쪽: 입력 + 같은 정보의 다른 표현형 */}
+              <Card className="p-6">
+                {/* 큰 미리보기 + 피커 */}
+                <div
+                  style={{ backgroundColor: hex, color: baseText }}
+                  className="rounded-xl h-32 flex flex-col items-center justify-center mb-5 transition-colors"
+                >
+                  <span className="text-xs font-semibold opacity-80 uppercase tracking-widest">
+                    Base Color
+                  </span>
+                  <span className="font-mono text-2xl font-bold mt-1">{hex}</span>
+                </div>
+
+                {/* 입력 영역: 피커 + HEX 텍스트 (같은 정보의 두 입력 형태) */}
+                <div className="flex items-center gap-3 mb-5">
+                  <input
+                    type="color"
+                    value={hex}
+                    onChange={(e) => handlePicker(e.target.value)}
+                    aria-label="컬러 피커"
+                    className="w-12 h-12 rounded-full shadow-inner shrink-0"
+                  />
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold pointer-events-none">
+                      #
+                    </span>
+                    <input
+                      type="text"
+                      value={draft.replace(/^#/, '')}
+                      onChange={(e) => handleText(e.target.value)}
+                      onBlur={(e) => {
+                        commit(e.target.value);
+                        setDraft(hex);
+                      }}
+                      placeholder="4F46E5"
+                      maxLength={7}
+                      spellCheck={false}
+                      aria-label="HEX 코드 입력"
+                      className="w-full pl-7 pr-4 py-3 font-mono text-lg font-semibold uppercase text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRandom}
+                    title="랜덤 색 생성"
+                    aria-label="랜덤 색 생성"
+                    className="shrink-0 w-12 h-12 flex items-center justify-center text-xl bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl transition-transform focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    🎲
+                  </button>
+                </div>
+
+                {/* 같은 색, 다른 형태 */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    같은 색 · 다른 형태
+                  </p>
+                  <CopyChip label="HEX" value={hex} accent={hex} onCopy={copy} />
+                  <CopyChip label="RGB" value={rgbStr} accent={hex} onCopy={copy} />
+                  <CopyChip label="HSL" value={hslStr} accent={hex} onCopy={copy} />
+                </div>
+              </Card>
+
+              {/* 오른쪽: 밝은 / 어두운 변형 팔레트 */}
+              <Card className="p-6">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  ☀️ 밝은 변형 5
+                </p>
+                <div className="rounded-xl overflow-hidden shadow-sm mb-4">
+                  {lighter.map((c) => (
+                    <Swatch key={c.tag} hex={c.hex} tag={c.tag} onCopy={copy} />
+                  ))}
+                </div>
+
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  ⚓ 기준색
+                </p>
+                <div className="rounded-xl overflow-hidden shadow-sm mb-4">
+                  <Swatch hex={hex} tag="BASE" isBase onCopy={copy} />
+                </div>
+
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  🌑 어두운 변형 5
+                </p>
+                <div className="rounded-xl overflow-hidden shadow-sm">
+                  {darker.map((c) => (
+                    <Swatch key={c.tag} hex={c.hex} tag={c.tag} onCopy={copy} />
+                  ))}
+                </div>
+              </Card>
+            </div>
+
+            <footer className="text-center mt-6 text-xs text-slate-400">
+              스와치나 값을 클릭하면 클립보드에 복사돼요. 변형은 HSL 밝기(L)를 ±10~50 조정해 생성합니다.
+            </footer>
+          </div>
+
+          <Toast message={toast} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App 컴포넌트
+    // ========================================
+
+    function App() {
+      return <ColorVariantGenerator />;
+    }
+
+    // ========================================
+    // 렌더링
+    // ========================================
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
