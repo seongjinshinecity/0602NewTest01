@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘의 날씨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up { animation: fadeInUp 0.5s ease-out both; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-slow { animation: spin 0.9s linear infinite; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .animate-float { animation: float 4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    // ========================================
+    // ⚙️ Configuration
+    // ========================================
+    const API_KEY = '1d5926b624ef458b103acdefc47d5cbc';
+    const API_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+    const ICON_URL = (icon) => `https://openweathermap.org/img/wn/${icon}@2x.png`;
+
+    // 날씨 + 테마(다크/노멀)에 따른 그라데이션 배경
+    function getBackground(weatherMain, isDark) {
+      const main = (weatherMain || '').toLowerCase();
+      if (isDark) {
+        // 🌙 다크 모드: 전체적으로 어둡게
+        if (main.includes('thunder')) return 'from-gray-950 via-slate-900 to-black';
+        if (main.includes('drizzle') || main.includes('rain')) return 'from-slate-950 via-slate-900 to-blue-950';
+        if (main.includes('snow')) return 'from-slate-800 via-slate-700 to-indigo-950';
+        if (main.includes('cloud')) return 'from-slate-900 via-slate-800 to-slate-900';
+        if (main.includes('mist') || main.includes('fog') || main.includes('haze') || main.includes('smoke'))
+          return 'from-slate-900 via-gray-900 to-slate-950';
+        // clear (night)
+        return 'from-slate-900 via-indigo-950 to-black';
+      }
+      // ☀️ 노멀 모드
+      if (main.includes('thunder')) return 'from-slate-700 via-slate-600 to-indigo-800';
+      if (main.includes('drizzle') || main.includes('rain')) return 'from-slate-600 via-slate-500 to-blue-700';
+      if (main.includes('snow')) return 'from-slate-300 via-blue-200 to-indigo-300';
+      if (main.includes('cloud')) return 'from-slate-500 via-slate-400 to-slate-600';
+      if (main.includes('mist') || main.includes('fog') || main.includes('haze') || main.includes('smoke'))
+        return 'from-slate-400 via-gray-400 to-slate-500';
+      // clear
+      return 'from-sky-400 via-blue-500 to-indigo-500';
+    }
+
+    // 자동 모드: 시간(밤 19시~아침 6시)에 따라 다크 여부 판단
+    function isNightTime() {
+      const h = new Date().getHours();
+      return h >= 19 || h < 6;
+    }
+
+    // 선택된 테마('auto'|'light'|'dark') → 실제 다크 여부
+    function resolveDark(theme) {
+      if (theme === 'dark') return true;
+      if (theme === 'light') return false;
+      return isNightTime();
+    }
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    function Button({ children, variant = 'primary', size = 'md', disabled, onClick, type = 'button', className = '', ...rest }) {
+      const base = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/60 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-white/90 text-slate-800 hover:bg-white shadow-md',
+        secondary: 'bg-white/20 text-white hover:bg-white/30 backdrop-blur',
+        ghost: 'bg-transparent text-white hover:bg-white/10',
+      };
+      const sizes = {
+        sm: 'px-3 py-1.5 text-sm',
+        md: 'px-4 py-2.5 text-sm',
+        lg: 'px-6 py-3 text-base',
+      };
+      return (
+        <button
+          type={type}
+          disabled={disabled}
+          onClick={onClick}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ value, onChange, placeholder, onKeyDown, disabled, ariaLabel, className = '' }) {
+      return (
+        <input
+          type="text"
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          className={`w-full px-4 py-2.5 rounded-xl bg-white/20 text-white placeholder-white/70 backdrop-blur border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/30 transition disabled:opacity-50 ${className}`}
+        />
+      );
+    }
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white/15 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Spinner({ className = '' }) {
+      return (
+        <div
+          className={`w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin-slow ${className}`}
+          role="status"
+          aria-label="로딩 중"
+        />
+      );
+    }
+
+    // 작은 정보 타일 (습도, 풍속 등)
+    function InfoTile({ icon, label, value }) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-1 bg-white/10 rounded-2xl p-4 border border-white/15">
+          <span className="text-2xl" aria-hidden="true">{icon}</span>
+          <span className="text-xs text-white/70">{label}</span>
+          <span className="text-base font-semibold text-white">{value}</span>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 State View Components
+    // ========================================
+    function LoadingState() {
+      return (
+        <Card className="p-12 flex flex-col items-center gap-4 animate-fade-in-up">
+          <Spinner />
+          <p className="text-white/80 text-sm">날씨 정보를 불러오는 중...</p>
+        </Card>
+      );
+    }
+
+    function ErrorState({ message, onRetry }) {
+      return (
+        <Card className="p-10 flex flex-col items-center gap-4 text-center animate-fade-in-up">
+          <span className="text-5xl" aria-hidden="true">⚠️</span>
+          <p className="text-white font-semibold text-lg">날씨를 불러올 수 없어요</p>
+          <p className="text-white/80 text-sm">{message}</p>
+          {onRetry && (
+            <Button variant="primary" onClick={onRetry} className="mt-2">다시 시도</Button>
+          )}
+        </Card>
+      );
+    }
+
+    function EmptyState() {
+      return (
+        <Card className="p-12 flex flex-col items-center gap-3 text-center animate-fade-in-up">
+          <span className="text-5xl animate-float" aria-hidden="true">🌤️</span>
+          <p className="text-white font-semibold text-lg">도시를 검색해 보세요</p>
+          <p className="text-white/70 text-sm">예: Seoul, Busan, Tokyo, London</p>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🧩 Weather Display Component
+    // ========================================
+    function WeatherDisplay({ data }) {
+      const weather = data.weather && data.weather[0] ? data.weather[0] : {};
+      const isNight = weather.icon && weather.icon.endsWith('n');
+      const round = (n) => (n === undefined || n === null ? '-' : Math.round(n));
+
+      return (
+        <Card className="p-6 sm:p-8 animate-fade-in-up">
+          {/* 위치 + 시각 */}
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <span aria-hidden="true">📍</span>
+                {data.name}
+                {data.sys && data.sys.country && (
+                  <span className="text-base font-medium text-white/70">{data.sys.country}</span>
+                )}
+              </h2>
+            </div>
+          </div>
+
+          {/* 메인: 아이콘 + 기온 */}
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {weather.icon && (
+              <img
+                src={ICON_URL(weather.icon)}
+                alt={weather.description || '날씨 아이콘'}
+                className="w-28 h-28 drop-shadow-lg animate-float"
+              />
+            )}
+            <div className="text-center">
+              <div className="text-6xl font-extrabold text-white leading-none">
+                {round(data.main && data.main.temp)}°
+              </div>
+              <div className="text-white/80 capitalize mt-2 text-lg">
+                {weather.description || '-'}
+              </div>
+            </div>
+          </div>
+
+          {/* 체감 / 최저 / 최고 */}
+          <div className="flex items-center justify-center gap-6 mt-4 text-sm text-white/85">
+            <span>체감 <strong className="text-white">{round(data.main && data.main.feels_like)}°</strong></span>
+            <span className="flex items-center gap-1">
+              <span className="text-blue-200">▼</span>
+              {round(data.main && data.main.temp_min)}°
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="text-red-200">▲</span>
+              {round(data.main && data.main.temp_max)}°
+            </span>
+          </div>
+
+          {/* 상세 정보 타일 */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+            <InfoTile icon="💧" label="습도" value={`${data.main ? data.main.humidity : '-'}%`} />
+            <InfoTile icon="💨" label="풍속" value={`${data.wind ? data.wind.speed : '-'} m/s`} />
+            <InfoTile icon="🌡️" label="체감 온도" value={`${round(data.main && data.main.feels_like)}°`} />
+            <InfoTile
+              icon="🔆"
+              label="기압"
+              value={`${data.main ? data.main.pressure : '-'} hPa`}
+            />
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+    function App() {
+      const [city, setCity] = useState('Seoul');
+      const [data, setData] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [locating, setLocating] = useState(false); // 위치 감지 중 여부
+      const [theme, setTheme] = useState(() => localStorage.getItem('weather-theme') || 'auto'); // 'auto' | 'light' | 'dark'
+
+      // 도시명(q) 또는 좌표(lat/lon)로 날씨 조회
+      const fetchWeather = useCallback(async (params) => {
+        let urlQuery;
+        if (params && params.lat !== undefined && params.lon !== undefined) {
+          urlQuery = `lat=${params.lat}&lon=${params.lon}`;
+        } else {
+          const trimmed = (params && params.city ? params.city : '').trim();
+          if (!trimmed) {
+            setError('도시 이름을 입력해 주세요.');
+            setData(null);
+            return;
+          }
+          urlQuery = `q=${encodeURIComponent(trimmed)}`;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+          const url = `${API_BASE_URL}?${urlQuery}&appid=${API_KEY}&units=metric&lang=kr`;
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw new Error('해당 위치의 날씨를 찾을 수 없습니다. 도시 이름을 확인해 주세요.');
+            }
+            if (res.status === 401) {
+              throw new Error('API 키가 유효하지 않습니다.');
+            }
+            throw new Error(`요청에 실패했습니다. (오류 코드: ${res.status})`);
+          }
+          const json = await res.json();
+          setData(json);
+          if (json.name) setCity(json.name); // 좌표 조회 시 검색창을 감지된 도시명으로 갱신
+        } catch (err) {
+          if (err.name === 'TypeError') {
+            setError('네트워크 연결을 확인해 주세요.');
+          } else {
+            setError(err.message);
+          }
+          setData(null);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      // 초기 로드: 기본 도시
+      useEffect(() => {
+        fetchWeather({ city: 'Seoul' });
+      }, [fetchWeather]);
+
+      const handleSearch = () => {
+        fetchWeather({ city });
+      };
+
+      // 브라우저 Geolocation API로 현재 위치 감지 후 좌표로 조회
+      const handleLocate = () => {
+        if (!navigator.geolocation) {
+          setError('이 브라우저에서는 위치 정보를 사용할 수 없습니다.');
+          setData(null);
+          return;
+        }
+        setLocating(true);
+        setError(null);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setLocating(false);
+            fetchWeather({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          },
+          (geoErr) => {
+            setLocating(false);
+            const messages = {
+              1: '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해 주세요.',
+              2: '현재 위치를 확인할 수 없습니다.',
+              3: '위치 요청 시간이 초과되었습니다. 다시 시도해 주세요.',
+            };
+            setError(messages[geoErr.code] || '위치 정보를 가져오지 못했습니다.');
+            setData(null);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      };
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          handleSearch();
+        }
+      };
+
+      // 테마 순환: 자동 → 노멀 → 다크 → 자동
+      const cycleTheme = () => {
+        setTheme((prev) => {
+          const next = prev === 'auto' ? 'light' : prev === 'light' ? 'dark' : 'auto';
+          localStorage.setItem('weather-theme', next);
+          return next;
+        });
+      };
+
+      // 자동 모드일 때 시간 경계에서 모드가 바뀌도록 1분마다 재평가
+      const [, setTick] = useState(0);
+      useEffect(() => {
+        if (theme !== 'auto') return;
+        const id = setInterval(() => setTick((t) => t + 1), 60000);
+        return () => clearInterval(id);
+      }, [theme]);
+
+      const isDark = resolveDark(theme);
+      const themeMeta = {
+        auto: { icon: '🌗', label: '자동' },
+        light: { icon: '☀️', label: '노멀' },
+        dark: { icon: '🌙', label: '다크' },
+      }[theme];
+
+      const weatherMain = data && data.weather && data.weather[0] ? data.weather[0].main : null;
+      const bgGradient = getBackground(weatherMain, isDark);
+
+      return (
+        <div className={`min-h-screen bg-gradient-to-br ${bgGradient} transition-colors duration-700 flex items-start sm:items-center justify-center p-4`}>
+          <div className="w-full max-w-md min-w-0">
+            {/* 헤더 */}
+            <header className="text-center mb-6 mt-4 sm:mt-0">
+              <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow">
+                오늘의 날씨
+              </h1>
+              <p className="text-white/70 text-sm mt-1">도시를 검색해 현재 날씨를 확인하세요</p>
+            </header>
+
+            {/* 검색 바 */}
+            <div className="flex gap-2 mb-6">
+              <Input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="도시 이름 (예: Seoul)"
+                ariaLabel="도시 이름 검색"
+                disabled={loading}
+                className="flex-1 min-w-0"
+              />
+              <Button onClick={handleSearch} disabled={loading || locating} size="md" className="shrink-0">
+                검색
+              </Button>
+              <Button
+                onClick={handleLocate}
+                disabled={loading || locating}
+                variant="secondary"
+                size="md"
+                className="shrink-0"
+                aria-label="현재 위치 날씨 보기"
+                title="현재 위치 날씨 보기"
+              >
+                {locating ? (
+                  <span className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white animate-spin-slow" />
+                ) : (
+                  <span className="text-lg" aria-hidden="true">📍</span>
+                )}
+              </Button>
+            </div>
+
+            {/* 본문: 상태별 렌더링 */}
+            {loading || locating ? (
+              <LoadingState />
+            ) : error ? (
+              <ErrorState message={error} onRetry={handleSearch} />
+            ) : data ? (
+              <WeatherDisplay data={data} />
+            ) : (
+              <EmptyState />
+            )}
+
+            {/* 테마 토글 (가운데 하단) */}
+            <div className="flex justify-center mt-6">
+              <button
+                type="button"
+                onClick={cycleTheme}
+                aria-label={`테마 변경 (현재: ${themeMeta.label})`}
+                title={`테마: ${themeMeta.label} — 클릭하여 변경`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border border-white/20 text-white/90 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-white/50"
+              >
+                <span aria-hidden="true">{themeMeta.icon}</span>
+                <span>{themeMeta.label}</span>
+              </button>
+            </div>
+
+            {/* 푸터 */}
+            <footer className="text-center mt-4 text-xs text-white/50">
+              데이터 제공: OpenWeatherMap
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+<script>
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    function w(el){ if(!el) return 'n/a'; var r=el.getBoundingClientRect(); return Math.round(r.left)+'..'+Math.round(r.right)+'(w'+Math.round(r.width)+')'; }
+    var inner = document.querySelector('#root > div > div');
+    var searchRow = document.querySelector('.flex.gap-2');
+    var locBtn = document.querySelector('[aria-label="현재 위치 날씨 보기"]');
+    var msg = 'VP='+window.innerWidth+' docScroll='+document.documentElement.scrollWidth
+      +' | inner='+w(inner)+' | searchRow='+w(searchRow)+' | locBtn='+w(locBtn)
+      +' | overflowX='+(document.documentElement.scrollWidth>window.innerWidth?'YES':'no');
+    var d=document.createElement('pre'); d.id='__m'; d.textContent=msg; document.body.appendChild(d);
+  }, 4000);
+});
+</script>
+</body>
+</html>
