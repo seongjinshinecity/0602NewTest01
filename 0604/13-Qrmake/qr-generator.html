@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR 코드 생성기</title>
+
+  <!-- Tailwind CSS (다크모드는 class 전략 사용) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+
+  <!-- React 18 / ReactDOM / Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- QR 코드 라이브러리 (canvas/img 생성) -->
+  <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+
+  <style>
+    /* QR 박스가 나타날 때 부드러운 페이드인 (Tailwind로 표현이 어려운 keyframe) */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useRef, useEffect, useCallback } = React;
+
+    // ========================================
+    // 🎨 Design System Components (순수 프레젠테이션)
+    // ========================================
+
+    // 버튼: variant / size / disabled 등 props 로 제어
+    function Button({ variant = 'primary', size = 'md', disabled, onClick, className = '', children, type = 'button', ...rest }) {
+      // variant 별 색상 스타일
+      const variants = {
+        primary: 'bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500',
+        secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 focus:ring-gray-400',
+        ghost: 'bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 focus:ring-gray-400',
+      };
+      // size 별 패딩/폰트 크기
+      const sizes = {
+        sm: 'px-3 py-1.5 text-sm',
+        md: 'px-4 py-2.5 text-sm',
+        lg: 'px-6 py-3 text-base',
+      };
+      return (
+        <button
+          type={type}
+          onClick={onClick}
+          disabled={disabled}
+          className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold
+            transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2
+            dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed
+            ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // 입력창: label / error 지원
+    function Input({ label, value, onChange, onKeyDown, placeholder, error, id }) {
+      return (
+        <div className="w-full">
+          {label && (
+            <label htmlFor={id} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+              {label}
+            </label>
+          )}
+          <input
+            id={id}
+            type="text"
+            value={value}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            aria-invalid={!!error}
+            className={`w-full px-4 py-3 rounded-[22.5px] border text-gray-900 dark:text-gray-100
+              bg-white dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500
+              focus:outline-none focus:ring-2 transition
+              ${error
+                ? 'border-red-400 focus:ring-red-400'
+                : 'border-gray-300 dark:border-gray-600 focus:ring-indigo-500'}`}
+          />
+          {/* 입력값이 비어있을 때 등의 경고 메시지 */}
+          {error && (
+            <p role="alert" className="mt-2 text-sm text-red-500 dark:text-red-400">
+              {error}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // 카드: 그림자 + 라운드 래퍼
+    function Card({ className = '', children }) {
+      return (
+        <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-gray-200/60
+          dark:shadow-black/30 border border-gray-100 dark:border-gray-700 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // 세그먼트형 선택 (크기 선택용)
+    function SegmentedControl({ options, value, onChange, label }) {
+      return (
+        <div>
+          {label && (
+            <span className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">{label}</span>
+          )}
+          <div className="inline-flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 w-full sm:w-auto" role="group">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange(opt.value)}
+                aria-pressed={value === opt.value}
+                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors
+                  ${value === opt.value
+                    ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 Common Components
+    // ========================================
+
+    // 헤더 + 다크모드 토글
+    function Header({ dark, onToggleDark }) {
+      return (
+        <header className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            {/* 로고 아이콘 */}
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl">
+              ▦
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">QR 코드 생성기</h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">텍스트나 URL을 QR 코드로 변환하세요</p>
+            </div>
+          </div>
+          {/* 다크모드 토글 버튼 */}
+          <Button variant="secondary" size="sm" onClick={onToggleDark} aria-label="다크 모드 전환">
+            {dark ? '☀️ 라이트' : '🌙 다크'}
+          </Button>
+        </header>
+      );
+    }
+
+    // ========================================
+    // 📄 Page Component (메인 기능 로직)
+    // ========================================
+    function QRGeneratorPage({ dark }) {
+      const [text, setText] = useState('');            // 입력값
+      const [error, setError] = useState('');           // 경고 메시지
+      const [size, setSize] = useState(256);            // QR 크기 (px)
+      const [generatedText, setGeneratedText] = useState(''); // 생성에 사용된 원본 텍스트
+
+      const qrBoxRef = useRef(null);   // QR이 렌더될 컨테이너 div
+      const qrInstance = useRef(null); // QRCode 인스턴스 보관
+
+      // QR 코드 생성 함수
+      const generate = useCallback(() => {
+        const trimmed = text.trim();
+        // 7. 입력값이 비어있으면 경고
+        if (!trimmed) {
+          setError('텍스트 또는 URL을 입력해 주세요.');
+          setGeneratedText('');
+          if (qrBoxRef.current) qrBoxRef.current.innerHTML = '';
+          return;
+        }
+        setError('');
+
+        // 기존 QR 제거 후 새로 그리기
+        if (qrBoxRef.current) qrBoxRef.current.innerHTML = '';
+        qrInstance.current = new QRCode(qrBoxRef.current, {
+          text: trimmed,
+          width: size,
+          height: size,
+          // 다크모드에서도 항상 스캔 가능하도록 배경 흰색 / 전경 검정 고정
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H, // 높은 오류 정정 레벨
+        });
+
+        setGeneratedText(trimmed);
+      }, [text, size]);
+
+      // 크기 변경 시 이미 생성된 QR이 있으면 자동 재생성
+      useEffect(() => {
+        if (generatedText) {
+          if (qrBoxRef.current) qrBoxRef.current.innerHTML = '';
+          qrInstance.current = new QRCode(qrBoxRef.current, {
+            text: generatedText,
+            width: size,
+            height: size,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H,
+          });
+        }
+        // eslint-disable-next-line
+      }, [size]);
+
+      // Enter 키로 생성
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          generate();
+        }
+      };
+
+      // PNG 다운로드: qrcodejs가 만든 canvas → toDataURL('image/png')
+      const downloadPNG = () => {
+        if (!qrBoxRef.current) return;
+        const canvas = qrBoxRef.current.querySelector('canvas');
+        let dataUrl;
+
+        if (canvas) {
+          // canvas 기반 (우선)
+          dataUrl = canvas.toDataURL('image/png');
+        } else {
+          // 일부 환경에서 img로 생성되는 경우 fallback
+          const img = qrBoxRef.current.querySelector('img');
+          if (!img) return;
+          dataUrl = img.src;
+        }
+
+        // 임시 a 태그로 다운로드 트리거
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = 'qrcode.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      return (
+        <Card className="p-6 sm:p-8">
+          {/* 입력 영역 */}
+          <div className="space-y-5">
+            <Input
+              id="qr-input"
+              label="텍스트 / URL 입력"
+              value={text}
+              onChange={(e) => { setText(e.target.value); if (error) setError(''); }}
+              onKeyDown={handleKeyDown}
+              placeholder="예: https://example.com 또는 원하는 텍스트"
+              error={error}
+            />
+
+            {/* 크기 선택 */}
+            <SegmentedControl
+              label="QR 코드 크기"
+              value={size}
+              onChange={setSize}
+              options={[
+                { value: 128, label: '128px' },
+                { value: 256, label: '256px' },
+                { value: 512, label: '512px' },
+              ]}
+            />
+
+            {/* 생성 버튼 */}
+            <Button size="lg" className="w-full !rounded-[12px]" onClick={generate}>
+              QR 코드 생성
+            </Button>
+          </div>
+
+          {/* 결과 영역 */}
+          <div className="mt-8 flex flex-col items-center">
+            {/* QR 박스: 흰 배경 고정 (다크모드에서도 스캔 가능) */}
+            <div
+              className={generatedText ? 'animate-fade-in-up' : ''}
+              style={{ display: generatedText ? 'block' : 'none' }}
+            >
+              <div className="inline-block p-4 bg-white rounded-xl shadow-md border border-gray-200">
+                {/* qrcodejs가 이 div 안에 canvas를 렌더 */}
+                <div ref={qrBoxRef} className="flex items-center justify-center" />
+              </div>
+
+              {/* 원본 텍스트 표시 */}
+              {generatedText && (
+                <p className="mt-4 max-w-xs sm:max-w-sm break-words text-center text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-medium text-gray-400 dark:text-gray-500">원본: </span>
+                  {generatedText}
+                </p>
+              )}
+
+              {/* 다운로드 버튼 */}
+              {generatedText && (
+                <div className="mt-4 flex justify-center">
+                  <Button variant="secondary" onClick={downloadPNG}>
+                    ⬇️ PNG 다운로드
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 빈 상태 안내 */}
+            {!generatedText && (
+              <div className="text-center text-gray-400 dark:text-gray-500 py-8">
+                <div className="text-5xl mb-3">▦</div>
+                <p className="text-sm">아직 생성된 QR 코드가 없습니다.</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+    function App() {
+      // 다크모드 상태 (시스템 설정 초기값 반영)
+      const [dark, setDark] = useState(
+        () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      );
+
+      // dark 값이 바뀔 때 <html>에 class 토글
+      useEffect(() => {
+        const root = document.documentElement;
+        if (dark) root.classList.add('dark');
+        else root.classList.remove('dark');
+      }, [dark]);
+
+      return (
+        <div className="min-h-screen px-4 py-8 sm:py-12">
+          <div className="max-w-xl mx-auto">
+            <Header dark={dark} onToggleDark={() => setDark((d) => !d)} />
+            <QRGeneratorPage dark={dark} />
+            <footer className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
+              React + Tailwind CSS · qrcodejs 기반 · 단일 HTML 파일
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
