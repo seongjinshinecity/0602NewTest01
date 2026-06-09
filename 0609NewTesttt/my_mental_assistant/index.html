@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>마음 상담사 · 심리 상담 채팅</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            calm: {
+              50: '#f5f7fb', 100: '#eaeff7', 200: '#d6e0f0',
+              300: '#b3c6e3', 400: '#8aa6d4', 500: '#6b87c2',
+              600: '#556ba8', 700: '#475788', 800: '#3d4a70', 900: '#36405e'
+            },
+            sage: {
+              50: '#f3f8f4', 100: '#e3f0e6', 200: '#c7e0cd',
+              400: '#7fb389', 500: '#5d9a6a', 600: '#487b53'
+            }
+          },
+          keyframes: {
+            'fade-up': {
+              '0%': { opacity: '0', transform: 'translateY(8px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            },
+            'dot-bounce': {
+              '0%, 80%, 100%': { transform: 'translateY(0)', opacity: '0.4' },
+              '40%': { transform: 'translateY(-4px)', opacity: '1' }
+            }
+          },
+          animation: {
+            'fade-up': 'fade-up 0.35s ease-out',
+            'dot-bounce': 'dot-bounce 1.2s infinite ease-in-out'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html, body, #root { height: 100%; }
+    body { margin: 0; -webkit-font-smoothing: antialiased; }
+    /* Soft, warm background gradient for the calming counseling tone */
+    .app-bg {
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #eaeff7 0%, transparent 55%),
+        radial-gradient(1000px 500px at 100% 0%, #e3f0e6 0%, transparent 50%),
+        linear-gradient(180deg, #f7f9fc 0%, #f3f6fb 100%);
+    }
+    .chat-scroll { scrollbar-width: thin; scrollbar-color: #c7d2e6 transparent; }
+    .chat-scroll::-webkit-scrollbar { width: 8px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #c7d2e6; border-radius: 9999px; }
+    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback } = React;
+
+    // ========================================
+    // 🛠️ Utilities
+    // ========================================
+
+    // Format a timestamp once at message-creation time (natural Korean 오전/오후).
+    function formatTime(date) {
+      return date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    let _idSeq = 0;
+    const nextId = () => `m${++_idSeq}`;
+
+    // ========================================
+    // 🤖 Counselor API (OpenAI via /api/chat backend)
+    // ========================================
+
+    // 대화 이력을 백엔드(server.js)로 보내 OpenAI 응답을 받아옵니다.
+    // API 키는 서버에만 있으며 프론트엔드는 절대 키를 다루지 않습니다.
+    async function fetchCounselorReply(history) {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ history }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.success) {
+        throw new Error((data && data.message) || '응답을 가져오지 못했어요.');
+      }
+      return data.data.reply;
+    }
+
+    // 내부 메시지({sender, text})를 OpenAI 형식({role, content})으로 변환
+    function toApiHistory(messages) {
+      return messages.map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+    }
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+
+    function CounselorAvatar({ size = 'md', className = '' }) {
+      const dim = size === 'sm' ? 'w-9 h-9 text-base' : 'w-11 h-11 text-lg';
+      return (
+        <div
+          aria-hidden="true"
+          className={`flex-none ${dim} rounded-full bg-gradient-to-br from-sage-400 to-calm-500 text-white flex items-center justify-center shadow-sm ring-2 ring-white ${className}`}
+        >
+          <span role="img" aria-label="">🌿</span>
+        </div>
+      );
+    }
+
+    function UserAvatar({ className = '' }) {
+      return (
+        <div
+          aria-hidden="true"
+          className={`flex-none w-9 h-9 rounded-full bg-calm-200 text-calm-700 flex items-center justify-center shadow-sm ring-2 ring-white text-base ${className}`}
+        >
+          <span role="img" aria-label="">🙂</span>
+        </div>
+      );
+    }
+
+    function Chip({ children, onClick, disabled }) {
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className="whitespace-nowrap rounded-full border border-calm-200 bg-white/80 px-3.5 py-2 text-sm text-calm-700 shadow-sm transition
+                     hover:bg-calm-50 hover:border-calm-300 active:scale-95
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-calm-400
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function TypingDots() {
+      return (
+        <span className="inline-flex items-center gap-1 py-0.5" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="block w-2 h-2 rounded-full bg-calm-400 animate-dot-bounce"
+              style={{ animationDelay: `${i * 0.16}s` }}
+            />
+          ))}
+        </span>
+      );
+    }
+
+    // ========================================
+    // 🧩 Message bubble components
+    // ========================================
+
+    function MessageRow({ message }) {
+      const isUser = message.sender === 'user';
+      return (
+        <div className={`flex gap-2.5 animate-fade-up ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+          {isUser ? <UserAvatar /> : <CounselorAvatar size="sm" />}
+          <div className={`flex flex-col max-w-[78%] sm:max-w-[70%] ${isUser ? 'items-end' : 'items-start'}`}>
+            {!isUser && (
+              <span className="mb-0.5 ml-1 text-xs font-medium text-calm-600">마음 상담사</span>
+            )}
+            <div
+              className={
+                isUser
+                  ? 'rounded-2xl rounded-tr-md bg-calm-500 text-white px-4 py-2.5 shadow-sm whitespace-pre-wrap break-words leading-relaxed'
+                  : 'rounded-2xl rounded-tl-md bg-white text-gray-700 px-4 py-2.5 shadow-sm ring-1 ring-calm-100 whitespace-pre-wrap break-words leading-relaxed'
+              }
+            >
+              {message.text}
+            </div>
+            <span className={`mt-1 text-[11px] text-gray-400 ${isUser ? 'mr-1' : 'ml-1'}`}>
+              {message.time}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    function TypingRow() {
+      return (
+        <div className="flex gap-2.5 animate-fade-up">
+          <CounselorAvatar size="sm" />
+          <div className="flex flex-col items-start">
+            <span className="mb-0.5 ml-1 text-xs font-medium text-calm-600">마음 상담사</span>
+            <div className="rounded-2xl rounded-tl-md bg-white px-4 py-3 shadow-sm ring-1 ring-calm-100">
+              <TypingDots />
+              <span className="sr-only">상담사가 답변을 작성하고 있습니다.</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 Layout: Header & Input area
+    // ========================================
+
+    function Header() {
+      return (
+        <header className="flex-none border-b border-calm-100 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
+            <CounselorAvatar />
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold text-calm-800 leading-tight">마음 상담사</h1>
+              <p className="flex items-center gap-1.5 text-xs text-sage-600">
+                <span className="inline-block w-2 h-2 rounded-full bg-sage-500"></span>
+                지금 당신의 이야기를 듣고 있어요
+              </p>
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    function InputArea({ value, onChange, onSend, disabled }) {
+      const textareaRef = useRef(null);
+
+      // Auto-grow the textarea up to a max height.
+      const adjustHeight = useCallback(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+      }, []);
+
+      useEffect(() => { adjustHeight(); }, [value, adjustHeight]);
+
+      const canSend = value.trim().length > 0 && !disabled;
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (canSend) onSend();
+        }
+      };
+
+      return (
+        <div className="flex-none border-t border-calm-100 bg-white/85 backdrop-blur px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4">
+          <div className="flex items-end gap-2">
+            <label htmlFor="chat-input" className="sr-only">상담사에게 보낼 메시지</label>
+            <textarea
+              id="chat-input"
+              ref={textareaRef}
+              rows={1}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="편안하게 마음을 적어 보세요…"
+              className="flex-1 resize-none rounded-2xl border border-calm-200 bg-calm-50/50 px-4 py-2.5 text-[15px] text-gray-700 placeholder:text-gray-400
+                         leading-relaxed shadow-inner outline-none transition
+                         focus:border-calm-400 focus:ring-2 focus:ring-calm-200 focus:bg-white"
+              style={{ maxHeight: '128px' }}
+            />
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!canSend}
+              aria-label="메시지 보내기"
+              className="flex-none h-11 w-11 rounded-full bg-calm-500 text-white shadow-sm transition
+                         flex items-center justify-center hover:bg-calm-600 active:scale-95
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-calm-400 focus-visible:ring-offset-2
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M22 2 11 13" />
+                <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
+              </svg>
+            </button>
+          </div>
+          <p className="mt-2 px-1 text-center text-[11px] leading-relaxed text-gray-400">
+            본 상담은 데모용이며 전문적인 의료·심리 치료를 대신할 수 없어요.
+            힘든 마음이 깊다면 전문가의 도움을 받아 보세요. (자살예방상담 ☎ 109)
+          </p>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+
+    const QUICK_REPLIES = [
+      '요즘 잠을 잘 못 자요',
+      '불안한 마음이 들어요',
+      '스트레스가 너무 심해요',
+      '괜히 우울하고 무기력해요',
+      '혼자인 것 같아 외로워요'
+    ];
+
+    function makeMessage(sender, text) {
+      return { id: nextId(), sender, text, time: formatTime(new Date()) };
+    }
+
+    function App() {
+      const [messages, setMessages] = useState(() => [
+        makeMessage(
+          'counselor',
+          '안녕하세요, 이곳을 찾아 주셔서 반가워요. 저는 당신의 이야기를 천천히 들어 드릴 마음 상담사예요.\n오늘 어떤 마음으로 하루를 보내고 계신가요? 무엇이든 편하게 들려주세요.'
+        )
+      ]);
+      const [input, setInput] = useState('');
+      const [isTyping, setIsTyping] = useState(false);
+
+      const bottomRef = useRef(null);
+      // 항상 최신 messages를 참조하기 위한 ref (API 요청 시 대화 이력 구성에 사용)
+      const messagesRef = useRef(messages);
+      useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+      // Auto-scroll on new messages AND when typing indicator toggles, after paint.
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, [messages.length, isTyping]);
+
+      const sendText = useCallback(async (raw) => {
+        const text = raw.trim();
+        if (!text) return;
+
+        const userMsg = makeMessage('user', text);
+        setMessages((prev) => [...prev, userMsg]);
+        setInput('');
+        setIsTyping(true);
+
+        // 직전까지의 대화 + 방금 보낸 메시지를 OpenAI 형식으로 전달
+        const history = toApiHistory([...messagesRef.current, userMsg]);
+
+        try {
+          const reply = await fetchCounselorReply(history);
+          setMessages((prev) => [...prev, makeMessage('counselor', reply)]);
+        } catch (err) {
+          setMessages((prev) => [
+            ...prev,
+            makeMessage(
+              'counselor',
+              '죄송해요, 지금 답변을 가져오는 데 문제가 생겼어요. 잠시 후 다시 한 번 보내 주시겠어요?'
+            ),
+          ]);
+        } finally {
+          setIsTyping(false);
+        }
+      }, []);
+
+      const handleSend = () => sendText(input);
+      const handleChip = (text) => sendText(text);
+
+      const showChips = messages.length <= 1 && !isTyping;
+
+      return (
+        <div className="app-bg h-dvh w-full flex justify-center">
+          <div className="flex h-full w-full max-w-2xl flex-col bg-transparent sm:my-0 sm:shadow-xl sm:bg-white/40">
+            <Header />
+
+            <main
+              className="chat-scroll flex-1 overflow-y-auto px-3 py-5 sm:px-5"
+              aria-live="polite"
+              aria-label="상담 대화 내용"
+            >
+              <div className="flex flex-col gap-4">
+                {messages.map((m) => (
+                  <MessageRow key={m.id} message={m} />
+                ))}
+                {isTyping && <TypingRow />}
+
+                {showChips && (
+                  <div className="mt-1 animate-fade-up">
+                    <p className="mb-2 ml-1 text-xs text-gray-400">이렇게 시작해 보셔도 좋아요</p>
+                    <div className="flex flex-wrap gap-2">
+                      {QUICK_REPLIES.map((q) => (
+                        <Chip key={q} onClick={() => handleChip(q)} disabled={isTyping}>
+                          {q}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={bottomRef} className="h-px" />
+              </div>
+            </main>
+
+            <InputArea
+              value={input}
+              onChange={setInput}
+              onSend={handleSend}
+              disabled={isTyping}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

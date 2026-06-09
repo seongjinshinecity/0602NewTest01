@@ -1,0 +1,12 @@
+{
+  "name": "my-mental-assistant",
+  "version": "1.0.0",
+  "description": "마음 상담사 — OpenAI 기반 심리 상담 채팅",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

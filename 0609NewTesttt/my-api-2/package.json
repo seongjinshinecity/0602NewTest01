@@ -1,0 +1,12 @@
+{
+  "name": "my-api-2",
+  "version": "1.0.0",
+  "description": "버튼 클릭으로 현재 시간 + 인사를 받는 최소 3-파일 데모",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  }
+}

@@ -3,3 +3,8 @@
 
 # Node
 node_modules/
+
+# Secrets — never commit API keys
+.env
+*.env
+.env.local

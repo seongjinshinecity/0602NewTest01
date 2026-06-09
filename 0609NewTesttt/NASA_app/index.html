@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>COSMOS — NASA 오늘의 천문학 사진</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React / ReactDOM / Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Google Fonts: Playfair Display (serif headings) + Inter / Noto Sans KR (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500&family=Inter:wght@300;400;500;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', 'serif'],
+            sans: ['Inter', '"Noto Sans KR"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            night: {
+              900: '#05060f',
+              800: '#0a0d1c',
+              700: '#101427',
+              600: '#1a2038',
+            },
+            gold: '#d8c08a',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background-color: #05060f; }
+
+    /* Starfield background */
+    .starfield {
+      background-image:
+        radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.7), transparent),
+        radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,255,255,0.6), transparent),
+        radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.5), transparent),
+        radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,0.4), transparent),
+        radial-gradient(1.5px 1.5px at 55% 15%, rgba(255,255,255,0.5), transparent);
+      background-repeat: repeat;
+      background-size: 600px 600px;
+    }
+
+    /* Drop cap for magazine body */
+    .dropcap::first-letter {
+      float: left;
+      font-family: 'Playfair Display', serif;
+      font-size: 4.2rem;
+      line-height: 0.78;
+      padding: 0.08em 0.12em 0 0;
+      color: #d8c08a;
+      font-weight: 700;
+    }
+
+    @media (min-width: 768px) {
+      .magazine-columns { column-count: 2; column-gap: 2.75rem; }
+    }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer { 0% { background-position: -800px 0; } 100% { background-position: 800px 0; } }
+    .shimmer {
+      background: linear-gradient(90deg, #0a0d1c 25%, #161b30 50%, #0a0d1c 75%);
+      background-size: 1600px 100%;
+      animation: shimmer 1.8s infinite linear;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #05060f; }
+    ::-webkit-scrollbar-thumb { background: #1a2038; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3354; }
+
+    .fade-in { animation: fadeIn 0.6s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+    // ========================================
+    // CONFIG & HELPERS
+    // ========================================
+    const APOD_ENDPOINT = 'https://api.nasa.gov/planetary/apod';
+    const APOD_EPOCH = '1995-06-16'; // first APOD ever
+    const GALLERY_DAYS = 9;          // how many days of archive to pull
+
+    const DEFAULT_KEY = 'DJJ0wdm6IXR3wYiVc5LSEWFWFyqfaqY0meBepsQt'; // NASA API key
+    const STORAGE_KEY = 'apod_api_key';
+    const getStoredKey = () => {
+      try { return localStorage.getItem(STORAGE_KEY) || ''; } catch { return ''; }
+    };
+    const setStoredKey = (k) => {
+      try { k ? localStorage.setItem(STORAGE_KEY, k) : localStorage.removeItem(STORAGE_KEY); } catch {}
+    };
+
+    const todayISO = () => {
+      // Use the browser's local date; APOD publishes on US Eastern, so we omit
+      // end_date on the ranged call to let the server decide "today" and avoid 404s.
+      return new Date().toISOString().slice(0, 10);
+    };
+
+    const addDays = (iso, delta) => {
+      const d = new Date(iso + 'T00:00:00');
+      d.setDate(d.getDate() + delta);
+      return d.toISOString().slice(0, 10);
+    };
+
+    const formatDate = (iso) => {
+      try {
+        return new Date(iso + 'T00:00:00').toLocaleDateString('ko-KR', {
+          year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+        });
+      } catch { return iso; }
+    };
+
+    // Resolve the best displayable image for an APOD item (handles video).
+    const isVideo = (item) => item && item.media_type === 'video';
+
+    // Convert various video urls to a thumbnail when possible (YouTube).
+    const youtubeThumb = (url) => {
+      const m = url && url.match(/(?:youtube\.com\/embed\/|youtu\.be\/|v=)([\w-]{11})/);
+      return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+    };
+
+    // Attempt a true file download. apod.nasa.gov serves permissive CORS, so the
+    // fetch→blob path usually works; if it ever fails (CORS/network), fall back
+    // to opening the original in a new tab so the action never silently no-ops.
+    const downloadImage = async (item) => {
+      const src = item.hdurl || item.url;
+      if (!src) return;
+      const name = `APOD-${item.date}-${(item.title || 'image').replace(/[^\w가-힣-]+/g, '_').slice(0, 60)}.jpg`;
+      try {
+        const res = await fetch(src);
+        if (!res.ok) throw new Error('fetch failed');
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+      } catch {
+        window.open(src, '_blank', 'noopener');
+      }
+    };
+
+    const galleryThumb = (item) => {
+      if (!item) return null;
+      if (item.media_type === 'image') return item.url;
+      return youtubeThumb(item.url); // null if not parseable -> placeholder used
+    };
+
+    // ========================================
+    // 🎨 DESIGN SYSTEM COMPONENTS
+    // ========================================
+    function Button({ variant = 'primary', size = 'md', className = '', children, ...props }) {
+      const base =
+        'inline-flex items-center justify-center gap-2 font-medium tracking-wide transition-all duration-200 rounded-full focus:outline-none focus:ring-2 focus:ring-gold/50 disabled:opacity-40 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-gold text-night-900 hover:bg-amber-200 shadow-lg shadow-gold/10',
+        secondary: 'bg-white/5 text-slate-100 border border-white/15 hover:bg-white/10 backdrop-blur',
+        ghost: 'text-slate-300 hover:text-white hover:bg-white/5',
+        danger: 'bg-rose-600/90 text-white hover:bg-rose-500',
+      };
+      const sizes = { sm: 'px-3.5 py-1.5 text-xs', md: 'px-5 py-2.5 text-sm', lg: 'px-7 py-3 text-base' };
+      return (
+        <button className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, error, className = '', id, ...props }) {
+      const inputId = id || `in-${Math.random().toString(36).slice(2, 8)}`;
+      return (
+        <div className={className}>
+          {label && (
+            <label htmlFor={inputId} className="block text-xs uppercase tracking-[0.18em] text-slate-400 mb-2">
+              {label}
+            </label>
+          )}
+          <input
+            id={inputId}
+            className={`w-full bg-night-800/80 border ${error ? 'border-rose-500/70' : 'border-white/10'} rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/40 transition`}
+            {...props}
+          />
+          {error && <p className="mt-1.5 text-xs text-rose-400">{error}</p>}
+        </div>
+      );
+    }
+
+    function Badge({ children, className = '' }) {
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-[0.16em] ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function Modal({ isOpen, onClose, children }) {
+      useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e) => e.key === 'Escape' && onClose();
+        document.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => {
+          document.removeEventListener('keydown', onKey);
+          document.body.style.overflow = '';
+        };
+      }, [isOpen, onClose]);
+
+      if (!isOpen) return null;
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+          <div className="relative z-10 w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-night-800 border border-white/10 rounded-2xl shadow-2xl fade-in">
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 SHARED UI PIECES
+    // ========================================
+    function Spinner({ className = '' }) {
+      return (
+        <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-20" />
+          <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      );
+    }
+
+    function VideoBadge() {
+      return (
+        <Badge className="bg-purple-500/20 text-purple-200 border border-purple-400/30">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          Video
+        </Badge>
+      );
+    }
+
+    // ========================================
+    // HERO SKELETON (loading)
+    // ========================================
+    function HeroSkeleton() {
+      return (
+        <div className="relative w-full h-[78vh] min-h-[520px] overflow-hidden rounded-none">
+          <div className="absolute inset-0 shimmer" />
+          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-12 lg:p-20 space-y-4">
+            <div className="h-4 w-40 shimmer rounded-full" />
+            <div className="h-12 w-3/4 shimmer rounded-lg" />
+            <div className="h-12 w-1/2 shimmer rounded-lg" />
+            <div className="h-4 w-2/3 shimmer rounded-full mt-4" />
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // HERO (cinematic main feature)
+    // ========================================
+    function Hero({ item, onOpenDetail }) {
+      if (!item) return null;
+      const video = isVideo(item);
+      const bg = video ? youtubeThumb(item.url) : item.url;
+      const teaser = (item.explanation || '').slice(0, 220).trim();
+
+      return (
+        <section className="relative w-full">
+          <div className="relative w-full h-[80vh] min-h-[540px] overflow-hidden">
+            {bg ? (
+              <img
+                src={bg}
+                alt={item.title}
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="eager"
+              />
+            ) : (
+              <div className="absolute inset-0 starfield bg-night-800" />
+            )}
+            {/* Gradient overlays for legibility */}
+            <div className="absolute inset-0 bg-gradient-to-t from-night-900 via-night-900/55 to-night-900/10" />
+            <div className="absolute inset-0 bg-gradient-to-r from-night-900/70 via-transparent to-transparent" />
+
+            <div className="relative z-10 h-full flex flex-col justify-end max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 pb-12 sm:pb-16">
+              <div className="flex flex-wrap items-center gap-3 mb-5">
+                <Badge className="bg-gold/15 text-gold border border-gold/30">오늘의 천문 사진</Badge>
+                {video && <VideoBadge />}
+                <span className="text-xs sm:text-sm text-slate-300 tracking-wide">{formatDate(item.date)}</span>
+              </div>
+
+              <h1 className="font-serif font-black text-white leading-[0.98] text-4xl sm:text-6xl lg:text-7xl max-w-4xl drop-shadow-xl">
+                {item.title}
+              </h1>
+
+              <p className="mt-6 max-w-2xl text-slate-200/90 text-base sm:text-lg leading-relaxed font-light">
+                {teaser}{teaser.length >= 220 ? '…' : ''}
+              </p>
+
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Button size="lg" onClick={() => onOpenDetail(item)}>
+                  전문 해설 읽기
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Button>
+                {(item.hdurl || item.url) && (
+                  <Button variant="secondary" size="lg" onClick={() => window.open(item.hdurl || item.url, '_blank', 'noopener')}>
+                    {video ? '원본 영상 보기' : 'HD 원본 보기'}
+                  </Button>
+                )}
+              </div>
+              {item.copyright && (
+                <p className="mt-6 text-xs text-slate-400 tracking-wide">
+                  © {item.copyright.trim()}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // ARCHIVE GALLERY
+    // ========================================
+    function GalleryCard({ item, onClick }) {
+      const thumb = galleryThumb(item);
+      const video = isVideo(item);
+      return (
+        <button
+          onClick={() => onClick(item)}
+          className="group relative text-left rounded-xl overflow-hidden bg-night-800 border border-white/5 hover:border-gold/40 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/50"
+        >
+          <div className="aspect-[4/3] w-full overflow-hidden bg-night-700">
+            {thumb ? (
+              <img
+                src={thumb}
+                alt={item.title}
+                loading="lazy"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+            ) : (
+              <div className="w-full h-full starfield flex items-center justify-center text-slate-500 text-xs">
+                미리보기 없음
+              </div>
+            )}
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-night-900 via-night-900/20 to-transparent opacity-90" />
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[11px] tracking-wide text-gold/90">{item.date}</span>
+              {video && <VideoBadge />}
+            </div>
+            <h3 className="font-serif text-white text-base sm:text-lg leading-snug line-clamp-2">
+              {item.title}
+            </h3>
+          </div>
+        </button>
+      );
+    }
+
+    function GallerySkeleton({ count = 6 }) {
+      return (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          {Array.from({ length: count }).map((_, i) => (
+            <div key={i} className="aspect-[4/3] rounded-xl shimmer" />
+          ))}
+        </div>
+      );
+    }
+
+    // ========================================
+    // DETAIL MODAL (full magazine spread)
+    // ========================================
+    function DetailModal({ item, isOpen, onClose }) {
+      if (!item) return null;
+      const video = isVideo(item);
+      return (
+        <Modal isOpen={isOpen} onClose={onClose}>
+          {/* media */}
+          <div className="relative">
+            {video ? (
+              <div className="aspect-video w-full bg-black">
+                <iframe
+                  className="w-full h-full"
+                  src={item.url}
+                  title={item.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <img src={item.hdurl || item.url} alt={item.title} className="w-full max-h-[60vh] object-contain bg-black" />
+            )}
+            <button
+              onClick={onClose}
+              aria-label="닫기"
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 backdrop-blur text-white flex items-center justify-center hover:bg-black/80 transition"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* body */}
+          <div className="p-6 sm:p-10 lg:p-14">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <Badge className="bg-gold/15 text-gold border border-gold/30">{formatDate(item.date)}</Badge>
+              {video && <VideoBadge />}
+              {item.service_version && (
+                <span className="text-[11px] text-slate-500 tracking-wide">APOD {item.service_version}</span>
+              )}
+            </div>
+
+            <h2 className="font-serif font-bold text-white text-3xl sm:text-4xl lg:text-5xl leading-tight mb-8">
+              {item.title}
+            </h2>
+
+            <div className="magazine-columns text-slate-300/90 leading-[1.85] text-[15px] sm:text-base font-light">
+              <p className="dropcap">{item.explanation}</p>
+            </div>
+
+            <div className="mt-10 flex flex-wrap items-center gap-3 border-t border-white/10 pt-6">
+              {!video && (item.hdurl || item.url) && (
+                <Button onClick={() => downloadImage(item)}>
+                  이미지 다운로드
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Button>
+              )}
+              {(item.hdurl || item.url) && (
+                <Button variant="secondary" onClick={() => window.open(item.hdurl || item.url, '_blank', 'noopener')}>
+                  {video ? '원본 영상 열기' : 'HD 원본 열기'}
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M7 17L17 7M17 7H8M17 7v9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Button>
+              )}
+              <a
+                href={`https://apod.nasa.gov/apod/ap${item.date.slice(2).replace(/-/g, '')}.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-slate-400 hover:text-gold transition underline underline-offset-4"
+              >
+                NASA APOD 원문 페이지
+              </a>
+              {item.copyright && (
+                <span className="ml-auto text-xs text-slate-500">© {item.copyright.trim()}</span>
+              )}
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    // ========================================
+    // API KEY SETTINGS PANEL
+    // ========================================
+    function ApiKeyBar({ apiKey, onSave }) {
+      const [open, setOpen] = useState(false);
+      const [draft, setDraft] = useState(apiKey);
+      useEffect(() => setDraft(apiKey), [apiKey]);
+
+      const usingDemo = !apiKey || apiKey === 'DEMO_KEY';
+
+      return (
+        <div className="relative">
+          <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 7a4 4 0 1 1-3.9 5H7l-2 2-2-2 2-2h6.1A4 4 0 0 1 15 7z" strokeLinejoin="round" />
+            </svg>
+            <span className="hidden sm:inline">{usingDemo ? '기본 키' : 'My Key'}</span>
+          </Button>
+
+          {open && (
+            <div className="absolute right-0 mt-3 w-80 z-40 bg-night-800 border border-white/10 rounded-2xl p-5 shadow-2xl fade-in">
+              <h4 className="font-serif text-lg text-white mb-1">NASA API 키</h4>
+              <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                DEMO_KEY는 시간당 약 30회, 하루 50회로 제한됩니다.
+                <a href="https://api.nasa.gov/" target="_blank" rel="noopener noreferrer" className="text-gold underline underline-offset-2 ml-1">무료 키 발급</a>
+                후 입력하면 더 안정적으로 이용할 수 있습니다.
+              </p>
+              <Input
+                label="API Key"
+                placeholder="DEMO_KEY"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" className="flex-1" onClick={() => { onSave(draft.trim()); setOpen(false); }}>
+                  저장
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setDraft(''); onSave(''); }}>
+                  초기화
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // ERROR STATE
+    // ========================================
+    function ErrorState({ message, isRateLimit, invalidKey, onRetry }) {
+      const title = invalidKey
+        ? '유효하지 않은 API 키'
+        : isRateLimit
+        ? '요청 한도를 초과했습니다'
+        : '데이터를 불러오지 못했습니다';
+      const body = invalidKey
+        ? '입력한 API 키가 NASA에서 거부되었습니다. NASA API 키는 api.nasa.gov에서 발급되는 40자 영숫자 문자열입니다. 우측 상단에서 키를 초기화하면 DEMO_KEY로 다시 시도합니다.'
+        : isRateLimit
+        ? 'DEMO_KEY의 요청 한도(시간당 약 30회, 하루 50회)에 도달했습니다. 잠시 후 다시 시도하거나, 우측 상단에서 본인의 NASA API 키를 입력해 주세요.'
+        : (message || '네트워크 또는 API 오류가 발생했습니다.');
+      return (
+        <div className="max-w-2xl mx-auto px-6 py-24 text-center fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/30 mb-6">
+            <svg className="w-8 h-8 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5M12 16.5v.01" strokeLinecap="round" />
+            </svg>
+          </div>
+          <h2 className="font-serif text-2xl text-white mb-3">{title}</h2>
+          <p className="text-slate-400 text-sm leading-relaxed mb-7">{body}</p>
+          <Button onClick={onRetry}>다시 시도</Button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // HEADER
+    // ========================================
+    function Header({ apiKey, onSaveKey, dateValue, onDateChange, maxDate }) {
+      return (
+        <header className="sticky top-0 z-30 bg-night-900/80 backdrop-blur-md border-b border-white/5">
+          <div className="max-w-6xl mx-auto px-5 sm:px-10 lg:px-16 h-16 flex items-center justify-between gap-4">
+            <a href="#top" className="flex items-center gap-2.5 shrink-0">
+              <span className="text-gold text-xl">✦</span>
+              <span className="font-serif font-bold text-white text-lg sm:text-xl tracking-wide">COSMOS</span>
+              <span className="hidden md:inline text-[11px] uppercase tracking-[0.22em] text-slate-500 border-l border-white/10 pl-3">
+                NASA Astronomy Picture of the Day
+              </span>
+            </a>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="hidden sm:flex items-center gap-2">
+                <label className="text-[11px] uppercase tracking-[0.16em] text-slate-500">날짜</label>
+                <input
+                  type="date"
+                  value={dateValue}
+                  min="1995-06-16"
+                  max={maxDate}
+                  onChange={(e) => onDateChange(e.target.value)}
+                  className="bg-night-800 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-gold/60 [color-scheme:dark]"
+                />
+              </div>
+              <ApiKeyBar apiKey={apiKey} onSave={onSaveKey} />
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    // ========================================
+    // FOOTER
+    // ========================================
+    function Footer() {
+      return (
+        <footer className="border-t border-white/5 mt-24">
+          <div className="max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 py-12 text-center">
+            <div className="text-gold text-2xl mb-4">✦</div>
+            <p className="font-serif text-xl text-white mb-2">COSMOS</p>
+            <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
+              이미지 및 해설 제공:{' '}
+              <a href="https://apod.nasa.gov/apod/" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-gold underline underline-offset-2">
+                NASA Astronomy Picture of the Day
+              </a>
+              . 본 페이지는 NASA Open API(DEMO_KEY)를 사용한 비공식 팬 프로젝트입니다.
+            </p>
+            <p className="text-slate-600 text-xs mt-6">© {new Date().getFullYear()} COSMOS — Built with the NASA APOD API</p>
+          </div>
+        </footer>
+      );
+    }
+
+    // ========================================
+    // 🚀 APP
+    // ========================================
+    function App() {
+      const [apiKey, setApiKey] = useState(getStoredKey());
+      const [items, setItems] = useState([]);     // archive array (newest first)
+      const [hero, setHero] = useState(null);      // featured item
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);    // { message, isRateLimit }
+      const [detail, setDetail] = useState(null);  // item for modal
+      const [pickedDate, setPickedDate] = useState(''); // optional single-date lookup
+      const [reloadToken, setReloadToken] = useState(0);
+
+      const effectiveKey = apiKey || DEFAULT_KEY;
+      const maxDate = todayISO();
+
+      const saveKey = useCallback((k) => {
+        setStoredKey(k);
+        setApiKey(k);
+        setReloadToken((t) => t + 1);
+      }, []);
+
+      const buildUrl = (params) => {
+        const usp = new URLSearchParams({ api_key: effectiveKey, ...params });
+        return `${APOD_ENDPOINT}?${usp.toString()}`;
+      };
+
+      // Main fetch: a SINGLE ranged request gets hero + gallery together.
+      // end_date is omitted so the server uses "today" (avoids US-Eastern 404).
+      const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          let url;
+          if (pickedDate && pickedDate !== maxDate) {
+            // build a range ending on the picked date
+            const start = addDays(pickedDate, -(GALLERY_DAYS - 1));
+            url = buildUrl({ start_date: start, end_date: pickedDate });
+          } else {
+            // default OR "today" picked: omit end_date so the server decides
+            // today (avoids a 404 before the day's image is published in ET).
+            const start = addDays(maxDate, -(GALLERY_DAYS - 1));
+            url = buildUrl({ start_date: start });
+          }
+
+          const res = await fetch(url);
+          if (!res.ok) {
+            let msg = `요청이 실패했습니다 (HTTP ${res.status}).`;
+            let code = '';
+            try {
+              const body = await res.json();
+              code = (body && body.error && body.error.code) || '';
+              if (body && (body.msg || body.error)) msg = body.msg || (body.error && body.error.message) || msg;
+            } catch {}
+            const invalidKey = code === 'API_KEY_INVALID' || code === 'API_KEY_MISSING';
+            const rate = !invalidKey && (res.status === 429 || res.status === 403 || code === 'OVER_RATE_LIMIT');
+            throw Object.assign(new Error(msg), { isRateLimit: rate, invalidKey });
+          }
+
+          let data = await res.json();
+          if (!Array.isArray(data)) data = [data];
+          // newest first
+          data.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+          setItems(data);
+          setHero(data[0] || null);
+        } catch (e) {
+          setError({ message: e.message, isRateLimit: !!e.isRateLimit, invalidKey: !!e.invalidKey });
+        } finally {
+          setLoading(false);
+        }
+      }, [effectiveKey, pickedDate, maxDate]);
+
+      useEffect(() => { fetchData(); }, [fetchData, reloadToken]);
+
+      const onSelectGallery = useCallback((item) => {
+        setHero(item);
+        setDetail(item);
+      }, []);
+
+      const archiveItems = useMemo(
+        () => items.filter((it) => !hero || it.date !== hero.date),
+        [items, hero]
+      );
+
+      return (
+        <div id="top" className="min-h-screen relative">
+          {/* ambient starfield behind everything */}
+          <div className="fixed inset-0 starfield opacity-40 pointer-events-none" />
+
+          <div className="relative z-10">
+            <Header
+              apiKey={apiKey}
+              onSaveKey={saveKey}
+              dateValue={pickedDate || maxDate}
+              onDateChange={(d) => setPickedDate(d)}
+              maxDate={maxDate}
+            />
+
+            {error ? (
+              <ErrorState
+                message={error.message}
+                isRateLimit={error.isRateLimit}
+                invalidKey={error.invalidKey}
+                onRetry={() => setReloadToken((t) => t + 1)}
+              />
+            ) : (
+              <>
+                {/* HERO */}
+                {loading ? <HeroSkeleton /> : <Hero item={hero} onOpenDetail={setDetail} />}
+
+                {/* INTRO STRIP */}
+                <section className="max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 py-14 sm:py-20">
+                  <div className="max-w-2xl">
+                    <p className="text-gold text-xs uppercase tracking-[0.3em] mb-4">The Universe, Daily</p>
+                    <p className="font-serif text-2xl sm:text-3xl text-white leading-snug">
+                      매일 새롭게 펼쳐지는 우주의 한 장면.
+                      <span className="text-slate-400"> NASA의 천문학자들이 직접 선정하고 해설합니다.</span>
+                    </p>
+                  </div>
+                </section>
+
+                {/* GALLERY / ARCHIVE */}
+                <section className="max-w-6xl mx-auto px-6 sm:px-10 lg:px-16 pb-24">
+                  <div className="flex items-end justify-between mb-8 border-b border-white/10 pb-5">
+                    <div>
+                      <h2 className="font-serif text-3xl sm:text-4xl text-white">아카이브</h2>
+                      <p className="text-slate-500 text-sm mt-1.5">최근 {GALLERY_DAYS}일간의 천문 사진</p>
+                    </div>
+                    {pickedDate && (
+                      <Button variant="ghost" size="sm" onClick={() => setPickedDate('')}>
+                        오늘로 돌아가기
+                      </Button>
+                    )}
+                  </div>
+
+                  {loading ? (
+                    <GallerySkeleton count={6} />
+                  ) : archiveItems.length === 0 ? (
+                    <div className="text-center py-20 text-slate-500">표시할 아카이브 항목이 없습니다.</div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                      {archiveItems.map((it) => (
+                        <GalleryCard key={it.date} item={it} onClick={onSelectGallery} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+
+            <Footer />
+          </div>
+
+          <DetailModal item={detail} isOpen={!!detail} onClose={() => setDetail(null)} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // RENDER
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

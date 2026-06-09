@@ -1,0 +1,12 @@
+{
+  "name": "api-call-demo",
+  "version": "1.0.0",
+  "description": "버튼 클릭으로 API를 호출하는 최소 3-파일 데모",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  }
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API 호출 데모</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1a1a2e;
+    }
+    .card {
+      background: #fff;
+      padding: 40px 36px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      width: 360px;
+      text-align: center;
+    }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p.sub { color: #666; font-size: 14px; margin: 0 0 24px; }
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      background: #667eea;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.05s ease, background 0.2s ease;
+    }
+    button:hover { background: #5a6fd6; }
+    button:active { transform: scale(0.98); }
+    button:disabled { background: #b0b0c0; cursor: not-allowed; }
+    #result {
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 10px;
+      background: #f4f5fb;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 24px;
+      word-break: break-word;
+    }
+    #result .msg { font-weight: 600; }
+    #result .meta { color: #888; font-size: 12px; margin-top: 6px; }
+    #result.error { background: #fdecec; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 API 호출 데모</h1>
+    <p class="sub">버튼을 누르면 서버 <code>/api/hello</code>를 호출합니다.</p>
+    <button id="callBtn">서버 호출하기</button>
+    <div id="result">아직 호출하지 않았습니다.</div>
+  </div>
+  <script src="client.js"></script>
+</body>
+</html>
