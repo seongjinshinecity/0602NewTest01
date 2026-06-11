@@ -1,0 +1,12 @@
+{
+  "name": "dream-interpreter",
+  "version": "1.0.0",
+  "description": "AI 꿈해몽 웹 애플리케이션 (Express + Claude)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  }
+}
