@@ -55,8 +55,14 @@
       ":generateContent?key=" + encodeURIComponent(key);
 
     // Pollinations(무료 폴백)
-    const POLLI_BASE = "https://image.pollinations.ai/prompt/";
+    // 키와 함께 쓰는 신규 엔드포인트(우선)와 레거시 엔드포인트(폴백)
+    const POLLI_BASES = [
+      "https://gen.pollinations.ai/image/",
+      "https://image.pollinations.ai/prompt/",
+    ];
     const POLLI_MODEL = "flux";
+    // ⚠️ 로컬 전용 기본 키 — 공개 저장소에 커밋하지 말 것! (커밋 전 빈 문자열로 제거)
+    const DEFAULT_POLLI_KEY = "sk_DpZOpKMXnCndQfRhBjhNZCDiOdrKPetQ";
 
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -116,13 +122,16 @@
       return "data:" + (imgPart.inlineData.mimeType || "image/png") + ";base64," + imgPart.inlineData.data;
     }
 
-    /* -------- Pollinations(무료 폴백) -------- */
-    function polliUrl({ prompt, w, h, seed }) {
+    /* -------- Pollinations(무료) -------- */
+    // 무료 익명 접근이 막혀, enter.pollinations.ai 에서 발급한 키(sk_)를 ?key= 로 붙인다.
+    // (pk_ publishable 키는 폐지됨. 본 앱은 로컬 전용이라 sk_를 그대로 사용.)
+    function polliUrl({ prompt, w, h, seed, polliKey, base }) {
       const params = new URLSearchParams({
         width: String(w), height: String(h), seed: String(seed),
         model: POLLI_MODEL, nologo: "true",
       });
-      return POLLI_BASE + encodeURIComponent(prompt) + "?" + params.toString();
+      if (polliKey) params.set("key", polliKey);
+      return base + encodeURIComponent(prompt) + "?" + params.toString();
     }
     // URL을 <img>로 실제 로드해 정상 생성 확인 (성공 시 그 URL 반환)
     function polliLoad(url, timeoutMs = 150000) {
@@ -135,18 +144,26 @@
         img.src = url;
       });
     }
-    async function polliOne({ prompt, w, h, i }) {
+    async function polliOne({ prompt, w, h, i, polliKey }) {
       const seed = Math.floor(Math.random() * 1e9) + i;
-      try { return await polliLoad(polliUrl({ prompt, w, h, seed })); }
-      catch (e) { await sleep(2200); return await polliLoad(polliUrl({ prompt, w, h, seed: seed + 7777 })); }
+      let lastErr;
+      // 신규→레거시 엔드포인트 순으로 시도 (어느 쪽이든 되는 쪽 사용)
+      for (const base of POLLI_BASES) {
+        try { return await polliLoad(polliUrl({ prompt, w, h, seed, polliKey, base })); }
+        catch (e) { lastErr = e; await sleep(1500); }
+      }
+      throw lastErr || new Error("Pollinations 로드 실패");
     }
 
     /* -------- 하이브리드 생성: Gemini 우선, 실패 시 Pollinations 폴백 --------
        무료 등급 제한을 고려해 한 장씩 순차 생성. Gemini가 한 번 막히면(geminiDown)
        이후 장은 곧장 Pollinations로 생성한다. 각 이미지의 출처(source)도 함께 기록. */
-    async function generateImages({ key, geminiPrompt, polliPrompt, w, h, count, onProgress }) {
+    async function generateImages({ key, polliKey, geminiPrompt, polliPrompt, w, h, count, onProgress }) {
+      if (!key && !polliKey) {
+        throw new Error("키가 없어요. 설정(⚙️)에서 Gemini 키 또는 Pollinations 키(sk_…) 중 하나를 넣어주세요. (무료 키 발급: enter.pollinations.ai)");
+      }
       const images = [], sources = [];
-      let geminiDown = !key, lastErr; // 키 없으면 곧장 무료 모델로
+      let geminiDown = !key, lastErr; // Gemini 키 없으면 곧장 Pollinations로
       for (let i = 0; i < count; i++) {
         const n = count > 1 ? ((i + 1) + "/" + count + " ") : "";
         // 1순위: Gemini
@@ -154,11 +171,12 @@
           onProgress && onProgress(n + "Gemini로 그리는 중...");
           try { images.push(await generateOneImage({ key, prompt: geminiPrompt })); sources.push("Gemini");
                 if (i < count - 1) await sleep(600); continue; }
-          catch (e) { lastErr = e; geminiDown = true; } // 막혔으니 이후는 무료로
+          catch (e) { lastErr = e; geminiDown = true; } // 막혔으니 이후는 Pollinations로
         }
-        // 2순위: Pollinations(무료)
+        // 2순위: Pollinations
+        if (!polliKey) { lastErr = lastErr || new Error("Pollinations 키(sk_…)가 없어요. 설정(⚙️)에서 넣어주세요."); continue; }
         onProgress && onProgress(n + "무료 모델로 그리는 중...");
-        try { images.push(await polliOne({ prompt: polliPrompt, w, h, i })); sources.push("무료"); }
+        try { images.push(await polliOne({ prompt: polliPrompt, w, h, i, polliKey })); sources.push("무료"); }
         catch (e) { lastErr = e; }
         if (i < count - 1) await sleep(700);
       }
@@ -420,23 +438,37 @@
     }
 
     /* ============================== 설정 모달 ============================== */
-    function SettingsModal({ open, apiKey, onSave, onClose }) {
-      const [val, setVal] = useState(apiKey);
-      useEffect(() => setVal(apiKey), [apiKey, open]);
+    function SettingsModal({ open, apiKey, polliKey, onSave, onClose }) {
+      const [g, setG] = useState(apiKey);
+      const [p, setP] = useState(polliKey);
+      useEffect(() => { setG(apiKey); setP(polliKey); }, [apiKey, polliKey, open]);
       if (!open) return null;
       return (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-          <div className="bg-white rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm my-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold">설정</h3>
+              <h3 className="font-bold">설정 · API 키</h3>
               <button onClick={onClose}><XIcon className="w-5 h-5" /></button>
             </div>
-            <label className="text-xs font-semibold text-gray-500">Google Gemini API 키</label>
-            <input value={val} onChange={(e) => setVal(e.target.value)}
-              placeholder="Gemini API 키 (선택 — 비우면 무료 모델 사용)"
+
+            {/* Pollinations (무료) */}
+            <label className="text-xs font-semibold text-gray-700">🆓 Pollinations 키 <span className="text-gray-400">(무료 · 추천)</span></label>
+            <input value={p} onChange={(e) => setP(e.target.value)}
+              placeholder="sk_... (enter.pollinations.ai 에서 Secret 키 생성)"
               className="w-full mt-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono" />
-            <p className="text-[11px] text-gray-400 mt-2">키는 이 브라우저(localStorage)에만 저장됩니다. 1순위 <code>gemini-2.5-flash-image</code>, 실패 시 무료 <code>Pollinations</code>로 자동 폴백돼요.</p>
-            <button onClick={() => { onSave(val.trim()); onClose(); }}
+            <p className="text-[11px] text-gray-400 mt-1">
+              <a href="https://enter.pollinations.ai" target="_blank" className="text-pink-500 underline">enter.pollinations.ai</a> 무료 가입 → <b>Secret 키(sk_)</b> 생성 후 붙여넣기. (pk_는 폐지됨 · 로컬에서만 쓰므로 안전)
+            </p>
+
+            {/* Gemini (선택) */}
+            <label className="text-xs font-semibold text-gray-700 block mt-4">✦ Google Gemini 키 <span className="text-gray-400">(선택)</span></label>
+            <input value={g} onChange={(e) => setG(e.target.value)}
+              placeholder="AQ.… (있으면 1순위로 사용)"
+              className="w-full mt-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono" />
+            <p className="text-[11px] text-gray-400 mt-1">Gemini 키가 있으면 먼저 시도하고, 막히면(quota 등) Pollinations로 자동 전환돼요.</p>
+
+            <p className="text-[11px] text-gray-400 mt-3">키는 이 브라우저(localStorage)에만 저장됩니다.</p>
+            <button onClick={() => { onSave(g.trim(), p.trim()); onClose(); }}
               className="mt-4 w-full ig-gradient text-white font-bold py-2.5 rounded-xl">저장</button>
           </div>
         </div>
@@ -449,6 +481,7 @@
         try { return JSON.parse(localStorage.getItem("aistudio_posts") || "[]"); } catch { return []; }
       });
       const [apiKey, setApiKey] = useState(() => localStorage.getItem("aistudio_gemini_key_v2") || DEFAULT_API_KEY);
+      const [polliKey, setPolliKey] = useState(() => localStorage.getItem("aistudio_polli_key") || DEFAULT_POLLI_KEY);
       const [busy, setBusy] = useState(false);
       const [status, setStatus] = useState("");
       const [pendingAspect, setPendingAspect] = useState("1:1");
@@ -461,6 +494,7 @@
         try { localStorage.setItem("aistudio_posts", JSON.stringify(posts)); } catch (_) {}
       }, [posts]);
       useEffect(() => { localStorage.setItem("aistudio_gemini_key_v2", apiKey); }, [apiKey]);
+      useEffect(() => { localStorage.setItem("aistudio_polli_key", polliKey); }, [polliKey]);
 
       const handleGenerate = useCallback(async ({ prompt, style, aspect, count }) => {
         setError("");
@@ -473,7 +507,7 @@
         const geminiPrompt = basePrompt + ", aspect ratio " + aspect + ", high quality, detailed";
         try {
           const { images, sources } = await generateImages({
-            key: apiKey, geminiPrompt, polliPrompt: basePrompt,
+            key: apiKey, polliKey, geminiPrompt, polliPrompt: basePrompt,
             w: aspectObj.w, h: aspectObj.h, count, onProgress: setStatus,
           });
           const post = {
@@ -489,7 +523,7 @@
           setBusy(false);
           setStatus("");
         }
-      }, [apiKey]);
+      }, [apiKey, polliKey]);
 
       const deletePost = (id) => setPosts((p) => p.filter((x) => x.id !== id));
 
@@ -537,7 +571,8 @@
           </nav>
 
           <Lightbox url={lightbox} onClose={() => setLightbox(null)} />
-          <SettingsModal open={settingsOpen} apiKey={apiKey} onSave={setApiKey} onClose={() => setSettingsOpen(false)} />
+          <SettingsModal open={settingsOpen} apiKey={apiKey} polliKey={polliKey}
+            onSave={(g, p) => { setApiKey(g); setPolliKey(p); }} onClose={() => setSettingsOpen(false)} />
         </div>
       );
     }
