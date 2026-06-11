@@ -5,6 +5,10 @@
 
 ![stack](https://img.shields.io/badge/React-18-61dafb) ![stack](https://img.shields.io/badge/Tailwind-CDN-38bdf8) ![build](https://img.shields.io/badge/build-none-success)
 
+<p align="center">
+  <img src="./ai-image.png" alt="AI Image Studio 화면" width="320" />
+</p>
+
 ---
 
 ## ✨ 주요 기능
