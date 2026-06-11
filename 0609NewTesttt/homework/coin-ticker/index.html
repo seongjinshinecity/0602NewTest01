@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>코인 티커 · Crypto Price Ticker</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,6 +30,8 @@
                    'Pretendard', 'Malgun Gothic', sans-serif;
       -webkit-font-smoothing: antialiased;
     }
+    /* 다크 모드: 오버스크롤 시에도 어두운 배경 유지 */
+    html.dark body { background: #0a0a0c; }
     .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; }
     .tabular { font-variant-numeric: tabular-nums; }
 
@@ -52,6 +55,34 @@
 
     /* 스파크라인 미세 등장 */
     .spark { transition: opacity 0.4s ease; }
+
+    /* ========================================
+       카드 플립 (3D 뒤집기) — 클릭 시 그래프 면으로
+       ======================================== */
+    .flip-scene { perspective: 1400px; }
+    .flip-inner {
+      position: relative;
+      transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+      transform-style: preserve-3d;
+    }
+    .flip-inner.is-flipped { transform: rotateY(180deg); }
+    .flip-face {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .flip-back {
+      position: absolute;
+      inset: 0;
+      transform: rotateY(180deg);
+    }
+
+    /* 스파크라인 라인 드로잉 애니메이션 */
+    @keyframes drawLine { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+    .spark-line {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: drawLine 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
   </style>
 </head>
 <body>
@@ -77,7 +108,7 @@
         ids: WATCHED_COINS.join(','),
         order: 'market_cap_desc',
         price_change_percentage: '24h',
-        sparkline: 'false',
+        sparkline: 'true',
         x_cg_demo_api_key: CG_DEMO_KEY,
       });
       return `${API_BASE_URL}/coins/markets?${params.toString()}`;
@@ -142,6 +173,39 @@
         </svg>
       );
     }
+    function ChartIcon({ className = '' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 19V5M4 19h16M7.5 14l3.5-4 3 2.5L20 7"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    function BackIcon({ className = '' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor"
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    function SunIcon({ className = '' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      );
+    }
+    function MoonIcon({ className = '' }) {
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
 
     // Button — variant / size 지원
     function Button({ variant = 'primary', size = 'md', className = '', children, ...rest }) {
@@ -181,67 +245,177 @@
     }
 
     // ========================================
-    // 🪙 코인 카드
+    // 📈 스파크라인 (7일 가격 추이 SVG 그래프)
+    // ========================================
+    function Sparkline({ prices, up }) {
+      const W = 320, H = 120;
+      const geom = useMemo(() => {
+        if (!prices || prices.length < 2) return null;
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const range = (max - min) || 1;
+        const step = W / (prices.length - 1);
+        const pts = prices.map((p, i) => [
+          i * step,
+          H - ((p - min) / range) * (H - 8) - 4, // 위아래 4px 여백
+        ]);
+        const line = pts
+          .map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt[0].toFixed(2)} ${pt[1].toFixed(2)}`)
+          .join(' ');
+        const area = `${line} L ${W} ${H} L 0 ${H} Z`;
+        return { line, area, min, max };
+      }, [prices]);
+
+      if (!geom) {
+        return (
+          <div className="flex h-[120px] items-center justify-center text-xs text-white/35">
+            그래프 데이터를 불러올 수 없어요
+          </div>
+        );
+      }
+      const stroke = up ? '#34d27b' : '#ff5a52';
+      const gid = `grad-${up ? 'up' : 'down'}`;
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+             className="h-[120px] w-full overflow-visible">
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={stroke} stopOpacity="0.28" />
+              <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={geom.area} fill={`url(#${gid})`} />
+          <path d={geom.line} fill="none" stroke={stroke} strokeWidth="2.4"
+                strokeLinecap="round" strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke" pathLength="1" className="spark-line" />
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 🪙 코인 카드 (클릭 시 플립 → 그래프)
     // ========================================
     function CoinCard({ coin, index }) {
+      const [flipped, setFlipped] = useState(false);
       const up = (coin.price_change_percentage_24h ?? 0) >= 0;
       // UP: 밝은 차콜(40% 그레이 느낌) / DOWN: 어두운 니어블랙(60% 그레이 느낌)
       const cardStyle = { backgroundColor: up ? 'var(--card-up)' : 'var(--card-down)' };
       const accent = up ? 'text-[#34d27b]' : 'text-[#ff5a52]';
       const Arrow = up ? ArrowUpIcon : ArrowDownIcon;
+      const prices = coin.sparkline_in_7d?.price || [];
+      const low7d = prices.length ? Math.min(...prices) : null;
+      const high7d = prices.length ? Math.max(...prices) : null;
+
+      const faceClass =
+        'flip-face overflow-hidden rounded-[28px] p-6 text-white ' +
+        'shadow-[0_10px_30px_-12px_rgba(0,0,0,0.45)] ring-1 ring-white/10';
 
       return (
-        <article
-          style={{ ...cardStyle, animationDelay: `${index * 60}ms` }}
-          className="animate-fadeUp group relative overflow-hidden rounded-[28px] p-6
-                     text-white shadow-[0_10px_30px_-12px_rgba(0,0,0,0.35)]
-                     ring-1 ring-white/5 transition-transform duration-300 hover:-translate-y-1"
+        <div
+          className="flip-scene animate-fadeUp cursor-pointer transition-transform duration-300 hover:-translate-y-1"
+          style={{ animationDelay: `${index * 60}ms` }}
+          onClick={() => setFlipped((v) => !v)}
+          role="button"
+          tabIndex={0}
+          aria-label={`${coin.name} 카드 — 클릭하여 그래프 보기`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFlipped((v) => !v); }
+          }}
         >
-          {/* 상단: 아이콘 + 이름/심볼 + 변동 뱃지 */}
-          <header className="flex items-start justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                <img
-                  src={coin.image}
-                  alt={`${coin.name} 로고`}
-                  className="w-11 h-11 rounded-full bg-white/5 ring-1 ring-white/10"
-                  loading="lazy"
-                />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-display text-lg font-semibold leading-tight truncate">
-                  {coin.name}
-                </h3>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/45">
-                  {coin.symbol}
+          <div className={`flip-inner ${flipped ? 'is-flipped' : ''}`}>
+            {/* ===== 앞면: 시세 ===== */}
+            <article className={faceClass} style={cardStyle}>
+              <header className="flex items-start justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img
+                    src={coin.image}
+                    alt={`${coin.name} 로고`}
+                    className="w-11 h-11 shrink-0 rounded-full bg-white/5 ring-1 ring-white/10"
+                    loading="lazy"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-display text-lg font-semibold leading-tight truncate">
+                      {coin.name}
+                    </h3>
+                    <p className="text-xs font-medium uppercase tracking-wider text-white/45">
+                      {coin.symbol}
+                    </p>
+                  </div>
+                </div>
+                <ChangeBadge value={coin.price_change_percentage_24h ?? 0} />
+              </header>
+
+              <div className="mt-7">
+                <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
+                  가격 (USD)
                 </p>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="font-display text-2xl font-semibold text-white/55">$</span>
+                  <span className={`font-display text-4xl sm:text-[2.65rem] font-bold leading-none tabular ${accent}`}>
+                    {formatPrice(coin.current_price)}
+                  </span>
+                </div>
               </div>
-            </div>
-            <ChangeBadge value={coin.price_change_percentage_24h ?? 0} />
-          </header>
 
-          {/* 가격 — 큰 디스플레이 숫자 (레퍼런스 감성) */}
-          <div className="mt-7">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
-              가격 (USD)
-            </p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="font-display text-2xl font-semibold text-white/55">$</span>
-              <span className={`font-display text-4xl sm:text-[2.65rem] font-bold leading-none tabular ${accent}`}>
-                {formatPrice(coin.current_price)}
-              </span>
-            </div>
+              <footer className="mt-6 flex items-center justify-between border-t border-white/8 pt-4">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white/45">
+                  <ChartIcon className="w-3.5 h-3.5" /> 탭하여 그래프 보기
+                </span>
+                <span className={`inline-flex items-center gap-1.5 text-sm font-semibold tabular ${accent}`}>
+                  <Arrow className="w-4 h-4" />
+                  {formatPercent(coin.price_change_percentage_24h ?? 0)}
+                </span>
+              </footer>
+            </article>
+
+            {/* ===== 뒷면: 7일 그래프 ===== */}
+            <article className={`flip-back ${faceClass} flex flex-col`} style={cardStyle}>
+              <header className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img src={coin.image} alt="" className="w-8 h-8 shrink-0 rounded-full ring-1 ring-white/10" />
+                  <div className="min-w-0">
+                    <h3 className="font-display text-base font-semibold leading-tight truncate">
+                      {coin.name}
+                    </h3>
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-white/40">
+                      최근 7일 추이
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70">
+                  <BackIcon className="w-3.5 h-3.5" /> 뒤로
+                </span>
+              </header>
+
+              {/* 그래프 */}
+              <div className="mt-4 flex-1">
+                {flipped && <Sparkline prices={prices} up={up} />}
+              </div>
+
+              {/* 7일 최저 / 최고 / 변동 */}
+              <footer className="mt-3 grid grid-cols-3 gap-2 border-t border-white/8 pt-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40">7일 최저</p>
+                  <p className="font-display text-sm font-semibold tabular text-white/85">
+                    ${formatPrice(low7d)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40">7일 최고</p>
+                  <p className="font-display text-sm font-semibold tabular text-white/85">
+                    ${formatPrice(high7d)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wider text-white/40">24h</p>
+                  <p className={`font-display text-sm font-semibold tabular ${accent}`}>
+                    {formatPercent(coin.price_change_percentage_24h ?? 0)}
+                  </p>
+                </div>
+              </footer>
+            </article>
           </div>
-
-          {/* 하단: 24h 방향 요약 */}
-          <footer className="mt-6 flex items-center justify-between border-t border-white/8 pt-4">
-            <span className="text-xs font-medium text-white/45">24시간 변동</span>
-            <span className={`inline-flex items-center gap-1.5 text-sm font-semibold tabular ${accent}`}>
-              <Arrow className="w-4 h-4" />
-              {formatPercent(coin.price_change_percentage_24h ?? 0)}
-            </span>
-          </footer>
-        </article>
+        </div>
       );
     }
 
@@ -268,31 +442,61 @@
     // ========================================
     // 🧩 레이아웃 — 헤더 (라이브 상태 위젯)
     // ========================================
-    function HeaderBar({ lastUpdated, loading, error, onRefresh }) {
+    // API 연동 상태 칩 — '연결 중 / 정상 / 오류'를 명확히 표시
+    function ApiStatusChip({ apiState, coinCount }) {
+      const map = {
+        connecting: { dot: 'bg-amber-400 animate-pulse-dot', text: 'API 연결 중…',
+                      cls: 'bg-amber-400/10 text-amber-600 ring-amber-400/25 dark:text-amber-300' },
+        ok:         { dot: 'bg-[#34d27b] animate-pulse-dot', text: `API 연결됨 · ${coinCount}개 수신`,
+                      cls: 'bg-[#34d27b]/10 text-[#1f9e5c] ring-[#34d27b]/25 dark:text-[#5fe6a0]' },
+        error:      { dot: 'bg-[#ff5a52]', text: 'API 연결 오류',
+                      cls: 'bg-[#ff5a52]/10 text-[#c43a33] ring-[#ff5a52]/25 dark:text-[#ff8d87]' },
+      };
+      const s = map[apiState] || map.connecting;
+      return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${s.cls}`}>
+          <span className={`inline-block h-2 w-2 rounded-full ${s.dot}`} />
+          {s.text}
+        </span>
+      );
+    }
+
+    function HeaderBar({ lastUpdated, loading, error, onRefresh, theme, onToggleTheme, apiState, coinCount }) {
+      const dark = theme === 'dark';
       return (
         <header className="mb-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="flex items-center gap-2">
-                <span className={`inline-block h-2 w-2 rounded-full ${error ? 'bg-[#ff5a52]' : 'bg-[#34d27b] animate-pulse-dot'}`} />
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">
-                  {error ? '연결 오류' : '실시간'}
-                </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <ApiStatusChip apiState={apiState} coinCount={coinCount} />
               </div>
-              <h1 className="font-display mt-2 text-4xl sm:text-5xl font-bold tracking-tight text-[#131315]">
+              <h1 className="font-display mt-3 text-4xl sm:text-5xl font-bold tracking-tight text-[#131315] dark:text-white">
                 코인 티커
               </h1>
-              <p className="mt-2 text-sm text-black/50">
+              <p className="mt-2 text-sm text-black/50 dark:text-white/50">
                 CoinGecko 기반 실시간 암호화폐 시세 · 5분마다 자동 갱신
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-white px-4 py-2.5 text-right shadow-sm ring-1 ring-black/5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-black/40">
+              {/* 다크/라이트 모드 토글 (우측 상단) */}
+              <button
+                onClick={onToggleTheme}
+                aria-label={dark ? '라이트 모드로 전환' : '다크 모드로 전환'}
+                title={dark ? '라이트 모드' : '다크 모드'}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#131315]
+                           ring-1 ring-black/10 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95
+                           dark:bg-white/10 dark:text-white dark:ring-white/15 dark:hover:bg-white/15"
+              >
+                {dark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+              </button>
+
+              <div className="rounded-2xl bg-white px-4 py-2.5 text-right shadow-sm ring-1 ring-black/5
+                              dark:bg-white/10 dark:ring-white/10">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-black/40 dark:text-white/40">
                   마지막 업데이트
                 </p>
-                <p className="font-display text-sm font-semibold tabular text-[#131315]">
+                <p className="font-display text-sm font-semibold tabular text-[#131315] dark:text-white">
                   {loading && !lastUpdated ? '불러오는 중…' : formatTime(lastUpdated)}
                 </p>
               </div>
@@ -307,7 +511,7 @@
           {error && (
             <div role="alert" className="mt-5 flex items-start gap-3 rounded-2xl bg-[#ff5a52]/10 px-4 py-3 ring-1 ring-[#ff5a52]/20">
               <ArrowDownIcon className="mt-0.5 w-4 h-4 shrink-0 text-[#ff5a52]" />
-              <p className="text-sm text-[#b3322c]">
+              <p className="text-sm text-[#b3322c] dark:text-[#ff8d87]">
                 <span className="font-semibold">데이터를 불러오지 못했습니다.</span>{' '}
                 {error} {' '}이전에 받은 시세를 표시하고 있어요.
               </p>
@@ -320,7 +524,7 @@
     // ========================================
     // 📄 메인 페이지
     // ========================================
-    function TickerPage() {
+    function TickerPage({ theme, onToggleTheme }) {
       const [coins, setCoins] = useState([]);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
@@ -361,13 +565,21 @@
 
       const showSkeleton = loading && coins.length === 0;
 
+      // API 연동 상태: 최초 연결 중 / 정상 / 오류
+      const apiState = coins.length === 0 && loading ? 'connecting' : error ? 'error' : 'ok';
+
       return (
+        <div className="min-h-screen bg-[#e7e7ea] transition-colors duration-300 dark:bg-[#0a0a0c]">
         <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
           <HeaderBar
             lastUpdated={lastUpdated}
             loading={loading}
             error={error}
             onRefresh={fetchCoins}
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            apiState={apiState}
+            coinCount={coins.length}
           />
 
           <main>
@@ -383,11 +595,11 @@
 
             {/* 빈 상태 */}
             {!showSkeleton && coins.length === 0 && (
-              <div className="mt-10 rounded-[28px] bg-white p-12 text-center ring-1 ring-black/5">
-                <p className="font-display text-lg font-semibold text-[#131315]">
+              <div className="mt-10 rounded-[28px] bg-white p-12 text-center ring-1 ring-black/5 dark:bg-white/5 dark:ring-white/10">
+                <p className="font-display text-lg font-semibold text-[#131315] dark:text-white">
                   표시할 코인이 없습니다
                 </p>
-                <p className="mt-2 text-sm text-black/50">
+                <p className="mt-2 text-sm text-black/50 dark:text-white/50">
                   네트워크 상태를 확인한 뒤 새로고침해 주세요.
                 </p>
                 <Button variant="secondary" className="mt-5" onClick={fetchCoins}>
@@ -399,13 +611,14 @@
 
           {/* 푸터 */}
           <footer className="mt-12 flex flex-col items-center gap-1 text-center">
-            <p className="text-xs text-black/40">
+            <p className="text-xs text-black/40 dark:text-white/40">
               데이터 제공: CoinGecko · 가격은 정보 제공용이며 투자 권유가 아닙니다.
             </p>
-            <p className="text-[11px] text-black/30">
-              상승 카드는 밝은 차콜, 하락 카드는 어두운 차콜로 표시됩니다.
+            <p className="text-[11px] text-black/30 dark:text-white/30">
+              카드를 클릭하면 7일 가격 그래프로 뒤집힙니다 · 상승=밝은 차콜, 하락=어두운 차콜
             </p>
           </footer>
+        </div>
         </div>
       );
     }
@@ -414,7 +627,29 @@
     // 🚀 App
     // ========================================
     function App() {
-      return <TickerPage />;
+      // 다크/라이트 모드 — localStorage에 저장, 최초엔 OS 설정 따름
+      const [theme, setTheme] = useState(() => {
+        try {
+          const saved = localStorage.getItem('coin-ticker-theme');
+          if (saved === 'dark' || saved === 'light') return saved;
+        } catch (e) {}
+        const prefersDark = window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return prefersDark ? 'dark' : 'light';
+      });
+
+      useEffect(() => {
+        const root = document.documentElement;
+        if (theme === 'dark') root.classList.add('dark');
+        else root.classList.remove('dark');
+        try { localStorage.setItem('coin-ticker-theme', theme); } catch (e) {}
+      }, [theme]);
+
+      const toggleTheme = useCallback(() => {
+        setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+      }, []);
+
+      return <TickerPage theme={theme} onToggleTheme={toggleTheme} />;
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
