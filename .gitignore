@@ -8,3 +8,6 @@ node_modules/
 .env
 *.env
 .env.local
+
+# Claude Code local settings (may contain machine-specific allow-list / keys)
+.claude/settings.local.json
