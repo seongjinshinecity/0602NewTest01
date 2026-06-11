@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 별명 생성기 — NICKNAME GENERATOR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0c0c0e;
+      --paper: #f6f5f2;
+      --line: #e3e1da;
+      --c-cyan: #1fb6ff;
+      --c-blue: #2a3bff;
+      --c-magenta: #ff3da6;
+      --c-yellow: #ffcf2d;
+      --c-lime: #b6ff3d;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* 흐르는 제너러티브 리본 배경 */
+    #ribbons {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+
+    /* ── 헤더 / 타이포 ─────────────────────────────── */
+    header { margin-bottom: 40px; }
+
+    .eyebrow {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: #6b6960;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: clamp(48px, 11vw, 132px);
+      line-height: 0.86;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+    }
+
+    h1 .stroke {
+      -webkit-text-stroke: 2px var(--ink);
+      color: transparent;
+    }
+
+    .subtitle {
+      margin-top: 18px;
+      font-size: clamp(15px, 2.2vw, 20px);
+      font-weight: 600;
+      max-width: 460px;
+      color: #3a3934;
+      line-height: 1.45;
+    }
+
+    /* ── 카드 레이아웃 ─────────────────────────────── */
+    .panel {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
+      margin-top: 36px;
+    }
+    @media (min-width: 860px) {
+      .panel { grid-template-columns: 0.92fr 1.08fr; align-items: start; }
+    }
+
+    .card {
+      background: #fff;
+      border: 1.5px solid var(--ink);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 8px 8px 0 var(--ink);
+    }
+
+    .card h2 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 22px;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+    .card .hint { font-size: 13px; color: #807d74; margin-bottom: 20px; }
+
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      margin-bottom: 7px;
+    }
+    .field .emoji { margin-right: 6px; }
+
+    .field input {
+      width: 100%;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 500;
+      padding: 13px 15px;
+      border: 1.5px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper);
+      transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: var(--ink);
+      box-shadow: 3px 3px 0 var(--ink);
+      transform: translate(-1px, -1px);
+    }
+
+    /* ── 생성 버튼 ─────────────────────────────────── */
+    .generate {
+      width: 100%;
+      margin-top: 8px;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: var(--ink);
+      border: none;
+      border-radius: 12px;
+      padding: 17px 20px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform .12s, box-shadow .12s;
+    }
+    .generate::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, var(--c-magenta), var(--c-blue), var(--c-cyan), var(--c-yellow));
+      opacity: 0;
+      transition: opacity .25s;
+    }
+    .generate span { position: relative; z-index: 1; }
+    .generate:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(0,0,0,.15); }
+    .generate:hover:not(:disabled)::before { opacity: 1; }
+    .generate:active:not(:disabled) { transform: translateY(0); }
+    .generate:disabled { opacity: .55; cursor: progress; }
+
+    /* ── 결과 영역 ─────────────────────────────────── */
+    .results { min-height: 120px; }
+
+    .results-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .results-head h2 {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 22px;
+    }
+    .results-head .count { font-size: 13px; color: #807d74; font-weight: 600; }
+
+    .placeholder {
+      border: 1.5px dashed var(--line);
+      border-radius: 16px;
+      padding: 44px 24px;
+      text-align: center;
+      color: #9a978d;
+      font-weight: 500;
+    }
+
+    .nick {
+      --accent: var(--c-blue);
+      position: relative;
+      background: #fff;
+      border: 1.5px solid var(--ink);
+      border-radius: 16px;
+      padding: 20px 20px 18px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      box-shadow: 5px 5px 0 var(--ink);
+      transition: transform .16s cubic-bezier(.2,.8,.2,1), box-shadow .16s;
+      animation: pop .42s cubic-bezier(.2,.9,.25,1.2) backwards;
+    }
+    .nick:nth-child(1) { animation-delay: .02s; }
+    .nick:nth-child(2) { animation-delay: .12s; }
+    .nick:nth-child(3) { animation-delay: .22s; }
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(14px) scale(.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .nick::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 7px;
+      background: var(--accent);
+      border-radius: 16px 0 0 16px;
+    }
+    .nick:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 var(--accent); }
+    .nick.selected { box-shadow: 9px 9px 0 var(--accent); transform: translate(-3px,-3px); }
+    .nick.selected::after {
+      content: "선택됨 ✓";
+      position: absolute;
+      top: 14px; right: 16px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      color: var(--accent);
+    }
+
+    .nick .top { display: flex; align-items: center; gap: 12px; }
+    .nick .badge {
+      flex: none;
+      width: 46px; height: 46px;
+      display: grid; place-items: center;
+      font-size: 24px;
+      background: var(--paper);
+      border: 1.5px solid var(--ink);
+      border-radius: 12px;
+    }
+    .nick .name {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 26px;
+      letter-spacing: -0.01em;
+      line-height: 1.05;
+    }
+    .nick .reason {
+      margin-top: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #4a4842;
+    }
+
+    .nick .actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+    }
+    .nick .copy {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border: 1.5px solid var(--ink);
+      background: #fff;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background .14s, color .14s, transform .1s;
+    }
+    .nick .copy:hover { background: var(--ink); color: #fff; }
+    .nick .copy:active { transform: scale(.95); }
+    .nick .copy.copied { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* ── 토스트 ────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      left: 50%; bottom: 32px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--ink);
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 13px 22px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 20;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── 로딩 점 ───────────────────────────────────── */
+    .dots { display: inline-flex; gap: 5px; }
+    .dots i {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fff; display: inline-block;
+      animation: bounce .9s infinite ease-in-out;
+    }
+    .dots i:nth-child(2) { animation-delay: .15s; }
+    .dots i:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(.5);opacity:.4} 40%{transform:scale(1);opacity:1} }
+
+    .error-box {
+      border: 1.5px solid var(--c-magenta);
+      background: #fff0f7;
+      color: #b3005f;
+      border-radius: 14px;
+      padding: 18px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    footer {
+      margin-top: 56px;
+      font-size: 12px;
+      color: #9a978d;
+      letter-spacing: .04em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="ribbons"></canvas>
+
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">Server · OpenAI · Generative</div>
+      <h1>NICK<span class="stroke">NAME</span><br />MACHINE</h1>
+      <p class="subtitle">이름 · 생일 · 꿈을 넣으면, AI가 당신만을 위한 재미있는 별명 3개를 지어드려요.</p>
+    </header>
+
+    <div class="panel">
+      <!-- 입력 카드 -->
+      <section class="card" aria-label="입력">
+        <h2>너의 정보</h2>
+        <p class="hint">세 가지를 모두 채워야 별명이 더 찰떡같아져요.</p>
+
+        <form id="form">
+          <div class="field">
+            <label for="name"><span class="emoji">🙋</span>이름</label>
+            <input id="name" name="name" type="text" placeholder="예) 김하늘" maxlength="40" autocomplete="off" required />
+          </div>
+          <div class="field">
+            <label for="birthday"><span class="emoji">🎂</span>생일</label>
+            <input id="birthday" name="birthday" type="text" placeholder="예) 3월 14일 / 2001-03-14" maxlength="40" autocomplete="off" required />
+          </div>
+          <div class="field">
+            <label for="dream"><span class="emoji">⭐</span>꿈 (장래희망·목표)</label>
+            <input id="dream" name="dream" type="text" placeholder="예) 우주 비행사 / 세계여행" maxlength="100" autocomplete="off" required />
+          </div>
+
+          <button class="generate" id="genBtn" type="submit">
+            <span id="genLabel">별명 만들기 ✨</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- 결과 카드 -->
+      <section class="results" aria-live="polite">
+        <div class="results-head">
+          <h2>AI 별명</h2>
+          <span class="count" id="count"></span>
+        </div>
+        <div id="output">
+          <div class="placeholder">왼쪽을 채우고 <b>별명 만들기</b>를 눌러보세요 👈</div>
+        </div>
+      </section>
+    </div>
+
+    <footer>3-FILE BUILD · server.js + index.html + client.js · 키는 서버에만 존재합니다.</footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="client.js"></script>
+</body>
+</html>
