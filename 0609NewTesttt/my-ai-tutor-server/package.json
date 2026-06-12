@@ -1,0 +1,12 @@
+{
+  "name": "my-ai-tutor-server",
+  "version": "1.0.0",
+  "description": "API 키를 서버에 숨긴 1:1 학습 튜터 (Node 프록시)",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

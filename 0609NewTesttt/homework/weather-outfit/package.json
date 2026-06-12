@@ -1,0 +1,13 @@
+{
+  "name": "weather-outfit",
+  "version": "1.0.0",
+  "description": "위치를 보내면 서버가 외부 날씨 API를 대신 호출해 오늘 날씨에 맞는 옷차림을 추천하는 3파일 서버 앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

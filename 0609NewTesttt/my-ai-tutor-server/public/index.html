@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>나만의 1:1 학습 튜터</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { cream:'#F4F1EA', paper:'#FBFAF6', ink:'#2B2620', inkSoft:'#6B6358', clay:'#C75D43', claySoft:'#E5B8A8', amber:'#D98A3D', line:'#E5DFD2' },
+      fontFamily: { serif:['"Gowun Batang"','Georgia','serif'], sans:['"Noto Sans KR"','system-ui','sans-serif'] },
+    } },
+  };
+</script>
+<style>
+  body { background:#F4F1EA; }
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background:#DAD2C2; border-radius:9px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  .fade-in { animation: fade .35s ease both; }
+  @keyframes fade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .dot { animation: blink 1.4s infinite both; }
+  .dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+  @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+  .md p { margin:0 0 .6em; } .md p:last-child{ margin-bottom:0; }
+  .md ul,.md ol { margin:.4em 0 .7em; padding-left:1.25em; }
+  .md li { margin:.2em 0; }
+  .md code { background:#EFE9DC; padding:.1em .4em; border-radius:5px; font-size:.88em; }
+  .md pre { background:#2B2620; color:#F4F1EA; padding:.85em 1em; border-radius:12px; overflow-x:auto; margin:.6em 0; font-size:.85em; line-height:1.55; }
+  .md pre code { background:transparent; padding:0; color:inherit; }
+  .md strong { font-weight:700; color:#1F1B16; }
+  .md h1,.md h2,.md h3 { font-family:'Gowun Batang',serif; font-weight:700; margin:.7em 0 .35em; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+const LS = { text:"tutor_text_ctx", code:"tutor_code_ctx", chat:"tutor_chat" };
+const GREETING = "안녕하세요! 오늘 배운 수업 내용을 완벽하게 마스터한 AI 학습 에이전트입니다. 어떤 부분이 궁금하신가요?";
+
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function renderMarkdown(src){
+  let s = escapeHtml(src); const blocks = [];
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g,(m,lang,code)=>{ blocks.push(`<pre><code>${code.replace(/\n$/,"")}</code></pre>`); return ` ${blocks.length-1} `; });
+  s = s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  s = s.replace(/^### (.*)$/gm,"<h3>$1</h3>").replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>");
+  const lines=s.split("\n"); let out=[],inUl=false,inOl=false;
+  const close=()=>{ if(inUl){out.push("</ul>");inUl=false;} if(inOl){out.push("</ol>");inOl=false;} };
+  for(let line of lines){
+    if(/^\s*[-*] /.test(line)){ if(!inUl){close();out.push("<ul>");inUl=true;} out.push("<li>"+line.replace(/^\s*[-*] /,"")+"</li>"); }
+    else if(/^\s*\d+\. /.test(line)){ if(!inOl){close();out.push("<ol>");inOl=true;} out.push("<li>"+line.replace(/^\s*\d+\. /,"")+"</li>"); }
+    else { close(); out.push(line); }
+  }
+  close(); s=out.join("\n");
+  s = s.split(/\n{2,}/).map(b=>{ if(/^ \d+ $/.test(b.trim())||/^<(h1|h2|h3|ul|ol|pre)/.test(b.trim())) return b; return "<p>"+b.replace(/\n/g,"<br/>")+"</p>"; }).join("\n");
+  s = s.replace(/ (\d+) /g,(m,i)=>blocks[+i]);
+  return s;
+}
+
+function App(){
+  const [textCtx, setTextCtx] = useState(()=>localStorage.getItem(LS.text)||"");
+  const [codeCtx, setCodeCtx] = useState(()=>localStorage.getItem(LS.code)||"");
+  const [messages, setMessages] = useState(()=>{ const s=localStorage.getItem(LS.chat); if(s){try{return JSON.parse(s);}catch(e){}} return [{role:"assistant",content:GREETING}]; });
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [sidebar, setSidebar] = useState(false);
+  const scroller = useRef(null);
+
+  useEffect(()=>{ localStorage.setItem(LS.text, textCtx); }, [textCtx]);
+  useEffect(()=>{ localStorage.setItem(LS.code, codeCtx); }, [codeCtx]);
+  useEffect(()=>{ localStorage.setItem(LS.chat, JSON.stringify(messages)); }, [messages]);
+  useEffect(()=>{ if(scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [messages, loading]);
+
+  const resetChat = () => { if(confirm("대화 내용을 모두 지우고 새로 시작할까요?")) setMessages([{role:"assistant",content:GREETING}]); };
+
+  async function send(){
+    const q = input.trim(); if(!q || loading) return;
+    setError("");
+    const history = [...messages, { role:"user", content:q }];
+    setMessages([...history, { role:"assistant", content:"" }]);
+    setInput(""); setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body: JSON.stringify({ messages: history.map(m=>({role:m.role,content:m.content})), textCtx, codeCtx }),
+      });
+      if(!res.ok){
+        let msg = "요청 실패 ("+res.status+")";
+        try { const j = await res.json(); if(j.error?.message) msg=j.error.message; } catch(e){}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader(); const decoder = new TextDecoder();
+      let buf="", acc="";
+      while(true){
+        const { done, value } = await reader.read(); if(done) break;
+        buf += decoder.decode(value,{stream:true});
+        const parts = buf.split("\n\n"); buf = parts.pop();
+        for(const part of parts){
+          const dataLine = part.split("\n").find(l=>l.startsWith("data:"));
+          if(!dataLine) continue;
+          try {
+            const evt = JSON.parse(dataLine.slice(5).trim());
+            if(evt.type==="content_block_delta" && evt.delta?.type==="text_delta"){
+              acc += evt.delta.text;
+              setMessages(prev=>{ const c=[...prev]; c[c.length-1]={role:"assistant",content:acc}; return c; });
+            }
+          } catch(e){}
+        }
+      }
+      if(!acc) setMessages(prev=>{ const c=[...prev]; c[c.length-1]={role:"assistant",content:"(응답이 비어 있습니다. 다시 시도해 주세요.)"}; return c; });
+    } catch(e){
+      setError(e.message || String(e));
+      setMessages(prev=>prev.slice(0,-1));
+    } finally { setLoading(false); }
+  }
+  const onKey = (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } };
+
+  return (
+    <div className="h-screen flex flex-col font-sans text-ink">
+      <header className="flex items-center justify-between px-4 sm:px-7 py-4 border-b border-line bg-paper/80 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <button onClick={()=>setSidebar(true)} className="lg:hidden w-9 h-9 grid place-items-center rounded-lg hover:bg-cream transition"><span className="text-xl">☰</span></button>
+          <div className="w-9 h-9 rounded-xl bg-clay text-paper grid place-items-center font-serif font-bold text-lg shadow-sm">學</div>
+          <div>
+            <h1 className="font-serif font-bold text-lg leading-none">나만의 1:1 학습 튜터</h1>
+            <p className="text-xs text-inkSoft mt-1">수업 자료 기반 맞춤형 AI 에이전트 · 서버 프록시</p>
+          </div>
+        </div>
+        <button onClick={resetChat} className="text-sm px-3 py-1.5 rounded-lg border border-line hover:border-clay hover:text-clay transition">새 대화</button>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        <aside className={`${sidebar?"translate-x-0":"-translate-x-full"} lg:translate-x-0 transition-transform fixed lg:static z-30 inset-y-0 left-0 w-[88%] sm:w-[380px] bg-paper border-r border-line flex flex-col`}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+            <h2 className="font-serif font-bold text-base">📚 수업 자료 입력</h2>
+            <button onClick={()=>setSidebar(false)} className="lg:hidden text-inkSoft text-xl">✕</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            <p className="text-xs leading-relaxed text-inkSoft bg-cream rounded-xl p-3 border border-line">여기에 붙여넣은 내용을 <b className="text-clay">기준 자료</b>로 삼아 답변합니다. 입력 즉시 저장되며 다음 질문부터 반영됩니다.</p>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-bold mb-2"><span className="w-5 h-5 rounded bg-amber/20 text-amber grid place-items-center text-xs">T</span>Text Context</label>
+              <p className="text-xs text-inkSoft mb-2">강의 노트 · 개념 설명 · 슬라이드 · 이론 자료</p>
+              <textarea value={textCtx} onChange={e=>setTextCtx(e.target.value)} placeholder="예) 2주차 — 변환기/계산기 앱은 HTML·CSS·JS로 구성하며..." className="w-full h-40 resize-y rounded-xl border border-line bg-white p-3 text-sm focus:outline-none focus:border-clay focus:ring-2 focus:ring-claySoft/40" />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-bold mb-2"><span className="w-5 h-5 rounded bg-clay/15 text-clay grid place-items-center text-xs">{'</>'}</span>Code Context</label>
+              <p className="text-xs text-inkSoft mb-2">실습 코드 · 예제 스크립트 · 프로젝트 구조</p>
+              <textarea value={codeCtx} onChange={e=>setCodeCtx(e.target.value)} placeholder={"예)\nfunction calcTax(price){\n  return price * 0.1;\n}"} className="w-full h-40 resize-y rounded-xl border border-line bg-white p-3 text-sm font-mono focus:outline-none focus:border-clay focus:ring-2 focus:ring-claySoft/40" />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-inkSoft pt-1">
+              <span className={`inline-flex items-center gap-1.5 ${textCtx.trim()?"text-clay":""}`}><span className={`w-2 h-2 rounded-full ${textCtx.trim()?"bg-clay":"bg-line"}`}></span>텍스트 {textCtx.trim()?"연결됨":"비어있음"}</span>
+              <span className={`inline-flex items-center gap-1.5 ${codeCtx.trim()?"text-clay":""}`}><span className={`w-2 h-2 rounded-full ${codeCtx.trim()?"bg-clay":"bg-line"}`}></span>코드 {codeCtx.trim()?"연결됨":"비어있음"}</span>
+            </div>
+          </div>
+        </aside>
+        {sidebar && <div onClick={()=>setSidebar(false)} className="lg:hidden fixed inset-0 bg-ink/30 z-20"></div>}
+
+        <main className="flex-1 flex flex-col bg-cream min-w-0">
+          <div ref={scroller} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+            <div className="max-w-3xl mx-auto space-y-5">
+              {messages.map((m,i)=>(
+                <div key={i} className={`fade-in flex gap-3 ${m.role==="user"?"flex-row-reverse":""}`}>
+                  <div className={`shrink-0 w-9 h-9 rounded-xl grid place-items-center text-sm font-serif font-bold shadow-sm ${m.role==="user"?"bg-ink text-paper":"bg-clay text-paper"}`}>{m.role==="user"?"나":"AI"}</div>
+                  <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed shadow-sm ${m.role==="user"?"bg-ink text-paper rounded-tr-sm":"bg-paper border border-line rounded-tl-sm"}`}>
+                    {m.role==="assistant"
+                      ? (m.content ? <div className="md" dangerouslySetInnerHTML={{__html:renderMarkdown(m.content)}} />
+                        : <div className="flex gap-1.5 py-1"><span className="dot w-2 h-2 rounded-full bg-clay/60"></span><span className="dot w-2 h-2 rounded-full bg-clay/60"></span><span className="dot w-2 h-2 rounded-full bg-clay/60"></span></div>)
+                      : <div className="whitespace-pre-wrap">{m.content}</div>}
+                  </div>
+                </div>
+              ))}
+              {error && <div className="fade-in text-sm text-clay bg-clay/10 border border-claySoft rounded-xl px-4 py-3 max-w-[82%]">⚠ {error}</div>}
+            </div>
+          </div>
+          <div className="border-t border-line bg-paper/80 backdrop-blur px-4 sm:px-8 py-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-end gap-2 bg-white border border-line rounded-2xl p-2 focus-within:border-clay focus-within:ring-2 focus-within:ring-claySoft/40 transition">
+                <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={onKey} rows={1} placeholder="수업 내용에 대해 무엇이든 물어보세요…  (Enter 전송 / Shift+Enter 줄바꿈)" className="flex-1 resize-none bg-transparent px-2 py-2 text-[15px] focus:outline-none max-h-40" />
+                <button onClick={send} disabled={loading||!input.trim()} className="shrink-0 h-10 px-4 rounded-xl bg-clay text-paper font-medium disabled:opacity-40 hover:bg-[#b34f37] transition flex items-center gap-1.5">{loading?<span className="text-sm">생각 중…</span>:<><span>전송</span><span>↑</span></>}</button>
+              </div>
+              <p className="text-[11px] text-inkSoft mt-2 text-center">답변은 입력하신 수업 자료를 우선으로 생성됩니다 · API 키는 서버에 안전하게 보관됩니다 🔒</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
