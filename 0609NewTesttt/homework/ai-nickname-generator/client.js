@@ -25,38 +25,47 @@
     buildRibbons();
   }
 
-  // 화면 우측에서 흘러나와 좌하단으로 휘어지는 리본 다발 (책 표지 결을 차용)
+  // 화면을 가로지르며 흐르는 리본 다발.
+  // 가닥 수를 뷰포트 높이에 비례시키고 세로 전체(+오버스캔)에 분포시켜
+  // 어떤 화면 비율에서도 빈 곳 없이 꽉 차게 한다.
   function buildRibbons() {
     ribbons = [];
-    const count = W < 720 ? 26 : 46;
+    const count = Math.round(Math.max(44, Math.min(104, H / 11)));
     for (let i = 0; i < count; i++) {
       ribbons.push({
         color: COLORS[i % COLORS.length],
-        offset: (i / count) * 320 - 40,      // 다발 내 세로 위치
-        amp: 60 + Math.random() * 120,       // 흔들림 폭
-        speed: 0.15 + Math.random() * 0.35,  // 흐르는 속도
+        pos: i / (count - 1),                 // 0~1 정규화 세로 위치 (그릴 때 H에 곱함)
+        amp: 0.04 + Math.random() * 0.11,     // 화면 높이 대비 흔들림 비율
+        speed: 0.15 + Math.random() * 0.35,   // 흐르는 속도
         phase: Math.random() * Math.PI * 2,
         width: 0.8 + Math.random() * 1.8,
-        alpha: 0.35 + Math.random() * 0.4,
+        alpha: 0.3 + Math.random() * 0.4,
+        skew: (Math.random() - 0.5) * 0.45,   // 가닥별 대각 기울기 변주
+        // 제어점(베지어 허리)을 화면 가운데 30~50% 폭 안에 모은다.
+        // band = 0.3~0.5 → 가닥마다 중앙 기준 ±band/2 범위에 분포 → 중앙으로 수렴.
+        cx1: 0.5 + (Math.random() - 0.5) * (0.3 + Math.random() * 0.2),
+        cx2: 0.5 + (Math.random() - 0.5) * (0.3 + Math.random() * 0.2),
       });
     }
   }
 
-  // 하나의 리본을 베지어 흐름으로 그린다.
+  // 하나의 리본을 화면 좌우 전폭(가장자리 밖까지)에 걸쳐 베지어 흐름으로 그린다.
   function drawRibbon(r) {
-    const originX = W * 0.96;
-    const originY = H * 0.16 + r.offset;
-    const endX = -W * 0.12;
-    const endY = H * 0.92 + r.offset * 0.4;
+    const over = H * 0.3;                                 // 위아래 오버스캔 → 세로 가장자리까지 채움
+    const baseY = -over + r.pos * (H + 2 * over);         // 세로 전체에 분포
+    const sway = Math.sin(t * r.speed + r.phase) * H * r.amp;
+    const sway2 = Math.cos(t * r.speed * 0.8 + r.phase) * H * r.amp;
 
-    const sway = Math.sin(t * r.speed + r.phase) * r.amp;
-    const sway2 = Math.cos(t * r.speed * 0.7 + r.phase) * r.amp * 0.8;
+    const originX = W + 80;                               // 오른쪽 화면 밖에서 시작
+    const endX = -80;                                     // 왼쪽 화면 밖으로 빠져나감
+    const originY = baseY + sway;
+    const endY = baseY + r.skew * H + sway2;
 
     ctx.beginPath();
     ctx.moveTo(originX, originY);
     ctx.bezierCurveTo(
-      W * 0.62, originY + sway,
-      W * 0.34 + sway2, H * 0.58 + r.offset * 0.6,
+      W * r.cx1, baseY + sway * 1.3,                      // 제어점 가로 위치를 가닥마다 다르게
+      W * r.cx2, baseY + r.skew * H * 0.6 + sway2 * 1.2,
       endX, endY
     );
     ctx.strokeStyle = r.color;
