@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>위키피디아 검색사전</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --matrix-green: #00ff41;
+      --matrix-green-dim: #00b32d;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      min-height: 100%;
+      font-family: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-weight: 600;
+    }
+
+    #root {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    /* Matrix rain canvas sits behind everything */
+    #matrix-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* ===== CRT scanline overlay ===== */
+    .crt-overlay::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0px,
+        rgba(0, 0, 0, 0) 2px,
+        rgba(0, 0, 0, 0.18) 3px,
+        rgba(0, 0, 0, 0.18) 4px
+      );
+      animation: crt-flicker 6s infinite;
+    }
+
+    @keyframes crt-flicker {
+      0%, 100% { opacity: 0.85; }
+      48% { opacity: 0.85; }
+      50% { opacity: 0.7; }
+      52% { opacity: 0.9; }
+      70% { opacity: 0.8; }
+    }
+
+    /* ===== Green glow helpers ===== */
+    .text-glow {
+      text-shadow: 0 0 4px rgba(0, 255, 65, 0.9), 0 0 12px rgba(0, 255, 65, 0.55);
+    }
+    .text-glow-soft {
+      text-shadow: 0 0 3px rgba(0, 255, 65, 0.6);
+    }
+    .box-glow {
+      box-shadow: 0 0 8px rgba(0, 255, 65, 0.45), inset 0 0 12px rgba(0, 255, 65, 0.12);
+    }
+    .box-glow-strong {
+      box-shadow: 0 0 14px rgba(0, 255, 65, 0.7), inset 0 0 18px rgba(0, 255, 65, 0.18);
+    }
+
+    /* ===== Blinking terminal cursor ===== */
+    .blink-cursor {
+      display: inline-block;
+      width: 0.6ch;
+      background: var(--matrix-green);
+      box-shadow: 0 0 8px rgba(0, 255, 65, 0.9);
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* ===== Loading dots ===== */
+    .dot-flash span {
+      animation: dot 1.2s infinite;
+    }
+    .dot-flash span:nth-child(2) { animation-delay: 0.2s; }
+    .dot-flash span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dot {
+      0%, 60%, 100% { opacity: 0.15; }
+      30% { opacity: 1; }
+    }
+
+    /* ===== Spinner ===== */
+    .matrix-spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(0, 255, 65, 0.2);
+      border-top-color: var(--matrix-green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Render API search matches in bright green */
+    .wiki-snippet .searchmatch {
+      color: #00ff41;
+      font-weight: bold;
+      text-shadow: 0 0 6px rgba(0, 255, 65, 0.9);
+    }
+
+    /* Themed scrollbar */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: #000; }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 65, 0.4);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 65, 0.7); }
+
+    /* Fade-in for panels */
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="crt-overlay">
+  <canvas id="matrix-canvas" aria-hidden="true"></canvas>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ========================================
+    // Matrix Rain (vanilla canvas, driven from React via hook)
+    // ========================================
+    function useMatrixRain() {
+      useEffect(() => {
+        const canvas = document.getElementById("matrix-canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Katakana + latin + digits for the classic look.
+        // Latin/code glyphs are boosted to appear 80% more often than before.
+        const kata =
+          "アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン";
+        const latin = "0123456789ABCDEFZ:.=*+-<>";
+        const boostedLatin = latin.repeat(2).slice(0, Math.round(latin.length * 1.8));
+        const glyphs = kata + boostedLatin;
+        const fontSize = 16;
+        let columns = 0;
+        let drops = [];
+        let rafId = null;
+
+        // Throttle the animation step to run 40% slower than per-frame (60fps).
+        const stepMs = (1000 / 60) / 0.6; // ≈ 27.8ms between steps
+        let lastStep = 0;
+
+        function setup() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          columns = Math.floor(canvas.width / fontSize);
+          drops = new Array(columns).fill(0).map(() =>
+            Math.floor(Math.random() * (canvas.height / fontSize))
+          );
+        }
+
+        function draw() {
+          // translucent black to create the fading trail
+          ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.font = fontSize + "px monospace";
+
+          for (let i = 0; i < drops.length; i++) {
+            const text = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
+            const x = i * fontSize;
+            const y = drops[i] * fontSize;
+
+            // Leading glyph brighter (white-green head)
+            if (Math.random() > 0.975) {
+              ctx.fillStyle = "#c8ffce";
+              ctx.shadowColor = "#00ff41";
+              ctx.shadowBlur = 8;
+            } else {
+              ctx.fillStyle = "#00ff41";
+              ctx.shadowBlur = 0;
+            }
+            ctx.fillText(text, x, y);
+            ctx.shadowBlur = 0;
+
+            if (y > canvas.height && Math.random() > 0.975) {
+              drops[i] = 0;
+            }
+            drops[i]++;
+          }
+        }
+
+        function frame(now) {
+          rafId = requestAnimationFrame(frame);
+          if (now - lastStep < stepMs) return;
+          lastStep = now;
+          draw();
+        }
+
+        const handleResize = () => setup();
+
+        setup();
+        rafId = requestAnimationFrame(frame);
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+          cancelAnimationFrame(rafId);
+          window.removeEventListener("resize", handleResize);
+        };
+      }, []);
+    }
+
+    // ========================================
+    // 🎨 Design System Components (themed, presentational)
+    // ========================================
+
+    function MatrixInput({ value, onChange, onEnter, onDoubleClick, placeholder, ariaLabel, autoFocus }) {
+      const inputRef = useRef(null);
+      useEffect(() => {
+        if (autoFocus && inputRef.current) inputRef.current.focus();
+      }, [autoFocus]);
+
+      return (
+        <div className="flex items-center w-full bg-black/70 border border-[#00ff41] rounded-md px-3 py-2 box-glow focus-within:box-glow-strong transition-shadow">
+          <span className="text-[#00ff41] text-glow mr-2 select-none font-bold">&gt;</span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            aria-label={ariaLabel}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value)}
+            onDoubleClick={onDoubleClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onEnter();
+            }}
+            className="flex-1 bg-transparent outline-none text-[#00ff41] text-glow-soft placeholder-[#00b32d]/60 font-mono text-base md:text-lg caret-[#00ff41]"
+          />
+          {value.length === 0 && <span className="blink-cursor h-5" aria-hidden="true">&nbsp;</span>}
+        </div>
+      );
+    }
+
+    function MatrixButton({ children, onClick, variant = "primary", size = "md", disabled, ariaLabel, className = "" }) {
+      const sizes = {
+        sm: "px-3 py-1 text-sm",
+        md: "px-5 py-2 text-base",
+        lg: "px-7 py-3 text-lg",
+      };
+      const variants = {
+        primary:
+          "bg-[#00ff41]/10 border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/25 box-glow",
+        ghost:
+          "bg-transparent border-[#00b32d]/50 text-[#00b32d] hover:text-[#00ff41] hover:border-[#00ff41]",
+      };
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          className={`font-mono font-bold uppercase tracking-wider border rounded-md transition-all text-glow-soft disabled:opacity-40 disabled:cursor-not-allowed ${sizes[size]} ${variants[variant]} ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Badge({ active, children, onClick, ariaLabel }) {
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={ariaLabel}
+          aria-pressed={active}
+          className={`px-3 py-1 text-sm font-mono font-bold rounded border transition-all ${
+            active
+              ? "bg-[#00ff41]/20 border-[#00ff41] text-[#00ff41] box-glow text-glow"
+              : "bg-transparent border-[#00b32d]/40 text-[#00b32d]/70 hover:text-[#00ff41] hover:border-[#00ff41]"
+          }`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Panel({ children, className = "" }) {
+      return (
+        <div className={`bg-black/75 border border-[#00ff41]/70 rounded-lg box-glow backdrop-blur-sm fade-in ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Spinner() {
+      return <div className="matrix-spinner" role="status" aria-label="로딩 중" />;
+    }
+
+    // ========================================
+    // 🧩 Common / Layout Components
+    // ========================================
+
+    function LangToggle({ lang, onChange }) {
+      return (
+        <div className="flex items-center gap-2" role="group" aria-label="언어 선택">
+          <Badge active={lang === "ko"} onClick={() => onChange("ko")} ariaLabel="한국어 위키백과">
+            KO
+          </Badge>
+          <Badge active={lang === "en"} onClick={() => onChange("en")} ariaLabel="English Wikipedia">
+            EN
+          </Badge>
+        </div>
+      );
+    }
+
+    function LoadingTerminal({ label }) {
+      return (
+        <Panel className="p-6 flex items-center gap-4">
+          <Spinner />
+          <span className="text-[#00ff41] text-glow font-mono text-lg">
+            {label}
+            <span className="dot-flash">
+              <span>.</span><span>.</span><span>.</span>
+            </span>
+          </span>
+        </Panel>
+      );
+    }
+
+    function ErrorState({ message, onRetry }) {
+      return (
+        <Panel className="p-6 border-red-500/70">
+          <p className="text-red-400 font-mono text-glow-soft mb-3" role="alert">
+            [ERROR] {message}
+          </p>
+          {onRetry && (
+            <MatrixButton size="sm" variant="ghost" onClick={onRetry} ariaLabel="다시 시도">
+              재시도
+            </MatrixButton>
+          )}
+        </Panel>
+      );
+    }
+
+    function EmptyState({ query }) {
+      return (
+        <Panel className="p-6">
+          <p className="text-[#00b32d] font-mono text-glow-soft">
+            검색 결과가 없습니다: "<span className="text-[#00ff41]">{query}</span>"
+          </p>
+          <p className="text-[#00b32d]/60 font-mono text-sm mt-2">
+            다른 검색어를 입력해 보세요.
+          </p>
+        </Panel>
+      );
+    }
+
+    // ========================================
+    // 📄 Page Components
+    // ========================================
+
+    function SearchResultItem({ item, onSelect }) {
+      return (
+        <li>
+          <button
+            type="button"
+            onClick={() => onSelect(item.title)}
+            className="w-full text-left p-4 border-b border-[#00ff41]/15 hover:bg-[#00ff41]/10 transition-colors focus:outline-none focus:bg-[#00ff41]/15"
+          >
+            <h3 className="text-[#00ff41] text-glow font-mono font-bold text-lg mb-1">
+              {item.title}
+            </h3>
+            <p
+              className="wiki-snippet text-[#00b32d] font-mono text-sm leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: item.snippet + " ..." }}
+            />
+          </button>
+        </li>
+      );
+    }
+
+    function ArticlePanel({ article, lang, onClose }) {
+      const wikiHost = lang === "ko" ? "ko.wikipedia.org" : "en.wikipedia.org";
+      const fullUrl =
+        (article.content_urls &&
+          article.content_urls.desktop &&
+          article.content_urls.desktop.page) ||
+        `https://${wikiHost}/wiki/${encodeURIComponent(article.title)}`;
+
+      return (
+        <Panel className="p-6 box-glow-strong">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <h2 className="text-[#00ff41] text-glow font-mono font-bold text-2xl">
+              {article.title}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="문서 닫기"
+              className="text-[#00b32d] hover:text-[#00ff41] font-mono font-bold text-xl px-2 leading-none"
+            >
+              [X]
+            </button>
+          </div>
+
+          {article.thumbnail && article.thumbnail.source && (
+            <img
+              src={article.thumbnail.source}
+              alt={article.title}
+              className="float-right ml-4 mb-3 max-w-[40%] rounded border border-[#00ff41]/50 box-glow"
+            />
+          )}
+
+          <p className="text-[#00ff41]/90 text-glow-soft font-mono leading-relaxed whitespace-pre-line">
+            {article.extract || "요약 정보를 불러올 수 없습니다."}
+          </p>
+
+          <div className="clear-both mt-5">
+            <a
+              href={fullUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-mono font-bold uppercase tracking-wider border border-[#00ff41] text-[#00ff41] rounded-md px-5 py-2 box-glow hover:bg-[#00ff41]/20 text-glow-soft transition-all"
+            >
+              전체 문서 보기 ↗
+            </a>
+          </div>
+        </Panel>
+      );
+    }
+
+    function SearchPage() {
+      const [lang, setLang] = useState("ko");
+      const [query, setQuery] = useState("");
+      const [results, setResults] = useState(null); // null = not searched yet
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+      const [lastQuery, setLastQuery] = useState("");
+
+      const [article, setArticle] = useState(null);
+      const [articleLoading, setArticleLoading] = useState(false);
+      const [articleError, setArticleError] = useState(null);
+
+      const wikiHost = lang === "ko" ? "ko.wikipedia.org" : "en.wikipedia.org";
+      const hasSearched = results !== null || loading || error;
+
+      const runSearch = useCallback(async () => {
+        const q = query.trim();
+        if (!q) return;
+        setLoading(true);
+        setError(null);
+        setResults(null);
+        setArticle(null);
+        setArticleError(null);
+        setLastQuery(q);
+
+        const url = `https://${wikiHost}/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+          q
+        )}&format=json&origin=*&srlimit=20`;
+
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          setResults((data && data.query && data.query.search) || []);
+        } catch (e) {
+          setError("검색에 실패했습니다. 네트워크 연결을 확인하세요.");
+        } finally {
+          setLoading(false);
+        }
+      }, [query, wikiHost]);
+
+      const openArticle = useCallback(
+        async (title) => {
+          setArticleLoading(true);
+          setArticleError(null);
+          setArticle(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          const url = `https://${wikiHost}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            setArticle(data);
+          } catch (e) {
+            setArticleError("문서를 불러오지 못했습니다. 다시 시도하세요.");
+          } finally {
+            setArticleLoading(false);
+          }
+        },
+        [wikiHost]
+      );
+
+      // Double-clicking the search term (after results are shown) clears the result cards
+      const clearResults = () => {
+        if (!hasSearched) return;
+        setResults(null);
+        setError(null);
+        setLastQuery("");
+        setArticle(null);
+        setArticleError(null);
+      };
+
+      // When language switches, clear current article view
+      const handleLangChange = (next) => {
+        setLang(next);
+        setArticle(null);
+        setArticleError(null);
+      };
+
+      return (
+        <main
+          className={`relative min-h-screen flex flex-col items-center px-4 transition-all duration-500 ${
+            hasSearched ? "pt-8 pb-16" : "justify-center"
+          }`}
+        >
+          {/* Header / Title */}
+          <header
+            className={`w-full max-w-3xl text-center transition-all duration-500 ${
+              hasSearched ? "mb-6" : "mb-8"
+            }`}
+          >
+            <h1 className="text-[#00ff41] text-glow font-mono font-bold text-3xl md:text-5xl tracking-wider">
+              위키피디아 검색사전
+            </h1>
+            <p className="text-[#00b32d] text-glow-soft font-mono text-sm md:text-base mt-2">
+              WIKIPEDIA SEARCH TERMINAL
+            </p>
+          </header>
+
+          {/* Search bar block */}
+          <section className="w-full max-w-3xl" aria-label="검색">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="flex-1">
+                <MatrixInput
+                  value={query}
+                  onChange={setQuery}
+                  onEnter={runSearch}
+                  onDoubleClick={clearResults}
+                  placeholder={lang === "ko" ? "검색어를 입력하세요" : "Type to search"}
+                  ariaLabel="위키피디아 검색어 입력"
+                  autoFocus
+                />
+              </div>
+              <MatrixButton onClick={runSearch} size="md" ariaLabel="검색 실행" disabled={loading}>
+                검색
+              </MatrixButton>
+            </div>
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-[#00b32d]/70 font-mono text-xs">
+                SOURCE: {wikiHost}
+              </span>
+              <LangToggle lang={lang} onChange={handleLangChange} />
+            </div>
+          </section>
+
+          {/* Results + Article area */}
+          <section className="w-full max-w-3xl mt-6 space-y-6" aria-live="polite">
+            {/* Article view (priority above results) */}
+            {articleLoading && <LoadingTerminal label="문서 로딩 중" />}
+            {articleError && (
+              <ErrorState message={articleError} onRetry={() => article && openArticle(article.title)} />
+            )}
+            {article && !articleLoading && (
+              <ArticlePanel article={article} lang={lang} onClose={() => setArticle(null)} />
+            )}
+
+            {/* Search states */}
+            {loading && <LoadingTerminal label="검색 중" />}
+            {error && <ErrorState message={error} onRetry={runSearch} />}
+            {!loading && !error && results && results.length === 0 && (
+              <EmptyState query={lastQuery} />
+            )}
+
+            {!loading && !error && results && results.length > 0 && (
+              <Panel className="overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#00ff41]/30 bg-[#00ff41]/5">
+                  <span className="text-[#00ff41] text-glow-soft font-mono text-sm font-bold">
+                    검색 결과: {results.length}건 — "{lastQuery}"
+                  </span>
+                </div>
+                <ul className="max-h-[60vh] overflow-y-auto">
+                  {results.map((item) => (
+                    <SearchResultItem key={item.pageid} item={item} onSelect={openArticle} />
+                  ))}
+                </ul>
+              </Panel>
+            )}
+          </section>
+        </main>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      useMatrixRain();
+      return <SearchPage />;
+    }
+
+    // ========================================
+    // Render
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
