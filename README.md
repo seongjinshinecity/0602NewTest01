@@ -45,6 +45,36 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 - `about-me.md`, `about-me2.md` — 자기소개
 - `single-server-specialist.md` — 서버 관련 정리 노트
 
+## 🖼️ 스크린샷
+
+### 0604 — 웹 기초 & 미니 앱
+
+| BMI 계산기 | 환율 변환기 | 나이 계산기 |
+|:---:|:---:|:---:|
+| ![BMI](0604/screenshots/05_05-bmi_index.html.png) | ![USD](0604/screenshots/04_06-usd_index.html.png) | ![Age](0604/screenshots/07_08-age_index.html.png) |
+
+| D-day 계산기 | 더치페이 | QR 코드 생성기 |
+|:---:|:---:|:---:|
+| ![Dday](0604/screenshots/08_09-dday_index.html.png) | ![Dpay](0604/screenshots/09_10-dpay_index.html.png) | ![QR](0604/screenshots/11_13-Qrmake_qr-generator.html.png) |
+
+| 세금 계산기 | PDF 생성기 | 밈 생성기 |
+|:---:|:---:|:---:|
+| ![Tax](0604/screenshots/10_11-duryTax_tax-calculator.html.png) | ![PDF](0604/screenshots/13_14-PDFmake_index.html.png) | ![Meme](0604/screenshots/14_15-memeMake_index.html.png) |
+
+### 0609 — API 연동 & AI 웹앱
+
+| AI 별명 생성기 | AI 꿈 해몽 | 코인 시세 티커 |
+|:---:|:---:|:---:|
+| ![Nickname](0609NewTesttt/homework/ai-nickname-generator/%EB%B3%84%EB%AA%85%EB%A8%B8%EC%8B%A0.png) | ![Dream](0609NewTesttt/homework/dream-interpreter/%EA%BF%88%20%ED%95%B4%EB%AA%BD.png) | ![Coin](0609NewTesttt/homework/coin-ticker/%EC%BD%94%EC%9D%B8.png) |
+
+| 날씨 옷차림 추천 | AI 이미지 스튜디오 | AI 위키 매트릭스 |
+|:---:|:---:|:---:|
+| ![Weather](0609NewTesttt/homework/weather-outfit/%EB%82%A0%EC%94%A8%EC%98%B7%EC%B0%A8%EB%A6%BC.png) | ![Image](0609NewTesttt/homework/ai-image-studio2/ai-image.png) | ![Wiki](0609NewTesttt/homework/ai-wiki-matrix/wiki.png) |
+
+| 챗봇 서버 | 1:1 AI 튜터 | NASA 앱 |
+|:---:|:---:|:---:|
+| ![Chatbot](0609NewTesttt/homework/my-chatbot-server/my_chatbot.png) | ![Tutor](0609NewTesttt/my-ai-tutor-server/my_tuto_screenshot.png) | ![NASA](0609NewTesttt/Goblin/NASA_app/nasa-app_screenshot.png) |
+
 ## 🛠️ 사용 기술
 - **프론트엔드**: HTML, CSS, JavaScript (일부 CDN 기반 React + Tailwind)
 - **백엔드**: Node.js (Express 등 경량 프록시 서버)
