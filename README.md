@@ -32,7 +32,7 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 | `Poketm-on` | 포켓몬 API 활용 앱 |
 | `homework/ai-nickname-generator` | AI 별명 생성기 (서버 + AI) |
 | `homework/ai-image-studio2` | AI 이미지 스튜디오 |
-| `homework/ai-wiki-matrix` | AI 위키 매트릭스 |
+| `homework/ai-wiki-matrix` | AI 위키 매트릭스 (`index-matrix-title.html` — 위키피디아↔MATRIX 디코딩 타이틀) |
 | `homework/dream-interpreter` | AI 꿈 해몽 앱 |
 | `homework/coin-ticker` | 코인 시세 티커 |
 | `homework/weather-outfit` | 날씨 기반 옷차림 추천 |
@@ -78,6 +78,10 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 | AI 이미지 스튜디오 | AI 위키 매트릭스 | 멘탈 어시스턴트 |
 |:---:|:---:|:---:|
 | ![Image](0609NewTesttt/_ui-screenshots/ai-image-studio2.png) | ![Wiki](0609NewTesttt/_ui-screenshots/ai-wiki-matrix.png) | ![Mental](0609NewTesttt/_ui-screenshots/my_mental_assistant.png) |
+
+| AI 위키 매트릭스 — MATRIX 타이틀 |
+|:---:|
+| ![WikiMatrixTitle](0609NewTesttt/_ui-screenshots/ai-wiki-matrix-title.png) |
 
 | 챗봇 서버 | 1:1 AI 튜터 | AI 튜터 서버 |
 |:---:|:---:|:---:|
