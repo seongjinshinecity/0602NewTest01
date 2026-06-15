@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>나만의 대화형 챗봇 // ASCII TERMINAL</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        bg:'#080b0e', panel:'#0d1218', panel2:'#11181f', line:'#1c2730',
+        ink:'#c7d4cc', inkSoft:'#6d7e74', inkMute:'#48564d',
+        grn:'#4ade80', grnDim:'#22c55e', grnDeep:'#0b3b22',
+        cyan:'#38bdf8', amber:'#fbbf24',
+      },
+      fontFamily: { mono:['"JetBrains Mono"','ui-monospace','SFMono-Regular','Menlo','monospace'] },
+    } },
+  };
+</script>
+<style>
+  html,body{ background:#080b0e; }
+  *{ font-feature-settings:"liga" 0; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#1c2730; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#2a3a44; }
+  ::-webkit-scrollbar-track { background:transparent; }
+
+  .fade-in { animation: fade .3s ease both; }
+  @keyframes fade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .dot { animation: blink 1.3s infinite both; }
+  .dot:nth-child(2){animation-delay:.18s} .dot:nth-child(3){animation-delay:.36s}
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  .glow { text-shadow:0 0 6px rgba(74,222,128,.55), 0 0 18px rgba(74,222,128,.25); }
+  .cursor::after{ content:"▋"; margin-left:1px; color:#4ade80; animation:cur 1s steps(1) infinite; }
+  @keyframes cur{ 50%{opacity:0} }
+
+  .ascii { font-family:'JetBrains Mono',monospace; line-height:1.0; letter-spacing:.5px; white-space:pre; }
+  .scan { background:linear-gradient(rgba(74,222,128,0) 0,rgba(74,222,128,.025) 50%,rgba(74,222,128,0) 100%); background-size:100% 6px; }
+
+  /* ── 다크 터미널용 마크다운 ── */
+  .md p { margin:0 0 .55em; } .md p:last-child{ margin-bottom:0; }
+  .md ul,.md ol { margin:.35em 0 .6em; padding-left:1.2em; }
+  .md li { margin:.18em 0; }
+  .md a { color:#38bdf8; text-decoration:underline; }
+  .md code { background:#0a1410; color:#7ee787; padding:.08em .42em; border-radius:5px; font-size:.9em; border:1px solid #143020; }
+  .md pre { background:#070b09; color:#c8e6d2; padding:.8em 1em; border-radius:10px; overflow-x:auto; margin:.55em 0; font-size:.84em; line-height:1.6; border:1px solid #163024; }
+  .md pre code { background:transparent; padding:0; color:inherit; border:0; }
+  .md strong { font-weight:700; color:#d6ffe6; }
+  .md em { color:#9fb3a8; }
+  .md h1,.md h2,.md h3 { font-weight:700; color:#4ade80; margin:.6em 0 .3em; }
+  .md blockquote { border-left:3px solid #22c55e; padding-left:.8em; margin:.4em 0; color:#8fa399; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+const LS = { profile:"chatbot_profile_v1", chat:"chatbot_chat_v1" };
+
+const DEFAULT_PROFILE = {
+  name: "ARIA",
+  persona: "호기심이 많고 차분하며, 핵심을 꿰뚫어 설명하는 성격",
+  tone: "정중하지만 군더더기 없는 존댓말, 가끔 위트를 곁들임",
+  expertise: "프로그래밍과 기술, 그리고 새로운 아이디어 브레인스토밍",
+};
+
+const PRESETS = [
+  { key:"teacher", label:"🎓 친절한 선생님", p:{ name:"하루샘", persona:"인내심이 많고 늘 격려해 주는, 따뜻한 성격", tone:"쉽고 다정한 존댓말", expertise:"학습 코칭과 개념을 쉽게 풀어 설명하기" }},
+  { key:"hacker", label:"💻 시니컬한 개발자", p:{ name:"NULL", persona:"직설적이고 위트 넘치며 효율을 최우선으로 하는 성격", tone:"가끔 반말이 섞인 시니컬한 농담조", expertise:"소프트웨어 개발, 디버깅, 시스템 설계" }},
+  { key:"counselor", label:"🌿 따뜻한 상담가", p:{ name:"온",  persona:"공감 능력이 뛰어나고 판단하지 않는 차분한 성격", tone:"부드럽고 위로가 되는 존댓말", expertise:"감정 정리와 마음 상담" }},
+  { key:"mentor", label:"🚀 열정 스타트업 멘토", p:{ name:"VC봇", persona:"에너지가 넘치고 동기부여를 잘하는 성격", tone:"활기차고 직설적인 반존대", expertise:"창업, 비즈니스 전략, 성장 해킹" }},
+];
+
+/* ── 마크다운 (간단 렌더러) ── */
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function renderMarkdown(src){
+  let s = escapeHtml(src); const blocks = [];
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g,(m,lang,code)=>{ blocks.push(`<pre><code>${code.replace(/\n$/,"")}</code></pre>`); return ` ${blocks.length-1} `; });
+  s = s.replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<em>$2</em>");
+  s = s.replace(/^### (.*)$/gm,"<h3>$1</h3>").replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>").replace(/^&gt; (.*)$/gm,"<blockquote>$1</blockquote>");
+  const lines=s.split("\n"); let out=[],inUl=false,inOl=false;
+  const close=()=>{ if(inUl){out.push("</ul>");inUl=false;} if(inOl){out.push("</ol>");inOl=false;} };
+  for(let line of lines){
+    if(/^\s*[-*] /.test(line)){ if(!inUl){close();out.push("<ul>");inUl=true;} out.push("<li>"+line.replace(/^\s*[-*] /,"")+"</li>"); }
+    else if(/^\s*\d+\. /.test(line)){ if(!inOl){close();out.push("<ol>");inOl=true;} out.push("<li>"+line.replace(/^\s*\d+\. /,"")+"</li>"); }
+    else { close(); out.push(line); }
+  }
+  close(); s=out.join("\n");
+  s = s.split(/\n{2,}/).map(b=>{ if(/^ \d+ $/.test(b.trim())||/^<(h1|h2|h3|ul|ol|pre|blockquote)/.test(b.trim())) return b; return "<p>"+b.replace(/\n/g,"<br/>")+"</p>"; }).join("\n");
+  s = s.replace(/ (\d+) /g,(m,i)=>blocks[+i]);
+  return s;
+}
+
+/* ── 진짜 생성형 ASCII 아트 배너 (플라스마 애니메이션) ── */
+function AsciiBanner({ name }){
+  const ref = useRef(null);
+  useEffect(()=>{
+    const el = ref.current; if(!el) return;
+    const COLS = 76, ROWS = 9;
+    const ramp = " .,:;ir=+xX#$@"; // 어두움 → 밝음
+    let raf, t = 0, alive = true;
+    const render = ()=>{
+      if(!alive) return;
+      t += 0.045;
+      let out = "";
+      for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+          const v = Math.sin(x*0.18 + t)
+                  + Math.sin(y*0.5 - t*0.8)
+                  + Math.sin((x+y)*0.12 + t*1.3)
+                  + Math.sin(Math.hypot(x-COLS/2, (y-ROWS/2)*2)*0.18 - t*1.6);
+          const n = (v+4)/8; // 0..1
+          out += ramp[Math.max(0, Math.min(ramp.length-1, Math.floor(n*ramp.length)))];
+        }
+        out += "\n";
+      }
+      el.textContent = out;
+      raf = requestAnimationFrame(render);
+    };
+    render();
+    return ()=>{ alive=false; cancelAnimationFrame(raf); };
+  },[]);
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-line bg-[#070b09] scan">
+      <pre ref={ref} className="ascii text-grn/30 text-[10px] sm:text-[11px] px-3 py-3 select-none m-0" aria-hidden="true"></pre>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className="text-grn glow font-bold tracking-[.35em] text-lg sm:text-2xl">{(name||"AI").toUpperCase()}</div>
+        <div className="text-inkSoft text-[10px] sm:text-xs tracking-[.3em] mt-1">CONVERSATIONAL&nbsp;BOT&nbsp;//&nbsp;ONLINE</div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, value, onChange, rows=2, mono=false, placeholder }){
+  return (
+    <div>
+      <label className="flex items-center gap-2 text-[13px] font-bold text-grn mb-1.5">
+        <span className="text-grnDim">›</span>{label}
+      </label>
+      {hint && <p className="text-[11px] text-inkSoft mb-1.5 leading-relaxed">{hint}</p>}
+      <textarea
+        value={value} onChange={e=>onChange(e.target.value)} rows={rows} placeholder={placeholder}
+        className={`w-full resize-y rounded-lg border border-line bg-bg/60 px-3 py-2 text-[13px] text-ink placeholder-inkMute focus:outline-none focus:border-grnDim focus:ring-1 focus:ring-grnDim/40 transition ${mono?"font-mono":""}`}
+      />
+    </div>
+  );
+}
+
+function App(){
+  const [profile, setProfile] = useState(()=>{ try{ const s=localStorage.getItem(LS.profile); if(s) return {...DEFAULT_PROFILE, ...JSON.parse(s)}; }catch(e){} return DEFAULT_PROFILE; });
+  const greeting = ()=>`접속 완료. 저는 **${profile.name}** 입니다. 설정된 성격과 말투 그대로 대화를 시작할게요 — 무엇이든 물어보세요.`;
+  const [messages, setMessages] = useState(()=>{ try{ const s=localStorage.getItem(LS.chat); if(s) return JSON.parse(s); }catch(e){} return [{ role:"assistant", content:greeting() }]; });
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [sidebar, setSidebar] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const scroller = useRef(null);
+
+  useEffect(()=>{ localStorage.setItem(LS.profile, JSON.stringify(profile)); setSaved(true); const t=setTimeout(()=>setSaved(false),1200); return ()=>clearTimeout(t); }, [profile]);
+  useEffect(()=>{ localStorage.setItem(LS.chat, JSON.stringify(messages)); }, [messages]);
+  useEffect(()=>{ if(scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [messages, loading]);
+
+  const setP = (k,v)=> setProfile(p=>({ ...p, [k]:v }));
+  const applyPreset = (pr)=> setProfile(pr.p);
+  const resetChat = ()=>{ if(confirm("대화 기록을 모두 지우고 새로 시작할까요?")) setMessages([{ role:"assistant", content:greeting() }]); };
+
+  async function send(){
+    const q = input.trim(); if(!q || loading) return;
+    setError("");
+    const history = [...messages, { role:"user", content:q }];
+    setMessages([...history, { role:"assistant", content:"" }]);
+    setInput(""); setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body: JSON.stringify({ messages: history.map(m=>({ role:m.role, content:m.content })), profile }),
+      });
+      if(!res.ok){
+        let msg = "요청 실패 ("+res.status+")";
+        try { const j = await res.json(); if(j.error?.message) msg=j.error.message; } catch(e){}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader(); const decoder = new TextDecoder();
+      let buf="", acc="";
+      while(true){
+        const { done, value } = await reader.read(); if(done) break;
+        buf += decoder.decode(value,{stream:true});
+        const parts = buf.split("\n\n"); buf = parts.pop();
+        for(const part of parts){
+          const dataLine = part.split("\n").find(l=>l.startsWith("data:"));
+          if(!dataLine) continue;
+          try {
+            const evt = JSON.parse(dataLine.slice(5).trim());
+            if(evt.type==="content_block_delta" && evt.delta?.type==="text_delta"){
+              acc += evt.delta.text;
+              setMessages(prev=>{ const c=[...prev]; c[c.length-1]={ role:"assistant", content:acc }; return c; });
+            }
+          } catch(e){}
+        }
+      }
+      if(!acc) setMessages(prev=>{ const c=[...prev]; c[c.length-1]={ role:"assistant", content:"(응답이 비어 있습니다. 다시 시도해 주세요.)" }; return c; });
+    } catch(e){
+      setError(e.message || String(e));
+      setMessages(prev=>prev.slice(0,-1));
+    } finally { setLoading(false); }
+  }
+  const onKey = (e)=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } };
+
+  return (
+    <div className="h-screen flex flex-col font-mono text-ink bg-bg">
+      {/* 헤더 */}
+      <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line bg-panel/80 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <button onClick={()=>setSidebar(true)} className="lg:hidden w-9 h-9 grid place-items-center rounded-lg border border-line hover:border-grnDim transition text-grn">☰</button>
+          <div className="w-9 h-9 rounded-lg bg-grnDeep border border-grnDim/40 text-grn grid place-items-center font-bold text-sm glow">{'>_'}</div>
+          <div>
+            <h1 className="font-bold text-[15px] leading-none tracking-wide text-ink">나만의 대화형 챗봇</h1>
+            <p className="text-[11px] text-inkSoft mt-1 tracking-wide">PROFILE-DRIVEN AI · ascii terminal · 서버 프록시 🔒</p>
+          </div>
+        </div>
+        <button onClick={resetChat} className="text-[12px] px-3 py-1.5 rounded-lg border border-line hover:border-grnDim hover:text-grn transition">새 대화</button>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* 사이드바: 프로필 설정 */}
+        <aside className={`${sidebar?"translate-x-0":"-translate-x-full"} lg:translate-x-0 transition-transform fixed lg:static z-30 inset-y-0 left-0 w-[90%] sm:w-[400px] bg-panel border-r border-line flex flex-col`}>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
+            <h2 className="font-bold text-[14px] text-grn tracking-wide">⚙ AI 프로필 설정</h2>
+            <div className="flex items-center gap-3">
+              <span className={`text-[11px] text-grn transition-opacity ${saved?"opacity-100":"opacity-0"}`}>✓ 저장됨</span>
+              <button onClick={()=>setSidebar(false)} className="lg:hidden text-inkSoft text-lg">✕</button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            <p className="text-[11px] leading-relaxed text-inkSoft bg-panel2 rounded-lg p-3 border border-line">
+              아래 설정이 곧 <b className="text-grn">AI의 정체성</b>입니다. 성격·말투·전문분야를 정하면
+              그대로 답변에 반영됩니다. 입력 즉시 저장되며 <b className="text-ink">다음 메시지부터</b> 적용돼요.
+            </p>
+
+            {/* 프리셋 */}
+            <div>
+              <label className="text-[13px] font-bold text-grn mb-2 block"><span className="text-grnDim">›</span> 빠른 프리셋</label>
+              <div className="grid grid-cols-2 gap-2">
+                {PRESETS.map(pr=>(
+                  <button key={pr.key} onClick={()=>applyPreset(pr)}
+                    className="text-[11.5px] text-left px-2.5 py-2 rounded-lg border border-line bg-bg/40 hover:border-grnDim hover:text-grn transition leading-snug">
+                    {pr.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px bg-line"></div>
+
+            <Field label="이름" hint="AI 캐릭터의 호출명" value={profile.name} rows={1}
+              onChange={v=>setP("name",v)} placeholder="예) ARIA, 하루샘, NULL…" />
+            <Field label="성격 (personality)" hint="어떤 성향·태도를 가졌나요?" value={profile.persona} rows={3}
+              onChange={v=>setP("persona",v)} placeholder="예) 호기심이 많고 차분하며 핵심을 짚어 설명하는…" />
+            <Field label="말투 (tone)" hint="어떤 어조로 말하나요?" value={profile.tone} rows={2}
+              onChange={v=>setP("tone",v)} placeholder="예) 정중한 존댓말 / 시니컬한 반말 / 활기찬 반존대…" />
+            <Field label="전문분야 (expertise)" hint="무엇을 잘 아나요?" value={profile.expertise} rows={2}
+              onChange={v=>setP("expertise",v)} placeholder="예) 프로그래밍 / 심리 상담 / 마케팅 전략…" />
+
+            <p className="text-[10.5px] text-inkMute pt-1 leading-relaxed">
+              ※ API 키는 서버 <span className="text-inkSoft">.env</span> 에만 보관되며 브라우저로 노출되지 않습니다.
+            </p>
+          </div>
+        </aside>
+        {sidebar && <div onClick={()=>setSidebar(false)} className="lg:hidden fixed inset-0 bg-black/60 z-20"></div>}
+
+        {/* 메인: 대화 */}
+        <main className="flex-1 flex flex-col bg-bg min-w-0">
+          <div ref={scroller} className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+            <div className="max-w-3xl mx-auto space-y-5">
+              <AsciiBanner name={profile.name} />
+
+              {messages.map((m,i)=>(
+                <div key={i} className={`fade-in flex gap-3 ${m.role==="user"?"flex-row-reverse":""}`}>
+                  <div className={`shrink-0 w-9 h-9 rounded-lg grid place-items-center text-[12px] font-bold border ${m.role==="user"?"bg-panel2 border-line text-ink":"bg-grnDeep border-grnDim/40 text-grn glow"}`}>
+                    {m.role==="user"?"YOU":">_"}
+                  </div>
+                  <div className={`max-w-[82%] rounded-xl px-4 py-3 text-[14px] leading-relaxed border ${m.role==="user"?"bg-panel2 border-line text-ink rounded-tr-sm":"bg-panel border-line text-ink rounded-tl-sm"}`}>
+                    {m.role==="assistant"
+                      ? (m.content
+                          ? <div className="md" dangerouslySetInnerHTML={{__html:renderMarkdown(m.content) + (loading && i===messages.length-1 ? '<span class="cursor"></span>' : '')}} />
+                          : <div className="flex gap-1.5 py-1"><span className="dot w-1.5 h-1.5 rounded-full bg-grn"></span><span className="dot w-1.5 h-1.5 rounded-full bg-grn"></span><span className="dot w-1.5 h-1.5 rounded-full bg-grn"></span></div>)
+                      : <div className="whitespace-pre-wrap">{m.content}</div>}
+                  </div>
+                </div>
+              ))}
+              {error && <div className="fade-in text-[13px] text-amber bg-amber/10 border border-amber/40 rounded-lg px-4 py-3 max-w-[82%]">⚠ {error}</div>}
+            </div>
+          </div>
+
+          {/* 입력 */}
+          <div className="border-t border-line bg-panel/80 backdrop-blur px-4 sm:px-8 py-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-end gap-2 bg-bg/60 border border-line rounded-xl p-2 focus-within:border-grnDim focus-within:ring-1 focus-within:ring-grnDim/40 transition">
+                <span className="text-grn pl-2 pb-2.5 select-none">$</span>
+                <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={onKey} rows={1}
+                  placeholder="메시지를 입력하세요…  (Enter 전송 / Shift+Enter 줄바꿈)"
+                  className="flex-1 resize-none bg-transparent px-1 py-2 text-[14px] text-ink placeholder-inkMute focus:outline-none max-h-40" />
+                <button onClick={send} disabled={loading||!input.trim()}
+                  className="shrink-0 h-9 px-4 rounded-lg bg-grnDeep border border-grnDim/50 text-grn font-bold text-[13px] disabled:opacity-30 hover:bg-grnDim/20 transition flex items-center gap-1.5">
+                  {loading?<span>전송 중…</span>:<><span>전송</span><span>↵</span></>}
+                </button>
+              </div>
+              <p className="text-[10.5px] text-inkMute mt-2 text-center tracking-wide">
+                현재 프로필: <span className="text-inkSoft">{profile.name}</span> · 답변은 설정된 성격·말투·전문분야로 생성됩니다
+              </p>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

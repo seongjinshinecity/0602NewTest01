@@ -1,0 +1,12 @@
+{
+  "name": "my-chatbot-server",
+  "version": "1.0.0",
+  "description": "프로필(성격·말투·전문분야)을 설정하는 나만의 대화형 챗봇 (Node 프록시, API 키 서버 보관)",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
