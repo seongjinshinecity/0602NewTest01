@@ -90,4 +90,14 @@ my-ai-tutor-server/
 
 ---
 
+## 🧠 메모리 & 노코드 에이전트 데모
+
+이 튜터를 둘러싼 **메모리**와 **노코드 에이전트** 동작을 실제 실행 결과로 정리한 문서:
+👉 [DEMO-memory-and-agents.md](DEMO-memory-and-agents.md)
+
+- 노코드 에이전트: `.claude/agents/*.md` 설정만으로 정의 (`about-me-qa-bot` 라이브 실행 결과 포함)
+- 메모리: `memory/MEMORY.md` 색인 + 사실별 파일로 세션 간 기억 유지(save→recall)
+
+---
+
 *브라우저 단독(서버 없는) 버전은 상위 폴더의 `my-ai-tutor/index.html` 을 참고하세요.*
