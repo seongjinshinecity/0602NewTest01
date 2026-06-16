@@ -1,0 +1,13 @@
+{
+  "name": "todo-db",
+  "version": "1.0.0",
+  "description": "오늘 할 일 Todo 앱 (Express + Supabase PostgreSQL)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}

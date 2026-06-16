@@ -24,23 +24,30 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 | `screenshots` | 각 실습 결과 스크린샷 모음 |
 
 ### `0609NewTesttt/` — API 연동 & AI 웹앱
-외부 API와 AI(LLM)를 활용한 본격적인 웹 애플리케이션 실습입니다.
+외부 API와 AI(LLM)를 활용한 본격적인 웹 애플리케이션 실습입니다. 주차별로 `Week3/`, `Week4/` 폴더에 정리되어 있습니다.
 
+#### `Week3/` — 3주차: 서버·API·Context
 | 폴더 | 내용 |
 |------|------|
-| `Goblin/NASA_app`, `Goblin/weather-app` | NASA·날씨 API 연동 앱 |
-| `Poketm-on` | 포켓몬 API 활용 앱 |
-| `homework/ai-nickname-generator` | AI 별명 생성기 (서버 + AI) |
-| `homework/ai-image-studio2` | AI 이미지 스튜디오 |
-| `homework/ai-wiki-matrix` | AI 위키 매트릭스 (`index-matrix-title.html` — 위키피디아↔MATRIX 디코딩 타이틀) |
-| `homework/dream-interpreter` | AI 꿈 해몽 앱 |
-| `homework/coin-ticker` | 코인 시세 티커 |
-| `homework/weather-outfit` | 날씨 기반 옷차림 추천 |
-| `homework/my-chatbot-server` | 챗봇 서버 |
-| `homework/my_mental_assistant` | 멘탈 어시스턴트 |
-| `my-ai-tutor-server`, `my-ai-tutor` | 1:1 AI 튜터 앱 |
-| `homework/about-me-app` | about-me 풀스택 포트폴리오 + 근거 기반 Q&A |
-| `my-api-2`, `myServer` | API/서버 연동 실습 |
+| `Week3/Goblin/NASA_app`, `Week3/Goblin/weather-app` | NASA·날씨 API 연동 앱 |
+| `Week3/Poketm-on` | 포켓몬 API 활용 앱 |
+| `Week3/cloth` | 날씨 기반 옷차림 추천 앱 (Open-Meteo, 단일 index.html) |
+| `Week3/homework/ai-nickname-generator` | AI 별명 생성기 (서버 + AI) |
+| `Week3/homework/ai-image-studio2` | AI 이미지 스튜디오 |
+| `Week3/homework/ai-wiki-matrix` | AI 위키 매트릭스 (`index-matrix-title.html` — 위키피디아↔MATRIX 디코딩 타이틀) |
+| `Week3/homework/dream-interpreter` | AI 꿈 해몽 앱 (길흉 판정·키워드·조언 구조화) |
+| `Week3/homework/coin-ticker` | 코인 시세 티커 |
+| `Week3/homework/weather-outfit` | 날씨 기반 옷차림 추천 (서버 버전) |
+| `Week3/homework/my-chatbot-server` | 챗봇 서버 |
+| `Week3/homework/my_mental_assistant` | 멘탈 어시스턴트 |
+| `Week3/homework/about-me-app` | about-me 풀스택 포트폴리오 + 근거 기반 Q&A |
+| `Week3/my-ai-tutor-server`, `Week3/my-ai-tutor` | 1:1 AI 튜터 앱 |
+| `Week3/my-api-2`, `Week3/myServer` | API/서버 연동 실습 |
+
+#### `Week4/` — 4주차: 데이터베이스 & 배포
+| 폴더 | 내용 |
+|------|------|
+| `Week4/futurism-poster` | 퓨처리즘 포스터(ASCENSION 2099) + 한 줄 기대평 서버 (Express + JSON 저장) |
 
 ### 문서
 - `about-me.md`, `about-me2.md` — 자기소개

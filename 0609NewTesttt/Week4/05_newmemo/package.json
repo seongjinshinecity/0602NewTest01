@@ -1,0 +1,23 @@
+{
+  "name": "05_newmemo",
+  "version": "1.0.0",
+  "description": "메모 CRUD 앱 (React + Express + PostgreSQL/PGlite)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "memo",
+    "crud",
+    "postgresql",
+    "pglite",
+    "express",
+    "react"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}

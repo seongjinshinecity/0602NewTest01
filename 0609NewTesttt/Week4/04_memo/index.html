@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>메모 - Memo App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fadeIn 0.25s ease-out; }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    .animate-modal-in { animation: modalIn 0.18s ease-out; }
+    /* Custom scrollbar for textareas */
+    textarea { scrollbar-width: thin; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // Utilities
+    // ========================================
+    const STORAGE_KEY = "memo_app_memos_v1";
+
+    const uid = () =>
+      Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+    // 메모별 부드러운 파스텔 색상 팔레트
+    const NOTE_COLORS = [
+      { bg: "bg-yellow-100", border: "border-yellow-200", ring: "ring-yellow-300" },
+      { bg: "bg-rose-100", border: "border-rose-200", ring: "ring-rose-300" },
+      { bg: "bg-sky-100", border: "border-sky-200", ring: "ring-sky-300" },
+      { bg: "bg-emerald-100", border: "border-emerald-200", ring: "ring-emerald-300" },
+      { bg: "bg-violet-100", border: "border-violet-200", ring: "ring-violet-300" },
+      { bg: "bg-orange-100", border: "border-orange-200", ring: "ring-orange-300" },
+    ];
+
+    const colorForId = (id) => {
+      let sum = 0;
+      for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+      return NOTE_COLORS[sum % NOTE_COLORS.length];
+    };
+
+    // 상대 시간 ("3분 전") 또는 한국식 날짜 표기
+    const relativeTime = (ts) => {
+      const diff = Date.now() - ts;
+      const sec = Math.floor(diff / 1000);
+      if (sec < 5) return "방금 전";
+      if (sec < 60) return `${sec}초 전`;
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}분 전`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr}시간 전`;
+      const day = Math.floor(hr / 24);
+      if (day < 7) return `${day}일 전`;
+      const d = new Date(ts);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mi = String(d.getMinutes()).padStart(2, "0");
+      return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+    };
+
+    const fullDate = (ts) => {
+      const d = new Date(ts);
+      return d.toLocaleString("ko-KR", {
+        year: "numeric", month: "long", day: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    };
+
+    const loadMemos = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        console.error("메모 불러오기 실패:", e);
+        return [];
+      }
+    };
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    function Button({
+      variant = "primary",
+      size = "md",
+      type = "button",
+      disabled = false,
+      onClick,
+      className = "",
+      children,
+      ...rest
+    }) {
+      const base =
+        "inline-flex items-center justify-center gap-1.5 font-medium rounded-xl transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
+      const variants = {
+        primary:
+          "bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow focus-visible:ring-orange-400",
+        secondary:
+          "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm focus-visible:ring-gray-300",
+        danger:
+          "bg-rose-500 hover:bg-rose-600 text-white shadow-sm focus-visible:ring-rose-400",
+        ghost:
+          "bg-transparent hover:bg-black/5 text-gray-600 focus-visible:ring-gray-300",
+      };
+      const sizes = {
+        sm: "px-2.5 py-1 text-xs",
+        md: "px-4 py-2 text-sm",
+        lg: "px-5 py-2.5 text-base",
+      };
+      return (
+        <button
+          type={type}
+          disabled={disabled}
+          onClick={onClick}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Input({
+      label,
+      id,
+      value,
+      onChange,
+      placeholder,
+      disabled = false,
+      className = "",
+      ...rest
+    }) {
+      return (
+        <div className={className}>
+          {label && (
+            <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+          )}
+          <input
+            id={id}
+            type="text"
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            disabled={disabled}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-800 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition disabled:bg-gray-100"
+            {...rest}
+          />
+        </div>
+      );
+    }
+
+    const Textarea = React.forwardRef(function Textarea(
+      {
+        label,
+        id,
+        value,
+        onChange,
+        placeholder,
+        rows = 3,
+        disabled = false,
+        className = "",
+        ...rest
+      },
+      ref
+    ) {
+      return (
+        <div className={className}>
+          {label && (
+            <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+          )}
+          <textarea
+            ref={ref}
+            id={id}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            rows={rows}
+            disabled={disabled}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/80 text-gray-800 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition resize-y disabled:bg-gray-100"
+            {...rest}
+          />
+        </div>
+      );
+    });
+
+    function Card({ className = "", children, ...rest }) {
+      return (
+        <div
+          className={`rounded-2xl shadow-sm ${className}`}
+          {...rest}
+        >
+          {children}
+        </div>
+      );
+    }
+
+    function Modal({ isOpen, onClose, title, children, size = "md" }) {
+      // ESC 키로 닫기
+      useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+          if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+      }, [isOpen, onClose]);
+
+      if (!isOpen) return null;
+
+      const sizes = {
+        sm: "max-w-sm",
+        md: "max-w-lg",
+        lg: "max-w-2xl",
+      };
+
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+        >
+          <div
+            className={`w-full ${sizes[size]} bg-white rounded-2xl shadow-xl animate-modal-in`}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+              <button
+                onClick={onClose}
+                aria-label="닫기"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-5">{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function Badge({ children, className = "" }) {
+      return (
+        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    // ========================================
+    // 🧩 App-specific Components
+    // ========================================
+
+    // --- 헤더 ---
+    function Header({ count }) {
+      return (
+        <header className="text-center mb-8">
+          <div className="inline-flex items-center gap-3">
+            <span className="text-4xl sm:text-5xl" aria-hidden="true">📝</span>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-tight">
+              메모장
+            </h1>
+          </div>
+          <p className="mt-2 text-gray-500 text-sm sm:text-base">
+            간단한 생각을 적고 색색의 스티커 메모로 보관하세요
+          </p>
+          <p className="mt-1 text-orange-500 text-sm font-medium">
+            총 {count}개의 메모
+          </p>
+        </header>
+      );
+    }
+
+    // --- 작성 영역 ---
+    function Composer({ onAdd }) {
+      const [title, setTitle] = useState("");
+      const [body, setBody] = useState("");
+      const bodyRef = useRef(null);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        const t = title.trim();
+        const b = body.trim();
+        if (!t && !b) return;
+        onAdd({ title: t, body: b });
+        setTitle("");
+        setBody("");
+        if (bodyRef.current) bodyRef.current.focus();
+      };
+
+      const canSubmit = title.trim() !== "" || body.trim() !== "";
+
+      return (
+        <Card className="bg-white/80 backdrop-blur border border-white p-5 mb-8">
+          <form onSubmit={handleSubmit} aria-label="새 메모 작성">
+            <Input
+              id="composer-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="제목 (선택)"
+              className="mb-3"
+              aria-label="메모 제목"
+            />
+            <Textarea
+              id="composer-body"
+              ref={bodyRef}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="메모 내용을 입력하세요..."
+              rows={3}
+              aria-label="메모 내용"
+            />
+            <div className="flex justify-end mt-3">
+              <Button type="submit" disabled={!canSubmit} aria-label="메모 추가">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                메모 추가
+              </Button>
+            </div>
+          </form>
+        </Card>
+      );
+    }
+
+    // --- 검색 바 ---
+    function SearchBar({ value, onChange }) {
+      return (
+        <div className="relative mb-6 max-w-md mx-auto">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+          </span>
+          <input
+            type="search"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="제목·내용으로 검색..."
+            aria-label="메모 검색"
+            className="w-full pl-11 pr-10 py-2.5 rounded-full border border-gray-200 bg-white/80 text-gray-800 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 transition"
+          />
+          {value && (
+            <button
+              onClick={() => onChange("")}
+              aria-label="검색어 지우기"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // --- 메모 카드 ---
+    function MemoCard({ memo, onEdit, onDelete }) {
+      const [confirming, setConfirming] = useState(false);
+      const color = colorForId(memo.id);
+      const timerRef = useRef(null);
+
+      // 확인 상태 자동 해제 (4초)
+      const startConfirm = () => {
+        setConfirming(true);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setConfirming(false), 4000);
+      };
+
+      useEffect(() => () => clearTimeout(timerRef.current), []);
+
+      return (
+        <Card
+          className={`${color.bg} ${color.border} border p-4 flex flex-col group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 animate-fade-in`}
+        >
+          {memo.title && (
+            <h3 className="font-semibold text-gray-800 text-lg mb-1.5 break-words">
+              {memo.title}
+            </h3>
+          )}
+          {memo.body && (
+            <p className="text-gray-700 text-sm whitespace-pre-wrap break-words flex-1">
+              {memo.body}
+            </p>
+          )}
+          {!memo.body && !memo.title && (
+            <p className="text-gray-400 italic text-sm flex-1">(빈 메모)</p>
+          )}
+
+          <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-between gap-2">
+            <time
+              className="text-xs text-gray-500"
+              dateTime={new Date(memo.updatedAt).toISOString()}
+              title={fullDate(memo.updatedAt)}
+            >
+              {memo.createdAt !== memo.updatedAt && (
+                <span className="text-gray-400">수정됨 · </span>
+              )}
+              {relativeTime(memo.updatedAt)}
+            </time>
+
+            <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+              {!confirming ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(memo)}
+                    aria-label="메모 수정"
+                    className="!px-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={startConfirm}
+                    aria-label="메모 삭제"
+                    className="!px-2 text-rose-500 hover:text-rose-700"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center gap-1 animate-fade-in">
+                  <span className="text-xs text-rose-600 font-medium mr-1">삭제할까요?</span>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => onDelete(memo.id)}
+                    aria-label="삭제 확인"
+                  >
+                    삭제
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirming(false)}
+                    aria-label="삭제 취소"
+                  >
+                    취소
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    // --- 수정 모달 ---
+    function EditModal({ memo, isOpen, onClose, onSave }) {
+      const [title, setTitle] = useState("");
+      const [body, setBody] = useState("");
+
+      useEffect(() => {
+        if (memo) {
+          setTitle(memo.title || "");
+          setBody(memo.body || "");
+        }
+      }, [memo]);
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        const t = title.trim();
+        const b = body.trim();
+        if (!t && !b) return;
+        onSave(memo.id, { title: t, body: b });
+        onClose();
+      };
+
+      const canSave = title.trim() !== "" || body.trim() !== "";
+
+      return (
+        <Modal isOpen={isOpen} onClose={onClose} title="메모 수정" size="md">
+          <form onSubmit={handleSave}>
+            <Input
+              id="edit-title"
+              label="제목"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="제목 (선택)"
+              className="mb-4"
+            />
+            <Textarea
+              id="edit-body"
+              label="내용"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="메모 내용..."
+              rows={6}
+            />
+            <div className="flex justify-end gap-2 mt-5">
+              <Button variant="secondary" onClick={onClose}>
+                취소
+              </Button>
+              <Button type="submit" disabled={!canSave}>
+                저장
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      );
+    }
+
+    // --- 빈 상태 (메모 없음) ---
+    function EmptyState() {
+      return (
+        <div className="text-center py-20 animate-fade-in" role="status">
+          <div className="text-6xl mb-4" aria-hidden="true">🗒️</div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-1">
+            아직 메모가 없어요
+          </h2>
+          <p className="text-gray-500">
+            위 작성 영역에서 첫 번째 메모를 추가해 보세요!
+          </p>
+        </div>
+      );
+    }
+
+    // --- 검색 결과 없음 ---
+    function NoResults({ query }) {
+      return (
+        <div className="text-center py-20 animate-fade-in" role="status">
+          <div className="text-6xl mb-4" aria-hidden="true">🔍</div>
+          <h2 className="text-xl font-semibold text-gray-700 mb-1">
+            검색 결과가 없습니다
+          </h2>
+          <p className="text-gray-500">
+            "<span className="font-medium text-gray-700">{query}</span>"에 해당하는 메모를 찾지 못했어요.
+          </p>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App Component
+    // ========================================
+    function App() {
+      const [memos, setMemos] = useState(loadMemos);
+      const [query, setQuery] = useState("");
+      const [editing, setEditing] = useState(null); // 수정 중인 메모 객체
+
+      // 변경 시 localStorage 저장
+      useEffect(() => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(memos));
+        } catch (e) {
+          console.error("메모 저장 실패:", e);
+        }
+      }, [memos]);
+
+      const addMemo = useCallback(({ title, body }) => {
+        const now = Date.now();
+        const newMemo = { id: uid(), title, body, createdAt: now, updatedAt: now };
+        setMemos((prev) => [newMemo, ...prev]);
+      }, []);
+
+      const updateMemo = useCallback((id, { title, body }) => {
+        setMemos((prev) =>
+          prev.map((m) =>
+            m.id === id ? { ...m, title, body, updatedAt: Date.now() } : m
+          )
+        );
+      }, []);
+
+      const deleteMemo = useCallback((id) => {
+        setMemos((prev) => prev.filter((m) => m.id !== id));
+      }, []);
+
+      // 검색 필터 (대소문자 무시, 제목+내용)
+      const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return memos;
+        return memos.filter(
+          (m) =>
+            (m.title || "").toLowerCase().includes(q) ||
+            (m.body || "").toLowerCase().includes(q)
+        );
+      }, [memos, query]);
+
+      const isEmpty = memos.length === 0;
+      const noResults = !isEmpty && filtered.length === 0;
+
+      return (
+        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+          <Header count={memos.length} />
+          <Composer onAdd={addMemo} />
+
+          {!isEmpty && <SearchBar value={query} onChange={setQuery} />}
+
+          {isEmpty && <EmptyState />}
+          {noResults && <NoResults query={query.trim()} />}
+
+          {!isEmpty && !noResults && (
+            <main
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              aria-label="메모 목록"
+            >
+              {filtered.map((memo) => (
+                <MemoCard
+                  key={memo.id}
+                  memo={memo}
+                  onEdit={setEditing}
+                  onDelete={deleteMemo}
+                />
+              ))}
+            </main>
+          )}
+
+          <EditModal
+            memo={editing}
+            isOpen={editing !== null}
+            onClose={() => setEditing(null)}
+            onSave={updateMemo}
+          />
+
+          <footer className="text-center text-xs text-gray-400 mt-12">
+            데이터는 브라우저(localStorage)에 안전하게 저장됩니다 · {new Date().getFullYear()}
+          </footer>
+        </div>
+      );
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
