@@ -1,0 +1,12 @@
+{
+  "name": "futurism-poster",
+  "version": "1.0.0",
+  "description": "ASCENSION 2099 futurism poster with one-line review wall",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

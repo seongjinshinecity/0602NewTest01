@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>날씨 옷차림 추천</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* Tailwind으로 처리 불가한 부분: 배경 전환 애니메이션 + 스피너 */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      transition: background 0.8s ease;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(255, 255, 255, 0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s ease both;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ========================================
+    // 상수 / 헬퍼: 날씨 코드, 배경, 옷차림 추천
+    // ========================================
+    const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
+    const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+
+    // Open-Meteo 지오코딩은 영문/로마자명만 인식 → 한국 주요 도시 한↔영 별칭 맵
+    const CITY_ALIASES = {
+      "서울": "Seoul", "부산": "Busan", "인천": "Incheon", "대구": "Daegu",
+      "대전": "Daejeon", "광주": "Gwangju", "울산": "Ulsan", "세종": "Sejong",
+      "수원": "Suwon", "성남": "Seongnam", "고양": "Goyang", "용인": "Yongin",
+      "창원": "Changwon", "청주": "Cheongju", "전주": "Jeonju", "천안": "Cheonan",
+      "제주": "Jeju", "춘천": "Chuncheon", "강릉": "Gangneung", "포항": "Pohang",
+      "여수": "Yeosu", "목포": "Mokpo", "안동": "Andong", "경주": "Gyeongju",
+      "도쿄": "Tokyo", "오사카": "Osaka", "뉴욕": "New York", "런던": "London",
+      "파리": "Paris", "베이징": "Beijing", "상하이": "Shanghai", "방콕": "Bangkok",
+    };
+    // 입력에 한글이 섞여 있고 별칭이 있으면 영문명으로 치환
+    function normalizeCityQuery(name) {
+      const key = (name || "").trim();
+      return CITY_ALIASES[key] || key;
+    }
+
+    // WMO weather_code -> 한국어 텍스트 + 이모지
+    function describeWeather(code) {
+      if (code === 0) return { label: "맑음", emoji: "☀️", group: "clear" };
+      if (code >= 1 && code <= 3) return { label: "구름", emoji: "☁️", group: "cloud" };
+      if (code === 45 || code === 48) return { label: "안개", emoji: "🌫️", group: "fog" };
+      if (code >= 51 && code <= 67) return { label: "비", emoji: "🌧️", group: "rain" };
+      if (code >= 71 && code <= 77) return { label: "눈", emoji: "❄️", group: "snow" };
+      if (code >= 80 && code <= 82) return { label: "소나기", emoji: "🌦️", group: "rain" };
+      if (code === 85 || code === 86) return { label: "눈 소나기", emoji: "🌨️", group: "snow" };
+      if (code >= 95 && code <= 99) return { label: "천둥번개", emoji: "⛈️", group: "storm" };
+      return { label: "알 수 없음", emoji: "🌡️", group: "cloud" };
+    }
+
+    // 비 계열인지 (우산 안내)
+    function isWet(group) {
+      return group === "rain" || group === "snow" || group === "storm";
+    }
+
+    // 기온/날씨에 따른 배경 그라데이션
+    function backgroundFor(feelsLike, group) {
+      if (isWet(group) || group === "fog") {
+        return "linear-gradient(160deg, #4b6584 0%, #778ca3 100%)"; // 회청색
+      }
+      if (feelsLike >= 23) {
+        return "linear-gradient(160deg, #ff7e5f 0%, #feb47b 55%, #ff9a9e 100%)"; // 따뜻한 주황/핑크
+      }
+      if (feelsLike >= 17) {
+        return "linear-gradient(160deg, #11998e 0%, #38ef7d 100%)"; // 청록 (선선)
+      }
+      if (feelsLike >= 9) {
+        return "linear-gradient(160deg, #2980b9 0%, #6dd5fa 100%)"; // 파랑
+      }
+      return "linear-gradient(160deg, #141e30 0%, #243b55 100%)"; // 남색 (추움)
+    }
+
+    // 체감온도 기준 옷차림 추천 구간
+    function outfitFor(feelsLike) {
+      if (feelsLike >= 28) {
+        return {
+          summary: "🔥 매우 더움 — 최대한 가볍게!",
+          items: [
+            { emoji: "🎽", label: "민소매" },
+            { emoji: "👕", label: "반팔" },
+            { emoji: "🩳", label: "반바지" },
+            { emoji: "🧵", label: "린넨" },
+          ],
+        };
+      }
+      if (feelsLike >= 23) {
+        return {
+          summary: "더운 날씨, 시원하게 입으세요.",
+          items: [
+            { emoji: "👕", label: "반팔" },
+            { emoji: "🥻", label: "얇은 셔츠" },
+            { emoji: "🩳", label: "반바지" },
+            { emoji: "👖", label: "면바지" },
+          ],
+        };
+      }
+      if (feelsLike >= 20) {
+        return {
+          summary: "쾌적해요. 얇은 겉옷 하나면 충분.",
+          items: [
+            { emoji: "👔", label: "긴팔" },
+            { emoji: "🧥", label: "얇은 가디건" },
+            { emoji: "👖", label: "면바지" },
+          ],
+        };
+      }
+      if (feelsLike >= 17) {
+        return {
+          summary: "선선합니다. 가벼운 겉옷 추천.",
+          items: [
+            { emoji: "🧥", label: "가디건" },
+            { emoji: "👚", label: "맨투맨" },
+            { emoji: "👖", label: "청바지" },
+          ],
+        };
+      }
+      if (feelsLike >= 12) {
+        return {
+          summary: "쌀쌀해요. 자켓·니트 챙기세요.",
+          items: [
+            { emoji: "🧥", label: "자켓" },
+            { emoji: "🧶", label: "니트" },
+            { emoji: "👖", label: "긴바지" },
+          ],
+        };
+      }
+      if (feelsLike >= 9) {
+        return {
+          summary: "추워요. 따뜻한 겉옷 필수.",
+          items: [
+            { emoji: "🧥", label: "트렌치코트" },
+            { emoji: "🪖", label: "야상" },
+            { emoji: "🧶", label: "니트" },
+          ],
+        };
+      }
+      if (feelsLike >= 5) {
+        return {
+          summary: "많이 추워요. 코트와 보온 내의.",
+          items: [
+            { emoji: "🧥", label: "코트" },
+            { emoji: "👕", label: "히트텍" },
+            { emoji: "🩲", label: "기모" },
+          ],
+        };
+      }
+      return {
+        summary: "🥶 매우 추움 — 완전 무장하세요!",
+        items: [
+          { emoji: "🧥", label: "패딩" },
+          { emoji: "🧥", label: "두꺼운 코트" },
+          { emoji: "🧣", label: "목도리" },
+          { emoji: "🧤", label: "장갑" },
+        ],
+      };
+    }
+
+    // 추가 안내 (우산 / 바람막이)
+    function buildAlerts(group, windSpeed) {
+      const alerts = [];
+      if (isWet(group)) alerts.push("☂️ 우산 챙기세요");
+      if (typeof windSpeed === "number" && windSpeed > 7) alerts.push("💨 바람막이 추천");
+      return alerts;
+    }
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트
+    // ========================================
+    function Button({ children, onClick, variant = "primary", type = "button", disabled, className = "" }) {
+      const base =
+        "inline-flex items-center justify-center gap-1 rounded-xl font-semibold transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm";
+      const variants = {
+        primary: "bg-white/90 text-slate-800 hover:bg-white shadow",
+        ghost: "glass text-white hover:bg-white/30",
+      };
+      return (
+        <button type={type} onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
+          {children}
+        </button>
+      );
+    }
+
+    function Chip({ emoji, label }) {
+      return (
+        <div className="glass rounded-2xl flex flex-col items-center justify-center py-3 px-2 text-white">
+          <span className="text-2xl" aria-hidden="true">{emoji}</span>
+          <span className="mt-1 text-xs font-medium text-center">{label}</span>
+        </div>
+      );
+    }
+
+    function Spinner() {
+      return (
+        <div className="flex flex-col items-center justify-center py-10 text-white" role="status" aria-live="polite">
+          <div className="spinner" />
+          <p className="mt-3 text-sm font-medium">날씨를 불러오는 중...</p>
+        </div>
+      );
+    }
+
+    function ErrorBox({ message, onRetry }) {
+      return (
+        <div className="glass rounded-2xl p-6 text-center text-white fade-in" role="alert">
+          <div className="text-3xl mb-2" aria-hidden="true">⚠️</div>
+          <p className="text-sm leading-relaxed">{message}</p>
+          {onRetry && (
+            <div className="mt-4">
+              <Button variant="primary" onClick={onRetry}>다시 시도</Button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 검색 바
+    // ========================================
+    function SearchBar({ onSearch, onLocate, loading }) {
+      const [query, setQuery] = useState("");
+
+      const submit = (e) => {
+        e.preventDefault();
+        const trimmed = query.trim();
+        if (trimmed) onSearch(trimmed);
+      };
+
+      return (
+        <form onSubmit={submit} className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="도시 이름 (예: 서울, 부산, Tokyo)"
+              aria-label="도시 이름 입력"
+              className="flex-1 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 bg-white/90 outline-none focus:ring-2 focus:ring-white"
+            />
+            <Button type="submit" variant="primary" disabled={loading}>🔍 검색</Button>
+          </div>
+          <Button variant="ghost" onClick={onLocate} disabled={loading} className="w-full">
+            📍 현재 위치
+          </Button>
+        </form>
+      );
+    }
+
+    // ========================================
+    // 🧩 현재 날씨 카드
+    // ========================================
+    function WeatherCard({ place, weather }) {
+      const cur = weather.current;
+      const daily = weather.daily;
+      const desc = describeWeather(cur.weather_code);
+
+      return (
+        <div className="glass rounded-3xl p-6 text-white fade-in">
+          <div className="text-center">
+            <h2 className="text-lg font-semibold">{place}</h2>
+            <div className="text-6xl mt-2" aria-hidden="true">{desc.emoji}</div>
+            <div className="text-6xl font-bold mt-1 tracking-tight">
+              {Math.round(cur.temperature_2m)}°
+            </div>
+            <p className="mt-1 text-sm opacity-90">{desc.label}</p>
+            <p className="text-xs opacity-80">
+              체감 {Math.round(cur.apparent_temperature)}°
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-5 text-center text-xs">
+            <div className="glass rounded-xl py-2">
+              <div className="opacity-80">최고/최저</div>
+              <div className="font-semibold mt-0.5">
+                {Math.round(daily.temperature_2m_max[0])}° / {Math.round(daily.temperature_2m_min[0])}°
+              </div>
+            </div>
+            <div className="glass rounded-xl py-2">
+              <div className="opacity-80">습도</div>
+              <div className="font-semibold mt-0.5">{cur.relative_humidity_2m}%</div>
+            </div>
+            <div className="glass rounded-xl py-2">
+              <div className="opacity-80">풍속</div>
+              <div className="font-semibold mt-0.5">{cur.wind_speed_10m}m/s</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 옷차림 추천 카드
+    // ========================================
+    function OutfitCard({ weather }) {
+      const cur = weather.current;
+      const feelsLike = cur.apparent_temperature;
+      const desc = describeWeather(cur.weather_code);
+      const outfit = outfitFor(feelsLike);
+      const alerts = buildAlerts(desc.group, cur.wind_speed_10m);
+
+      return (
+        <div className="glass rounded-3xl p-6 text-white fade-in">
+          <h3 className="text-base font-semibold flex items-center gap-2">
+            👗 오늘의 옷차림 추천
+          </h3>
+          <p className="text-sm opacity-90 mt-1">{outfit.summary}</p>
+
+          <div className="grid grid-cols-4 gap-2 mt-4">
+            {outfit.items.map((it, i) => (
+              <Chip key={i} emoji={it.emoji} label={it.label} />
+            ))}
+          </div>
+
+          {alerts.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {alerts.map((a, i) => (
+                <span key={i} className="glass rounded-full px-3 py-1.5 text-xs font-medium">
+                  {a}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [weather, setWeather] = useState(null);
+      const [place, setPlace] = useState("");
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const lastQueryRef = useRef("서울");
+
+      // 배경 적용
+      useEffect(() => {
+        if (weather) {
+          const cur = weather.current;
+          const desc = describeWeather(cur.weather_code);
+          document.body.style.background = backgroundFor(cur.apparent_temperature, desc.group);
+        } else {
+          document.body.style.background = "linear-gradient(160deg, #2980b9 0%, #6dd5fa 100%)";
+        }
+      }, [weather]);
+
+      // 좌표로 날씨 가져오기
+      const fetchWeatherByCoords = useCallback(async (lat, lon, label) => {
+        setLoading(true);
+        setError(null);
+        try {
+          const params = new URLSearchParams({
+            latitude: lat,
+            longitude: lon,
+            current: "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m",
+            daily: "temperature_2m_max,temperature_2m_min",
+            timezone: "auto",
+          });
+          const res = await fetch(`${FORECAST_URL}?${params.toString()}`);
+          if (!res.ok) throw new Error("날씨 정보를 가져오지 못했습니다.");
+          const data = await res.json();
+          if (!data.current || !data.daily) throw new Error("날씨 데이터가 비어 있습니다.");
+          setWeather(data);
+          setPlace(label);
+        } catch (e) {
+          setError(e.message || "알 수 없는 오류가 발생했습니다.");
+          setWeather(null);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      // 도시 이름으로 검색 (지오코딩 -> 날씨)
+      const searchCity = useCallback(async (name) => {
+        lastQueryRef.current = name;
+        setLoading(true);
+        setError(null);
+        try {
+          const params = new URLSearchParams({
+            name: normalizeCityQuery(name),
+            count: "1",
+            language: "ko",
+            format: "json",
+          });
+          const res = await fetch(`${GEOCODE_URL}?${params.toString()}`);
+          if (!res.ok) throw new Error("도시 검색에 실패했습니다.");
+          const data = await res.json();
+          if (!data.results || data.results.length === 0) {
+            throw new Error(`'${name}'에 해당하는 도시를 찾을 수 없습니다. 다른 이름으로 검색해 보세요.`);
+          }
+          const r = data.results[0];
+          const labelParts = [r.name];
+          if (r.admin1 && r.admin1 !== r.name) labelParts.push(r.admin1);
+          if (r.country) labelParts.push(r.country);
+          await fetchWeatherByCoords(r.latitude, r.longitude, labelParts.join(", "));
+        } catch (e) {
+          setError(e.message || "검색 중 오류가 발생했습니다.");
+          setWeather(null);
+          setLoading(false);
+        }
+      }, [fetchWeatherByCoords]);
+
+      // 현재 위치
+      const locate = useCallback(() => {
+        if (!navigator.geolocation) {
+          setError("이 브라우저는 위치 정보를 지원하지 않습니다.");
+          return;
+        }
+        setLoading(true);
+        setError(null);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            fetchWeatherByCoords(latitude, longitude, "📍 현재 위치");
+          },
+          (err) => {
+            let msg = "위치를 가져오지 못했습니다.";
+            if (err.code === 1) msg = "위치 권한이 거부되었습니다. 도시 이름으로 검색해 주세요.";
+            else if (err.code === 2) msg = "위치를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+            else if (err.code === 3) msg = "위치 확인 시간이 초과되었습니다.";
+            setError(msg);
+            setLoading(false);
+          },
+          { timeout: 10000 }
+        );
+      }, [fetchWeatherByCoords]);
+
+      // 첫 진입 시 서울 자동 로드
+      useEffect(() => {
+        searchCity("서울");
+      }, [searchCity]);
+
+      const retry = () => searchCity(lastQueryRef.current);
+
+      return (
+        <div className="min-h-screen flex justify-center px-4 py-6">
+          <div className="w-full max-w-[480px] space-y-4">
+            <header className="text-center text-white">
+              <h1 className="text-2xl font-bold drop-shadow">🌤️ 날씨 옷차림 추천</h1>
+              <p className="text-xs opacity-90 mt-1">날씨에 딱 맞는 옷차림을 알려드려요</p>
+            </header>
+
+            <SearchBar onSearch={searchCity} onLocate={locate} loading={loading} />
+
+            {loading && <Spinner />}
+
+            {!loading && error && <ErrorBox message={error} onRetry={retry} />}
+
+            {!loading && !error && weather && (
+              <>
+                <WeatherCard place={place} weather={weather} />
+                <OutfitCard weather={weather} />
+              </>
+            )}
+
+            <footer className="text-center text-[10px] text-white/70 pt-2">
+              데이터 제공: Open-Meteo (API 키 불필요)
+            </footer>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 렌더링
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

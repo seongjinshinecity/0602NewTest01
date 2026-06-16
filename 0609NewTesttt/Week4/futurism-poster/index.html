@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCENSION 2099 — Futurism Poster</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    /* ===== Fonts & base ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+    html, body { margin: 0; padding: 0; background: #03060e; }
+    .font-display { font-family: 'Orbitron', sans-serif; }
+    .font-tech    { font-family: 'Rajdhani', sans-serif; letter-spacing: .04em; }
+
+    /* ===== Keyframes (things Tailwind can't easily do) ===== */
+    @keyframes glowPulse {
+      0%,100% { text-shadow: 0 0 12px rgba(34,211,238,.55), 0 0 36px rgba(59,130,246,.35); }
+      50%     { text-shadow: 0 0 26px rgba(34,211,238,.95), 0 0 70px rgba(249,115,22,.45); }
+    }
+    @keyframes scan {
+      0%   { transform: translateY(-120%); opacity: 0; }
+      8%   { opacity: .8; }
+      92%  { opacity: .8; }
+      100% { transform: translateY(120%); opacity: 0; }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes gridDrift {
+      0%   { background-position: 0 0, 0 0; }
+      100% { background-position: 80px 0, 0 80px; }
+    }
+    @keyframes floatY {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-10px); }
+    }
+    @keyframes flicker {
+      0%,19%,21%,23%,80%,100% { opacity: 1; }
+      20%,22% { opacity: .35; }
+    }
+
+    .glow-pulse     { animation: glowPulse 3.4s ease-in-out infinite; }
+    .float-slow     { animation: floatY 6s ease-in-out infinite; }
+    .flicker        { animation: flicker 5s linear infinite; }
+
+    /* moving holo grid floor */
+    .holo-grid {
+      background-image:
+        linear-gradient(to right, rgba(34,211,238,.12) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(34,211,238,.12) 1px, transparent 1px);
+      background-size: 80px 80px, 80px 80px;
+      animation: gridDrift 6s linear infinite;
+      transform: perspective(420px) rotateX(62deg);
+      transform-origin: bottom center;
+    }
+
+    /* scanline sweep */
+    .scanline {
+      background: linear-gradient(to bottom, transparent, rgba(34,211,238,.45), transparent);
+      animation: scan 5.5s ease-in-out infinite;
+    }
+
+    /* shimmering gradient text for title */
+    .title-shimmer {
+      background: linear-gradient(100deg,#67e8f9 0%,#3b82f6 28%,#f8fafc 50%,#fb923c 72%,#67e8f9 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 7s linear infinite;
+    }
+
+    /* angular clip shapes */
+    .clip-angular   { clip-path: polygon(0 0, 100% 0, 100% 70%, 92% 100%, 0 100%); }
+    .clip-cta       { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .clip-tag       { clip-path: polygon(0 0, 100% 0, 94% 100%, 0% 100%); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ========================================
+    // 🎨 DESIGN SYSTEM COMPONENTS (presentational, prop-driven)
+    // ========================================
+
+    // Futuristic CTA button
+    function NeonButton({ variant = "primary", size = "md", children, onClick, className = "", ...rest }) {
+      const sizes = {
+        sm: "px-4 py-2 text-xs",
+        md: "px-7 py-3 text-sm",
+        lg: "px-9 py-4 text-base",
+      };
+      const variants = {
+        primary:
+          "bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 text-slate-950 " +
+          "shadow-[0_0_25px_rgba(34,211,238,.55)] hover:shadow-[0_0_45px_rgba(34,211,238,.9)] hover:brightness-110",
+        ghost:
+          "bg-transparent text-cyan-200 border border-cyan-400/60 " +
+          "hover:bg-cyan-400/10 hover:border-cyan-300 hover:text-white hover:shadow-[0_0_25px_rgba(34,211,238,.5)]",
+        danger:
+          "bg-gradient-to-r from-orange-500 to-amber-400 text-slate-950 " +
+          "shadow-[0_0_25px_rgba(249,115,22,.55)] hover:shadow-[0_0_45px_rgba(249,115,22,.9)] hover:brightness-110",
+      };
+      return (
+        <button
+          onClick={onClick}
+          className={`font-tech font-bold uppercase tracking-[0.18em] clip-cta
+                      transition-all duration-300 active:scale-95 focus:outline-none
+                      focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950
+                      ${sizes[size]} ${variants[variant]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // Small label / tag chip
+    function Tag({ children, className = "" }) {
+      return (
+        <span className={`font-tech inline-block clip-tag bg-cyan-400/10 border border-cyan-400/40
+                          text-cyan-200 text-[10px] sm:text-xs uppercase tracking-[0.25em]
+                          px-3 py-1 ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    // Info block (label over value)
+    function InfoItem({ label, value, accent = "text-cyan-300" }) {
+      return (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-tech text-[10px] sm:text-xs uppercase tracking-[0.3em] text-slate-400">{label}</span>
+          <span className={`font-display text-sm sm:text-base md:text-lg font-bold ${accent}`}>{value}</span>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🌌 POSTER BACKGROUND LAYERS
+    // ========================================
+    function PosterBackground({ pointer }) {
+      // pointer = {x,y} normalized -0.5..0.5 for subtle parallax
+      const px = pointer.x * 24;
+      const py = pointer.y * 16;
+      return (
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+          {/* deep gradient base */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_20%,#0b1f3a_0%,#050a18_45%,#02040c_100%)]" />
+
+          {/* orange horizon glow */}
+          <div
+            className="absolute left-1/2 bottom-[26%] h-40 w-[80%] -translate-x-1/2 rounded-full blur-3xl opacity-60
+                       bg-gradient-to-r from-transparent via-orange-500/40 to-transparent"
+            style={{ transform: `translate(calc(-50% + ${px * 0.4}px), ${py * 0.4}px)` }}
+          />
+
+          {/* cyan core glow */}
+          <div
+            className="absolute left-1/2 top-[30%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl opacity-50
+                       bg-gradient-to-br from-cyan-400/50 via-sky-500/30 to-transparent float-slow"
+            style={{ transform: `translate(calc(-50% + ${px}px), calc(-50% + ${py}px))` }}
+          />
+
+          {/* perspective holo grid floor */}
+          <div className="absolute bottom-0 left-0 right-0 h-1/2">
+            <div className="holo-grid absolute inset-0" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#02040c] via-transparent to-[#02040c]" />
+          </div>
+
+          {/* scanline sweep */}
+          <div className="scanline absolute left-0 right-0 top-0 h-24" />
+
+          {/* vignette */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,.7)_100%)]" />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧱 DECORATIVE MECH SIDE PANELS (angular HUD elements)
+    // ========================================
+    function HudCorner({ side = "left" }) {
+      const isLeft = side === "left";
+      return (
+        <div
+          aria-hidden="true"
+          className={`hidden md:block absolute top-1/2 -translate-y-1/2 ${isLeft ? "left-4 lg:left-8" : "right-4 lg:right-8"}`}
+        >
+          <div className="flex flex-col gap-3 items-center opacity-70 flicker">
+            <div className="h-16 w-[2px] bg-gradient-to-b from-transparent via-cyan-400 to-transparent" />
+            <div className={`w-10 h-10 border border-cyan-400/50 ${isLeft ? "clip-tag" : ""} bg-cyan-400/5
+                             flex items-center justify-center text-cyan-300 font-display text-xs`}>
+              {isLeft ? "AX" : "99"}
+            </div>
+            <div className="font-tech text-[9px] tracking-[0.3em] text-cyan-400/70 [writing-mode:vertical-rl]">
+              SYSTEM ONLINE
+            </div>
+            <div className="h-16 w-[2px] bg-gradient-to-b from-transparent via-orange-400 to-transparent" />
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 MAIN POSTER SECTION
+    // ========================================
+    function Poster() {
+      const [pointer, setPointer] = useState({ x: 0, y: 0 });
+      const frameRef = useRef(null);
+
+      const handleMove = (e) => {
+        const rect = frameRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        setPointer({ x, y });
+      };
+
+      return (
+        <section
+          ref={frameRef}
+          onMouseMove={handleMove}
+          onMouseLeave={() => setPointer({ x: 0, y: 0 })}
+          aria-label="ASCENSION 2099 메인 포스터"
+          className="relative w-full aspect-[16/10] sm:aspect-video min-h-[420px]
+                     overflow-hidden border border-cyan-500/20 clip-angular
+                     shadow-[0_0_60px_rgba(34,211,238,.15)]"
+        >
+          <PosterBackground pointer={pointer} />
+          <HudCorner side="left" />
+          <HudCorner side="right" />
+
+          {/* top status bar */}
+          <header className="absolute top-0 left-0 right-0 flex items-center justify-between
+                             px-4 sm:px-8 py-3 font-tech text-[10px] sm:text-xs tracking-[0.3em] text-cyan-300/80 z-10">
+            <span className="flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] animate-ping" />
+              TRANSMISSION // LIVE
+            </span>
+            <span className="hidden sm:inline">코드명: PROJECT ASCENSION</span>
+            <span>v.2099.06</span>
+          </header>
+
+          {/* centerpiece content */}
+          <div className="relative z-10 flex h-full flex-col items-center justify-center text-center px-4">
+            <div className="float-slow flex flex-col items-center gap-4">
+              <Tag>2099 · 차세대 메카 컨벤션</Tag>
+
+              {/* WIDE title */}
+              <h1 className="font-display font-black uppercase leading-[0.85]
+                             text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl
+                             tracking-[0.04em] glow-pulse">
+                <span className="title-shimmer">ASCENSION</span>
+              </h1>
+
+              {/* big wide year using horizontal space */}
+              <div className="flex items-center gap-3 sm:gap-6 w-full max-w-3xl px-2">
+                <span className="h-[2px] flex-1 bg-gradient-to-r from-transparent to-cyan-400/70" />
+                <span className="font-display font-black text-2xl sm:text-4xl md:text-5xl
+                                 tracking-[0.5em] text-white drop-shadow-[0_0_20px_rgba(34,211,238,.7)]">
+                  2099
+                </span>
+                <span className="h-[2px] flex-1 bg-gradient-to-l from-transparent to-orange-400/70" />
+              </div>
+
+              {/* subtitle / tagline */}
+              <p className="font-tech max-w-2xl text-sm sm:text-base md:text-lg text-slate-300/90 tracking-wide">
+                인류를 초월하라 · <span className="text-cyan-300">RISE BEYOND THE MACHINE</span>
+                <br className="hidden sm:block" />
+                강철의 진화가 시작되는 단 하루의 변신.
+              </p>
+
+              {/* CTAs */}
+              <div className="mt-3 flex flex-col sm:flex-row items-center gap-4">
+                <NeonButton variant="primary" size="lg">티켓 예매 →</NeonButton>
+                <NeonButton variant="ghost" size="lg">트레일러 보기</NeonButton>
+              </div>
+            </div>
+          </div>
+
+          {/* bottom poster info strip */}
+          <footer className="absolute bottom-0 left-0 right-0 z-10
+                             bg-gradient-to-t from-[#02040c]/95 to-transparent
+                             px-4 sm:px-10 pt-10 pb-4 sm:pb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-5xl mx-auto">
+              <InfoItem label="DATE / 날짜" value="2099.09.21" />
+              <InfoItem label="VENUE / 장소" value="네오서울 아레나" accent="text-orange-300" />
+              <InfoItem label="GATE / 입장" value="18:00 KST" />
+              <InfoItem label="PRESENTED BY" value="CYBERNETIX™" accent="text-orange-300" />
+            </div>
+            <p className="mt-4 text-center font-tech text-[10px] sm:text-xs tracking-[0.4em] text-cyan-500/60 uppercase">
+              ⟡ Autobots · Decepticons · Humanity ⟡ One Stage ⟡
+            </p>
+          </footer>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 💬 REVIEW WALL (한 줄 기대평 → 서버 DB 저장)
+    // ========================================
+    function ReviewWall() {
+      const [reviews, setReviews]   = useState([]);
+      const [text, setText]         = useState("");
+      const [loading, setLoading]   = useState(true);
+      const [submitting, setSub]    = useState(false);
+      const [error, setError]       = useState("");
+      const MAX = 140;
+
+      // 마운트 시 기존 기대평 로드
+      useEffect(() => {
+        let alive = true;
+        fetch("/api/reviews")
+          .then((r) => r.json())
+          .then((res) => { if (alive && res.success) setReviews(res.data || []); })
+          .catch(() => { if (alive) setError("기대평을 불러오지 못했습니다."); })
+          .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+      }, []);
+
+      const submit = async (e) => {
+        e.preventDefault();
+        const value = text.trim();
+        if (!value) { setError("기대평을 입력해 주세요."); return; }
+        if (value.length > MAX) { setError(`${MAX}자 이내로 입력해 주세요.`); return; }
+        setSub(true); setError("");
+        try {
+          const res = await fetch("/api/reviews", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: value }),
+          }).then((r) => r.json());
+          if (res.success) {
+            setReviews((prev) => [res.data, ...prev]);
+            setText("");
+          } else {
+            setError(res.message || "저장에 실패했습니다.");
+          }
+        } catch (err) {
+          setError("서버에 연결하지 못했습니다. (server.js 실행 중인지 확인)");
+        } finally {
+          setSub(false);
+        }
+      };
+
+      const fmt = (iso) => {
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        } catch { return ""; }
+      };
+
+      return (
+        <section
+          aria-label="한 줄 기대평"
+          className="relative w-full overflow-hidden border border-cyan-500/20 clip-angular
+                     bg-[#04070f]/80 shadow-[0_0_50px_rgba(34,211,238,.12)]
+                     px-4 sm:px-8 py-6 sm:py-8"
+        >
+          {/* header */}
+          <div className="flex flex-col items-center gap-2 text-center mb-6">
+            <Tag>FEEDBACK TERMINAL · 기대평</Tag>
+            <h2 className="font-display font-black uppercase text-2xl sm:text-3xl md:text-4xl glow-pulse">
+              <span className="title-shimmer">한 줄 기대평</span>
+            </h2>
+            <p className="font-tech text-xs sm:text-sm text-slate-400 tracking-wide">
+              이 이벤트에 대한 한 줄 기대평을 남겨 주세요 · 서버에 기록됩니다
+            </p>
+          </div>
+
+          {/* input form */}
+          <form onSubmit={submit} className="max-w-3xl mx-auto flex flex-col sm:flex-row gap-3 items-stretch">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={MAX + 20}
+                placeholder="예: 강철의 진화를 직접 보고 싶다 🤖"
+                aria-label="기대평 입력"
+                className="w-full font-tech bg-slate-900/70 border border-cyan-400/40 text-cyan-50
+                           placeholder:text-slate-500 px-4 py-3 tracking-wide clip-tag
+                           focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_22px_rgba(34,211,238,.45)]
+                           transition-all duration-300"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 font-tech text-[10px] text-slate-500">
+                {text.trim().length}/{MAX}
+              </span>
+            </div>
+            <NeonButton variant="primary" size="md" type="submit" disabled={submitting}>
+              {submitting ? "전송 중…" : "기대평 남기기 →"}
+            </NeonButton>
+          </form>
+
+          {/* error */}
+          {error && (
+            <p role="alert" className="mt-3 text-center font-tech text-xs sm:text-sm text-orange-300 tracking-wide">
+              ⚠ {error}
+            </p>
+          )}
+
+          {/* list */}
+          <div className="max-w-3xl mx-auto mt-6">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="font-tech text-[10px] sm:text-xs uppercase tracking-[0.3em] text-slate-400">
+                전송된 기대평
+              </span>
+              <span className="font-display text-xs sm:text-sm text-cyan-300">{reviews.length}</span>
+            </div>
+
+            {loading ? (
+              <p className="text-center font-tech text-sm text-slate-500 py-6">불러오는 중…</p>
+            ) : reviews.length === 0 ? (
+              <p className="text-center font-tech text-sm text-slate-500 py-6">
+                아직 기대평이 없습니다. 첫 번째 기대평을 남겨 보세요!
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+                {reviews.map((rv) => (
+                  <li
+                    key={rv.id}
+                    className="flex items-start gap-3 bg-slate-900/50 border border-cyan-400/15
+                               px-4 py-3 clip-tag hover:border-cyan-400/40 hover:bg-slate-900/70
+                               transition-all duration-200"
+                  >
+                    <span className="mt-0.5 text-cyan-400 font-display text-xs select-none">⟡</span>
+                    <p className="flex-1 font-tech text-sm sm:text-base text-slate-100 break-words">{rv.text}</p>
+                    <time className="font-tech text-[10px] text-slate-500 whitespace-nowrap mt-1">{fmt(rv.createdAt)}</time>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 🚀 APP (composition + page chrome)
+    // ========================================
+    function App() {
+      return (
+        <main className="min-h-screen w-full bg-[#02040c] text-white flex flex-col items-center
+                         justify-center px-3 sm:px-6 py-6 sm:py-10 gap-6">
+          <div className="w-full max-w-7xl">
+            <Poster />
+          </div>
+          <div className="w-full max-w-7xl">
+            <ReviewWall />
+          </div>
+          <p className="font-tech text-xs sm:text-sm text-slate-500 tracking-[0.3em] uppercase text-center">
+            © 2099 CYBERNETIX™ · Futurism Poster Concept · 화면을 움직여 보세요
+          </p>
+        </main>
+      );
+    }
+
+    // ========================================
+    // 🔚 RENDER
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
