@@ -39,6 +39,7 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 | `homework/my-chatbot-server` | 챗봇 서버 |
 | `homework/my_mental_assistant` | 멘탈 어시스턴트 |
 | `my-ai-tutor-server`, `my-ai-tutor` | 1:1 AI 튜터 앱 |
+| `homework/about-me-app` | about-me 풀스택 포트폴리오 + 근거 기반 Q&A |
 | `my-api-2`, `myServer` | API/서버 연동 실습 |
 
 ### 문서
@@ -94,6 +95,10 @@ HTML/CSS/JavaScript 기본기를 다지며 만든 작은 도구들입니다.
 | 포켓몬 지도 | API 연동 실습 | 서버 실습 |
 |:---:|:---:|:---:|
 | ![PokemonMap](0609NewTesttt/_ui-screenshots/poketm-on-map.png) | ![API](0609NewTesttt/_ui-screenshots/my-api-2.png) | ![Server](0609NewTesttt/_ui-screenshots/myServer.png) |
+
+| about-me 풀스택 포트폴리오 |
+|:---:|
+| ![AboutMe](0609NewTesttt/_ui-screenshots/about-me-app.png) |
 
 ## 🛠️ 사용 기술
 - **프론트엔드**: HTML, CSS, JavaScript (일부 CDN 기반 React + Tailwind)
