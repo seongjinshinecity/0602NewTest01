@@ -12,6 +12,19 @@
   const resultSection = document.getElementById('result-section');
   const resultCharacter = document.getElementById('result-character');
   const resultText = document.getElementById('result-text');
+  const resultFortune = document.getElementById('result-fortune');
+  const resultSummary = document.getElementById('result-summary');
+  const resultKeywordsWrap = document.getElementById('result-keywords-wrap');
+  const resultKeywords = document.getElementById('result-keywords');
+  const resultAdviceWrap = document.getElementById('result-advice-wrap');
+  const resultAdvice = document.getElementById('result-advice');
+
+  // 길흉별 배지 스타일
+  const FORTUNE_STYLE = {
+    길몽: 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200',
+    흉몽: 'bg-rose-500/20 border-rose-400/50 text-rose-200',
+    중립몽: 'bg-slate-500/20 border-slate-400/50 text-slate-200',
+  };
 
   // 현재 선택된 해몽가 (기본값: 신비로운 점술가)
   let selectedPersona = 'mystic';
@@ -79,9 +92,47 @@
         return;
       }
 
-      // 결과 매핑 및 노출
-      resultCharacter.textContent = json.data.character + ' 의 해몽';
-      resultText.textContent = json.data.interpretation;
+      // 결과 매핑 및 노출 (구조화)
+      const d = json.data;
+      resultCharacter.textContent = d.character + ' 의 해몽';
+
+      // 길흉 판정 배지
+      const fortune = d.fortune || '중립몽';
+      resultFortune.textContent = fortune;
+      resultFortune.className =
+        'ml-auto text-sm font-bold px-3 py-1 rounded-full border ' +
+        (FORTUNE_STYLE[fortune] || FORTUNE_STYLE['중립몽']);
+      resultFortune.classList.remove('hidden');
+
+      // 한 줄 요약
+      resultSummary.textContent = d.summary || '';
+
+      // 핵심 상징 키워드
+      resultKeywords.innerHTML = '';
+      if (Array.isArray(d.keywords) && d.keywords.length) {
+        d.keywords.forEach(function (kw) {
+          const chip = document.createElement('span');
+          chip.className =
+            'text-sm px-3 py-1 rounded-full bg-purple-800/40 border border-purple-400/30 text-purple-100';
+          chip.textContent = '#' + kw;
+          resultKeywords.appendChild(chip);
+        });
+        resultKeywordsWrap.classList.remove('hidden');
+      } else {
+        resultKeywordsWrap.classList.add('hidden');
+      }
+
+      // 해석 본문
+      resultText.textContent = d.interpretation || '';
+
+      // 조언
+      if (d.advice) {
+        resultAdvice.textContent = d.advice;
+        resultAdviceWrap.classList.remove('hidden');
+      } else {
+        resultAdviceWrap.classList.add('hidden');
+      }
+
       resultSection.classList.remove('hidden');
       resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) {

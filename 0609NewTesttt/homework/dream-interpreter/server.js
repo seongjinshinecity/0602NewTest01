@@ -52,25 +52,35 @@ async function interpretDream(dream, personaKey) {
   const persona = PERSONAS[personaKey] || PERSONAS.mystic;
   const apiKey = (process.env.ANTHROPIC_API_KEY || '').trim();
 
-  // API 키가 없을 경우: 데모용 목업 응답으로 graceful 폴백
+  // API 키가 없을 경우: 데모용 목업 응답으로 graceful 폴백 (구조화 형식 유지)
   if (!apiKey) {
     return {
       character: persona.label,
+      fortune: '길몽',
+      summary: '변화와 가능성을 알리는 긍정적인 꿈입니다.',
+      keywords: ['변화', '바람', '가능성'],
       interpretation:
-        `[데모 모드] ${persona.label}의 풀이입니다.\n\n` +
-        `"${dream}"\n\n` +
-        `이 꿈은 당신의 마음 깊은 곳에 자리한 바람과 변화의 신호로 보입니다. ` +
-        `실제 AI 해몽을 받으시려면 서버 환경변수에 ANTHROPIC_API_KEY를 설정해 주세요. ` +
-        `그러면 선택하신 해몽가가 당신의 꿈을 생생하게 풀이해 드립니다.`,
+        `[데모 모드] ${persona.label}의 풀이입니다. ` +
+        `"${dream}" 이 꿈은 당신의 마음 깊은 곳에 자리한 바람과 변화의 신호로 보입니다. ` +
+        `실제 AI 해몽을 받으시려면 서버 환경변수에 ANTHROPIC_API_KEY를 설정해 주세요.`,
+      advice: '마음이 향하는 변화를 너무 두려워하지 말고 한 걸음 내디뎌 보세요.',
       demo: true,
     };
   }
 
+  // 비정형 텍스트 대신 구조화된 JSON으로 응답을 강제한다.
   const systemPrompt =
     persona.system +
-    `\n\n사용자가 들려준 꿈을 위 페르소나에 맞춰 해몽해 주세요. ` +
-    `결과는 3~5개의 자연스러운 문단으로, 한국어로 작성합니다. ` +
-    `마크다운 기호(#, *, - 등)는 사용하지 말고 매끄러운 문장으로만 답하세요.`;
+    `\n\n사용자가 들려준 꿈을 위 페르소나의 어조로 해몽하되, 반드시 아래 JSON 형식 "하나만" 출력하세요. ` +
+    `JSON 외의 설명, 인사, 마크다운 코드펜스(\`\`\`)는 절대 포함하지 마세요.\n` +
+    `{\n` +
+    `  "fortune": "길몽 | 흉몽 | 중립몽 중 하나",\n` +
+    `  "summary": "꿈의 핵심을 페르소나 어조로 담은 한 문장",\n` +
+    `  "keywords": ["꿈 속 핵심 상징 3~5개"],\n` +
+    `  "interpretation": "페르소나 어조의 해석 본문 (2~4문장, 마크다운 기호 없이)",\n` +
+    `  "advice": "현실에서 실천할 따뜻한 조언 한 문장"\n` +
+    `}\n` +
+    `모든 값은 한국어로 작성합니다.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -101,12 +111,46 @@ async function interpretDream(dream, personaKey) {
   const textBlock = Array.isArray(data.content)
     ? data.content.find((b) => b.type === 'text')
     : null;
+  const raw = textBlock ? textBlock.text : '';
 
+  // 모델이 반환한 JSON 파싱 (혹시 모를 코드펜스/잡텍스트 제거 후 시도)
+  const parsed = safeParseJson(raw);
+  if (parsed) {
+    return {
+      character: persona.label,
+      fortune: parsed.fortune || '중립몽',
+      summary: parsed.summary || '',
+      keywords: Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 6) : [],
+      interpretation: parsed.interpretation || '',
+      advice: parsed.advice || '',
+      demo: false,
+    };
+  }
+
+  // 파싱 실패 시 graceful 폴백: 원문을 해석 본문으로 노출
   return {
     character: persona.label,
-    interpretation: textBlock ? textBlock.text : '해몽 결과를 불러오지 못했습니다.',
+    fortune: '중립몽',
+    summary: '',
+    keywords: [],
+    interpretation: raw || '해몽 결과를 불러오지 못했습니다.',
+    advice: '',
     demo: false,
   };
+}
+
+// JSON 안전 파싱: 코드펜스/앞뒤 잡텍스트를 제거하고 첫 { … } 블록을 추출
+function safeParseJson(text) {
+  if (!text) return null;
+  let s = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    return JSON.parse(s.slice(start, end + 1));
+  } catch (_) {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────

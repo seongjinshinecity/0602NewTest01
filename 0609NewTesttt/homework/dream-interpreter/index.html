@@ -168,16 +168,38 @@
         id="result-section"
         class="hidden glass rounded-3xl p-6 sm:p-8 mt-8 shadow-2xl fade-in"
       >
-        <div class="flex items-center gap-2 mb-4">
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
           <span class="text-2xl">🌟</span>
           <h2 id="result-character" class="serif text-xl font-bold neon-text">
             해몽 결과
           </h2>
+          <!-- 길흉 판정 배지 -->
+          <span id="result-fortune" class="hidden ml-auto text-sm font-bold px-3 py-1 rounded-full border"></span>
         </div>
-        <div
-          id="result-text"
-          class="serif text-purple-50/90 leading-relaxed whitespace-pre-line text-[15px] sm:text-base"
-        ></div>
+
+        <!-- 한 줄 요약 -->
+        <p id="result-summary" class="serif text-fuchsia-100 text-lg mb-5"></p>
+
+        <!-- 핵심 상징 키워드 -->
+        <div id="result-keywords-wrap" class="hidden mb-5">
+          <p class="text-purple-300/70 text-xs font-semibold mb-2 tracking-wide">핵심 상징</p>
+          <div id="result-keywords" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- 해석 본문 -->
+        <div class="mb-5">
+          <p class="text-purple-300/70 text-xs font-semibold mb-2 tracking-wide">해석</p>
+          <div
+            id="result-text"
+            class="serif text-purple-50/90 leading-relaxed whitespace-pre-line text-[15px] sm:text-base"
+          ></div>
+        </div>
+
+        <!-- 조언 -->
+        <div id="result-advice-wrap" class="hidden rounded-2xl bg-fuchsia-900/20 border border-fuchsia-400/25 p-4">
+          <p class="text-fuchsia-200 text-xs font-semibold mb-1">💜 오늘의 조언</p>
+          <p id="result-advice" class="serif text-purple-50/90 text-[15px]"></p>
+        </div>
       </section>
 
       <footer class="text-center text-purple-300/40 text-xs mt-12">

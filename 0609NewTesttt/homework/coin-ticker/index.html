@@ -94,10 +94,12 @@
     // ========================================
     // ⚙️ 설정 (CoinGecko Demo API)
     // ========================================
-    // Demo 키는 public 엔드포인트 + 쿼리 파라미터 방식 사용.
-    // 헤더(x-cg-demo-api-key)는 브라우저에서 CORS preflight를 유발할 수 있어
-    // 쿼리 파라미터(x_cg_demo_api_key)로 전달한다.
-    const CG_DEMO_KEY = 'CG-REVOKED-KEY-REMOVED';
+    // 보안: API 키를 코드에 하드코딩하지 않는다(공개 저장소 안전).
+    // CoinGecko 공개 API는 키 없이도 동작한다(레이트리밋만 낮음).
+    // 더 높은 한도가 필요하면 브라우저 콘솔에서
+    //   localStorage.setItem('cg_demo_key', 'CG-xxxx')
+    // 로 본인 Demo 키를 넣으면 쿼리 파라미터(x_cg_demo_api_key)로 전달된다.
+    const CG_DEMO_KEY = (typeof localStorage !== 'undefined' && localStorage.getItem('cg_demo_key')) || '';
     const API_BASE_URL = 'https://api.coingecko.com/api/v3';
     const WATCHED_COINS = ['bitcoin', 'ethereum', 'solana', 'ripple', 'cardano', 'dogecoin'];
     const AUTO_REFRESH_MS = 300000; // 5분
@@ -109,8 +111,9 @@
         order: 'market_cap_desc',
         price_change_percentage: '24h',
         sparkline: 'true',
-        x_cg_demo_api_key: CG_DEMO_KEY,
       });
+      // 키가 있을 때만 인증 파라미터를 덧붙인다.
+      if (CG_DEMO_KEY) params.set('x_cg_demo_api_key', CG_DEMO_KEY);
       return `${API_BASE_URL}/coins/markets?${params.toString()}`;
     }
 
