@@ -159,7 +159,16 @@
         slotLabels: ["왼쪽 — 소리치는 말 😡", "오른쪽 — 고양이 반응 😼"],
         desc: "의견 충돌 / 세대 차이 / 회사·개발자 갈등 / 고객 vs 개발자.",
       },
+      UPLOAD: {
+        id: "UPLOAD",
+        name: "내 사진 업로드 (직접 짤 만들기)",
+        emoji: "🖼️",
+        slots: 2,
+        slotLabels: ["위 텍스트 (TOP)", "아래 텍스트 (BOTTOM)"],
+        desc: "내 이미지를 올리고 위·아래 자막을 넣어 클래식 짤을 만듭니다.",
+      },
     };
+    // 자동 추천/랜덤 풀에는 CSS 프리셋 4종만 포함 (UPLOAD은 이미지가 필요하므로 제외)
     const TEMPLATE_ORDER = ["ANAKIN_PADME", "UNO_DRAW25", "DRAKE", "WOMAN_CAT"];
 
     const CATEGORIES = [
@@ -288,6 +297,16 @@
         ];
         return pick(variants);
       },
+      UPLOAD(topic, category) {
+        // 업로드 이미지용 클래식 상/하단 자막
+        const variants = [
+          [`${topic}`, `결국 이렇게 됐다`],
+          [`${topic} 하는 중`, `(아무도 못 말림)`],
+          [`나: ${topic}`, `현실: ...`],
+          [`${topic} 라고 했지`, `근데 왜 이래?`],
+        ];
+        return pick(variants);
+      },
     };
 
     function generateTexts(templateId, text, category) {
@@ -384,11 +403,34 @@
       );
     }
 
-    function MemeCanvas({ templateId, texts, innerRef }) {
+    // 업로드한 내 사진 + 상/하단 자막 (클래식 짤)
+    function CustomImage({ texts, image }) {
+      return (
+        <div className="relative aspect-square bg-black overflow-hidden flex items-center justify-center">
+          {image
+            ? <img src={image} alt="업로드 이미지" crossOrigin="anonymous" className="absolute inset-0 w-full h-full object-contain" />
+            : <div className="text-zinc-600 text-sm">이미지를 업로드해 주세요</div>}
+          {/* 상단 자막 */}
+          {texts[0] && (
+            <MemeTextOverlay text={texts[0]}
+              className="absolute top-0 left-0 right-0 text-center px-3 pt-3 text-xl sm:text-3xl uppercase" />
+          )}
+          {/* 하단 자막 */}
+          {texts[1] && (
+            <MemeTextOverlay text={texts[1]}
+              className="absolute bottom-0 left-0 right-0 text-center px-3 pb-3 text-xl sm:text-3xl uppercase" />
+          )}
+        </div>
+      );
+    }
+
+    function MemeCanvas({ templateId, texts, image, innerRef }) {
       const Comp = { ANAKIN_PADME: AnakinPadme, UNO_DRAW25: UnoDraw25, DRAKE: Drake, WOMAN_CAT: WomanCat }[templateId];
       return (
         <div ref={innerRef} className="w-full max-w-md mx-auto select-none">
-          <Comp texts={texts} />
+          {templateId === "UPLOAD"
+            ? <CustomImage texts={texts} image={image} />
+            : <Comp texts={texts} />}
         </div>
       );
     }
@@ -404,8 +446,23 @@
       const [texts, setTexts] = useState([]);
       const [recommendation, setRecommendation] = useState(null);
       const [downloading, setDownloading] = useState(false);
+      const [uploadImage, setUploadImage] = useState(null); // 업로드한 이미지 data URL
       const lastTemplateRef = useRef(null);
       const memeRef = useRef(null);
+      const fileInputRef = useRef(null);
+
+      // 파일 업로드 → data URL 로 변환 (브라우저 내 처리, 서버 전송 없음)
+      const handleFile = useCallback((file) => {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) { alert("이미지 파일만 업로드할 수 있어요."); return; }
+        if (file.size > 8 * 1024 * 1024) { alert("8MB 이하 이미지를 올려주세요."); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setUploadImage(e.target.result);
+          setTemplateChoice("UPLOAD"); // 업로드하면 자동으로 업로드 템플릿 선택
+        };
+        reader.readAsDataURL(file);
+      }, []);
 
       // 입력에 따라 실시간 추천 표시 (AUTO 모드일 때만 의미)
       useEffect(() => {
@@ -429,11 +486,15 @@
 
       const handleGenerate = useCallback(() => {
         const tpl = resolveTemplate();
+        if (tpl === "UPLOAD" && !uploadImage) {
+          alert("먼저 이미지를 업로드해 주세요. (아래 '내 사진 업로드' 영역)");
+          return;
+        }
         const generated = generateTexts(tpl, text, category);
         setActiveTemplate(tpl);
         setTexts(generated);
         lastTemplateRef.current = tpl;
-      }, [resolveTemplate, text, category]);
+      }, [resolveTemplate, text, category, uploadImage]);
 
       // 같은 입력/템플릿으로 문구만 다시 뽑기
       const handleRegenerate = useCallback(() => {
@@ -471,6 +532,7 @@
       const templateOptions = [
         { value: "AUTO", label: "🎲 자동 (추천/랜덤)" },
         ...TEMPLATE_ORDER.map((id) => ({ value: id, label: `${TEMPLATES[id].emoji} ${TEMPLATES[id].name}` })),
+        { value: "UPLOAD", label: `${TEMPLATES.UPLOAD.emoji} ${TEMPLATES.UPLOAD.name}` },
       ];
 
       return (
@@ -481,7 +543,7 @@
               <span className="text-3xl">🤣</span>
               <div>
                 <h1 className="text-xl font-black tracking-tight">밈 생성기</h1>
-                <p className="text-xs text-zinc-400">주제만 던지면 가장 웃긴 밈을 만들어 드립니다</p>
+                <p className="text-xs text-zinc-400">프리셋 템플릿으로 자동 생성하거나, 내 사진을 올려 직접 짤을 만드세요</p>
               </div>
             </div>
           </header>
@@ -523,6 +585,42 @@
                 <Button size="lg" className="w-full" onClick={handleGenerate}>✨ 밈 생성하기</Button>
               </Card>
 
+              {/* 내 사진 업로드 */}
+              <Card className="p-5 space-y-3">
+                <h2 className="text-sm font-bold text-zinc-200 flex items-center gap-2">🖼️ 내 사진으로 짤 만들기</h2>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFile(e.target.files && e.target.files[0])}
+                />
+                <div
+                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); handleFile(e.dataTransfer.files && e.dataTransfer.files[0]); }}
+                  className="rounded-xl border-2 border-dashed border-zinc-700 hover:border-indigo-500 cursor-pointer p-4 text-center transition-colors"
+                >
+                  {uploadImage ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <img src={uploadImage} alt="미리보기" className="max-h-32 rounded-lg" />
+                      <span className="text-xs text-indigo-300">다른 이미지로 바꾸려면 클릭 · 위 '밈 생성하기'를 누르면 자막이 올라가요</span>
+                    </div>
+                  ) : (
+                    <div className="text-zinc-400 text-sm py-4">
+                      <div className="text-3xl mb-1">⬆️</div>
+                      클릭하거나 이미지를 끌어다 놓으세요<br />
+                      <span className="text-xs text-zinc-500">(JPG·PNG·GIF · 8MB 이하 · 브라우저에서만 처리)</span>
+                    </div>
+                  )}
+                </div>
+                {uploadImage && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => { setUploadImage(null); if (activeTemplate === "UPLOAD") { setActiveTemplate(null); setTexts([]); } }}>
+                    🗑️ 업로드 이미지 제거
+                  </Button>
+                )}
+              </Card>
+
               {/* 텍스트 편집 영역 */}
               {activeTemplate && (
                 <Card className="p-5 space-y-3">
@@ -553,7 +651,7 @@
                 <h2 className="text-sm font-bold text-zinc-200 mb-4 flex items-center gap-2">🖼️ 미리보기</h2>
                 {activeTemplate ? (
                   <>
-                    <MemeCanvas templateId={activeTemplate} texts={texts} innerRef={memeRef} />
+                    <MemeCanvas templateId={activeTemplate} texts={texts} image={uploadImage} innerRef={memeRef} />
                     <p className="text-center text-[11px] text-zinc-500 mt-3">{activeTplMeta.emoji} {activeTplMeta.name}</p>
                   </>
                 ) : (
@@ -567,7 +665,7 @@
           </main>
 
           <footer className="max-w-5xl mx-auto px-4 mt-10 text-center text-xs text-zinc-600">
-            <p>오프라인 동작 · 외부 이미지 의존 없음 · 모든 처리는 브라우저에서 · React + Tailwind + html2canvas</p>
+            <p>오프라인 동작 · 프리셋 템플릿 + 내 사진 업로드 지원 · 모든 처리는 브라우저에서 · React + Tailwind + html2canvas</p>
           </footer>
         </div>
       );
