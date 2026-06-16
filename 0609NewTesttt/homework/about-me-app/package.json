@@ -1,0 +1,12 @@
+{
+  "name": "about-me-app",
+  "version": "1.0.0",
+  "description": "about-me2.md 기반 풀스택 포트폴리오 + 근거 기반 Q&A (Express + Claude)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.0"
+  }
+}

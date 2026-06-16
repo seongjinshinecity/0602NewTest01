@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>about-mf · 선과 색으로 공간을 짓는 사람</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <!-- 마크다운 렌더러 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f3ef;          /* sand beige / warm white */
+      --surface: #fbfaf8;
+      --ink: #2b2926;         /* charcoal */
+      --muted: #7c766c;       /* warm gray */
+      --line: #e6e1d8;
+      --accent: #b08968;      /* wood tone */
+      --accent-soft: #efe7dd;
+      --shadow: 0 1px 2px rgba(43, 41, 38, .04), 0 8px 30px rgba(43, 41, 38, .06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.75;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Hero ── */
+    header.hero {
+      padding: 96px 0 64px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero .eyebrow {
+      font-size: 13px; letter-spacing: .22em; text-transform: uppercase;
+      color: var(--accent); font-weight: 600; margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(34px, 6vw, 52px); font-weight: 700;
+      letter-spacing: -.02em; line-height: 1.15; margin-bottom: 24px;
+    }
+    .hero .credo {
+      font-size: 18px; color: var(--muted); font-style: italic;
+      max-width: 560px; border-left: 3px solid var(--accent-soft); padding-left: 18px;
+    }
+    .hero .meta {
+      margin-top: 32px; display: flex; flex-wrap: wrap; gap: 10px;
+    }
+    .chip {
+      font-size: 13px; color: var(--muted); background: var(--surface);
+      border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+    }
+
+    /* ── Q&A 카드 (풀스택 핵심) ── */
+    section.qa {
+      margin: 56px 0; background: var(--surface);
+      border: 1px solid var(--line); border-radius: 20px;
+      padding: 32px; box-shadow: var(--shadow);
+    }
+    .qa h2 { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+    .qa .sub { color: var(--muted); font-size: 14px; margin: 8px 0 22px; }
+    .ask-row { display: flex; gap: 10px; }
+    #q {
+      flex: 1; font: inherit; font-size: 15px; padding: 13px 16px;
+      border: 1px solid var(--line); border-radius: 12px; background: #fff;
+      color: var(--ink); outline: none; transition: border-color .15s;
+    }
+    #q:focus { border-color: var(--accent); }
+    #askBtn {
+      font: inherit; font-weight: 600; font-size: 15px; color: #fff;
+      background: var(--ink); border: 0; border-radius: 12px;
+      padding: 0 22px; cursor: pointer; transition: opacity .15s; white-space: nowrap;
+    }
+    #askBtn:hover { opacity: .88; }
+    #askBtn:disabled { opacity: .45; cursor: default; }
+    .samples { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .sample {
+      font: inherit; font-size: 13px; color: var(--muted);
+      background: #fff; border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 13px; cursor: pointer; transition: all .15s;
+    }
+    .sample:hover { border-color: var(--accent); color: var(--accent); }
+    #answer {
+      margin-top: 22px; padding: 18px 20px; border-radius: 12px;
+      background: var(--accent-soft); border: 1px solid var(--line);
+      font-size: 15px; color: var(--ink); white-space: pre-wrap;
+      display: none;
+    }
+    #answer.show { display: block; }
+    #answer .who {
+      display: block; font-size: 12px; letter-spacing: .04em; font-weight: 600;
+      color: var(--accent); margin-bottom: 8px; text-transform: uppercase;
+    }
+    .loading { color: var(--muted); font-style: italic; }
+
+    /* ── 프로필 본문 (마크다운 렌더) ── */
+    main#doc { padding-bottom: 96px; }
+    #doc h1 { display: none; } /* hero가 제목 대체 */
+    #doc h2 {
+      font-size: 24px; font-weight: 700; letter-spacing: -.01em;
+      margin: 52px 0 18px; padding-top: 28px; border-top: 1px solid var(--line);
+    }
+    #doc h3 {
+      font-size: 17px; font-weight: 600; color: var(--accent);
+      margin: 30px 0 12px;
+    }
+    #doc p { margin: 0 0 16px; color: #423f3a; }
+    #doc ul { margin: 0 0 16px; padding-left: 22px; }
+    #doc li { margin-bottom: 8px; color: #423f3a; }
+    #doc em { color: var(--muted); }
+    #doc strong { color: var(--ink); font-weight: 600; }
+    #doc hr { display: none; }
+    #doc table {
+      width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 14px;
+    }
+    #doc th, #doc td {
+      text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    #doc th { color: var(--muted); font-weight: 600; background: var(--surface); }
+
+    footer {
+      border-top: 1px solid var(--line); padding: 28px 0;
+      color: var(--muted); font-size: 13px; text-align: center;
+    }
+    @media (max-width: 560px) {
+      .ask-row { flex-direction: column; }
+      #askBtn { padding: 13px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <div class="eyebrow">Character Chronicle</div>
+      <h1 id="heroName">선과 색으로 공간을 짓는 사람</h1>
+      <p class="credo" id="heroCredo">불러오는 중…</p>
+      <div class="meta" id="heroMeta"></div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section class="qa">
+      <h2>💬 저에 대해 물어보세요</h2>
+      <p class="sub">about-me2.md 문서의 내용에만 근거해 답합니다. 문서에 없는 내용은 “모릅니다”라고 답해요.</p>
+      <div class="ask-row">
+        <input id="q" type="text" placeholder="예) 어떤 꿈을 꾸던 사람이야?" autocomplete="off" />
+        <button id="askBtn">질문하기</button>
+      </div>
+      <div class="samples" id="samples"></div>
+      <div id="answer"></div>
+    </section>
+
+    <main id="doc">불러오는 중…</main>
+
+    <footer>
+      about-mf · about-me2.md 기반 풀스택 포트폴리오 · Express + Claude
+    </footer>
+  </div>
+
+  <script src="client.js"></script>
+</body>
+</html>
