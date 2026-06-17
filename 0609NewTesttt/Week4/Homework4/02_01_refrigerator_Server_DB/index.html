@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🧊 냉장고 재료 & 레시피</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const CATEGORIES = ['신선칸 (야채/과일)', '냉장 (육류/유제품)', '냉동', '양념/소스', '기타'];
+
+    function fmt(iso) {
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // 공통 fetch 헬퍼 — 실패 시 서버 메시지를 throw
+    async function api(url, opts) {
+      const res = await fetch(url, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.message || '요청에 실패했습니다.');
+      return json.data;
+    }
+
+    // ---------- 토스트 ----------
+    function Toast({ msg }) {
+      if (!msg) return null;
+      return (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
+          {msg}
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  냉장고 재료 탭
+    // ============================================================
+    function FridgeTab({ notify }) {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [name, setName] = useState('');
+      const [category, setCategory] = useState(CATEGORIES[0]);
+      const [quantity, setQuantity] = useState('');
+      const [busy, setBusy] = useState(false);
+
+      const load = useCallback(async () => {
+        setLoading(true);
+        try { setItems(await api('/api/ingredients')); }
+        catch (e) { notify(e.message); }
+        finally { setLoading(false); }
+      }, [notify]);
+
+      useEffect(() => { load(); }, [load]);
+
+      const add = async (e) => {
+        e.preventDefault();
+        if (!name.trim() || busy) return;
+        setBusy(true);
+        try {
+          const created = await api('/api/ingredients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, category, quantity }),
+          });
+          setItems((prev) => [created, ...prev]);
+          setName(''); setQuantity('');
+          notify('재료를 등록했어요.');
+        } catch (e) { notify(e.message); }
+        finally { setBusy(false); }
+      };
+
+      const remove = async (id) => {
+        try {
+          await api(`/api/ingredients/${id}`, { method: 'DELETE' });
+          setItems((prev) => prev.filter((x) => x.id !== id));
+          notify('재료를 삭제했어요.');
+        } catch (e) { notify(e.message); }
+      };
+
+      // 카테고리별 그룹화
+      const groups = items.reduce((acc, it) => {
+        (acc[it.category] = acc[it.category] || []).push(it);
+        return acc;
+      }, {});
+
+      return (
+        <div className="space-y-5">
+          <form onSubmit={add} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="재료 이름 (예: 양파)" maxLength={60}
+                className="flex-1 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+              />
+              <input
+                value={quantity} onChange={(e) => setQuantity(e.target.value)}
+                placeholder="수량 (예: 2개)" maxLength={40}
+                className="sm:w-32 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={category} onChange={(e) => setCategory(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] bg-white"
+              >
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button
+                type="submit" disabled={!name.trim() || busy}
+                className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-emerald-700 transition whitespace-nowrap"
+              >
+                {busy ? '등록 중…' : '＋ 재료 등록'}
+              </button>
+            </div>
+          </form>
+
+          {loading ? (
+            <p className="text-center text-slate-400 py-10">불러오는 중…</p>
+          ) : items.length === 0 ? (
+            <p className="text-center text-slate-400 py-10">냉장고가 비어 있어요. 위에서 재료를 등록해 보세요!</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(groups).map(([cat, list]) => (
+                <div key={cat}>
+                  <h3 className="text-xs font-semibold text-slate-500 mb-2 px-1">{cat} · {list.length}</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {list.map((it) => (
+                      <div key={it.id} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 flex items-center justify-between group">
+                        <div className="min-w-0">
+                          <p className="text-slate-800 font-medium truncate">{it.name}</p>
+                          {it.quantity && <p className="text-xs text-slate-400">{it.quantity}</p>}
+                        </div>
+                        <button
+                          onClick={() => remove(it.id)}
+                          className="ml-2 text-slate-300 hover:text-red-500 transition text-lg leading-none"
+                          title="삭제"
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  레시피 탭
+    // ============================================================
+    function RecipeTab({ notify }) {
+      const [recipes, setRecipes] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [title, setTitle] = useState('');
+      const [ingredients, setIngredients] = useState('');
+      const [steps, setSteps] = useState('');
+      const [busy, setBusy] = useState(false);
+      const [genBusy, setGenBusy] = useState(false);
+
+      const load = useCallback(async () => {
+        setLoading(true);
+        try { setRecipes(await api('/api/recipes')); }
+        catch (e) { notify(e.message); }
+        finally { setLoading(false); }
+      }, [notify]);
+
+      useEffect(() => { load(); }, [load]);
+
+      const save = async (e) => {
+        e.preventDefault();
+        if (!title.trim() || busy) return;
+        setBusy(true);
+        try {
+          const created = await api('/api/recipes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, ingredients, steps, source: 'manual' }),
+          });
+          setRecipes((prev) => [created, ...prev]);
+          setTitle(''); setIngredients(''); setSteps('');
+          notify('레시피를 저장했어요.');
+        } catch (e) { notify(e.message); }
+        finally { setBusy(false); }
+      };
+
+      // 냉장고 재료로 자동 생성 → 바로 저장 후 목록 갱신
+      const autoGenerate = async () => {
+        if (genBusy) return;
+        setGenBusy(true);
+        try {
+          const created = await api('/api/recipes/auto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          setRecipes((prev) => [created, ...prev]);
+          notify('냉장고 재료로 레시피를 자동 생성했어요!');
+        } catch (e) { notify(e.message); }
+        finally { setGenBusy(false); }
+      };
+
+      const remove = async (id) => {
+        if (!window.confirm('이 레시피를 삭제할까요?')) return;
+        try {
+          await api(`/api/recipes/${id}`, { method: 'DELETE' });
+          setRecipes((prev) => prev.filter((x) => x.id !== id));
+          notify('레시피를 삭제했어요.');
+        } catch (e) { notify(e.message); }
+      };
+
+      return (
+        <div className="space-y-5">
+          <div className="bg-gradient-to-r from-amber-50 to-emerald-50 rounded-2xl border border-amber-200 p-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-slate-800">🪄 냉장고 재료로 자동 추천</p>
+              <p className="text-xs text-slate-500 mt-0.5">현재 등록된 재료를 골라 간단한 레시피를 만들어 저장합니다.</p>
+            </div>
+            <button
+              onClick={autoGenerate} disabled={genBusy}
+              className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium disabled:opacity-40 hover:bg-amber-600 transition whitespace-nowrap"
+            >
+              {genBusy ? '생성 중…' : '자동 생성'}
+            </button>
+          </div>
+
+          <form onSubmit={save} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-2">
+            <input
+              value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="레시피 제목 (예: 양파 볶음)" maxLength={100}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+            />
+            <textarea
+              value={ingredients} onChange={(e) => setIngredients(e.target.value)}
+              placeholder="재료 (한 줄에 하나씩)" rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] resize-none"
+            />
+            <textarea
+              value={steps} onChange={(e) => setSteps(e.target.value)}
+              placeholder="조리 순서" rows={4}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] resize-none"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit" disabled={!title.trim() || busy}
+                className="px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-40 hover:bg-slate-700 transition"
+              >
+                {busy ? '저장 중…' : '레시피 저장'}
+              </button>
+            </div>
+          </form>
+
+          {loading ? (
+            <p className="text-center text-slate-400 py-10">불러오는 중…</p>
+          ) : recipes.length === 0 ? (
+            <p className="text-center text-slate-400 py-10">아직 저장된 레시피가 없어요. 직접 작성하거나 자동 생성해 보세요!</p>
+          ) : (
+            <div className="space-y-3">
+              {recipes.map((r) => (
+                <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 group">
+                  <div className="flex items-start justify-between">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      {r.title}
+                      {r.source === 'auto'
+                        ? <span className="text-[11px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">자동</span>
+                        : <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">직접</span>}
+                    </h3>
+                    <button
+                      onClick={() => remove(r.id)}
+                      className="text-slate-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 text-sm"
+                    >삭제</button>
+                  </div>
+                  {r.ingredients && (
+                    <div className="mt-2">
+                      <p className="text-xs font-semibold text-slate-400 mb-1">재료</p>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.ingredients}</p>
+                    </div>
+                  )}
+                  {r.steps && (
+                    <div className="mt-2">
+                      <p className="text-xs font-semibold text-slate-400 mb-1">조리 순서</p>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{r.steps}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400 mt-3">{fmt(r.created_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  앱 루트
+    // ============================================================
+    function App() {
+      const [tab, setTab] = useState(location.hash === '#recipe' ? 'recipe' : 'fridge');
+      const [toast, setToast] = useState('');
+
+      const notify = useCallback((msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 2200);
+      }, []);
+
+      return (
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <header className="mb-6 text-center">
+            <h1 className="text-2xl font-extrabold text-slate-800">🧊 냉장고 재료 &amp; 레시피</h1>
+            <p className="text-sm text-slate-500 mt-1">재료와 레시피를 등록하고 자동으로 요리를 추천받으세요 · PostgreSQL 저장</p>
+          </header>
+
+          <div className="flex bg-white rounded-xl border border-slate-200 p-1 mb-6 shadow-sm">
+            <button
+              onClick={() => setTab('fridge')}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${tab === 'fridge' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+            >🥬 냉장고 재료</button>
+            <button
+              onClick={() => setTab('recipe')}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${tab === 'recipe' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+            >🍳 레시피</button>
+          </div>
+
+          {tab === 'fridge' ? <FridgeTab notify={notify} /> : <RecipeTab notify={notify} />}
+          <Toast msg={toast} />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

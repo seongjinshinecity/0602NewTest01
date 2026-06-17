@@ -1,0 +1,25 @@
+{
+  "name": "refrigerator-server-db",
+  "version": "1.0.0",
+  "description": "냉장고 재료 & 레시피 관리 앱 (React + Express + PostgreSQL/PGlite/Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "refrigerator",
+    "recipe",
+    "crud",
+    "postgresql",
+    "supabase",
+    "pglite",
+    "express",
+    "react"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}
