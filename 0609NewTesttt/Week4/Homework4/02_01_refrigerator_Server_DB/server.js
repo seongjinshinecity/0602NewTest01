@@ -130,15 +130,19 @@ app.delete('/api/recipes/:id', async (req, res) => {
 // preview=true 면 저장하지 않고 미리보기만 반환합니다.
 app.post('/api/recipes/auto', async (req, res) => {
   try {
+    const main = clean(req.body?.main, 60); // 사용자가 지정한 주재료(선택)
     const { rows: fridge } = await query('SELECT name FROM ingredients ORDER BY id');
-    if (fridge.length === 0) {
+    const names = fridge.map((r) => r.name);
+
+    // 주재료도 없고 냉장고도 비었으면 만들 수 없음
+    if (names.length === 0 && !main) {
       return res.status(400).json({
         success: false,
-        message: '냉장고가 비어 있어요. 먼저 재료를 등록한 뒤 자동 생성을 눌러 주세요.',
+        message: '냉장고가 비어 있어요. 주재료를 입력하거나 먼저 재료를 등록해 주세요.',
       });
     }
 
-    const recipe = generateRecipe(fridge.map((r) => r.name));
+    const recipe = generateRecipe(names, main);
 
     // 미리보기 요청이면 저장하지 않고 반환
     if (req.body?.preview) {
@@ -157,9 +161,17 @@ app.post('/api/recipes/auto', async (req, res) => {
 });
 
 // ----- 규칙 기반 간단 레시피 생성기 -----
-// 저장된 재료 중 2~4개를 골라 조리법 템플릿에 끼워 넣습니다.
-function generateRecipe(names) {
-  const pick = shuffle([...names]).slice(0, Math.min(4, names.length));
+// mainName 이 주어지면 그 재료를 주재료로 삼고, 냉장고의 나머지 재료를 곁들입니다.
+// 없으면 냉장고 재료 중 무작위로 2~4개를 골라 조리법 템플릿에 끼워 넣습니다.
+function generateRecipe(names, mainName) {
+  let pick;
+  if (mainName) {
+    // 주재료를 맨 앞에 두고, 냉장고의 다른 재료(주재료 중복 제외)를 곁들임 재료로 추가
+    const others = shuffle(names.filter((n) => n !== mainName)).slice(0, 3);
+    pick = [mainName, ...others];
+  } else {
+    pick = shuffle([...names]).slice(0, Math.min(4, names.length));
+  }
   const main = pick[0];
 
   const methods = [

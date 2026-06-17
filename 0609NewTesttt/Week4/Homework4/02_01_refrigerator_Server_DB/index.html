@@ -3,16 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🧊 냉장고 재료 & 레시피</title>
+  <title>❄ FRIDGE-95 · 냉장고 재료 & 레시피</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri@2.40.3/dist/galmuri.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+    /* ===== 90년대 도트그래픽 테마 + 냉장고 컨셉 ===== */
+    :root{
+      --ink:#171717; --cream:#f1ecdb; --paper:#fffdf2;
+      --green:#3aa856; --amber:#e8a02e; --navy:#0a0a8c;
+      --steel:#cfcabaff; --red:#d83a3a;
+    }
+    *{ border-radius:0 !important; box-sizing:border-box; }
+    html,body{ image-rendering:pixelated; }
+    body{
+      margin:0; min-height:100vh; color:var(--ink);
+      font-family:'Galmuri11','DungGeunMo','Apple SD Gothic Neo',monospace;
+      background-color:#2f9c8a;
+      background-image: radial-gradient(rgba(255,255,255,.16) 1.6px, transparent 1.6px);
+      background-size:10px 10px;
+      -webkit-font-smoothing:none;
+    }
+    /* CRT 스캔라인 (아주 옅게) */
+    body::after{
+      content:""; position:fixed; inset:0; pointer-events:none; z-index:9999;
+      background:repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.05) 2px 3px);
+    }
+    .px{ font-family:'Press Start 2P','Galmuri11',monospace; }
+    /* 픽셀 박스 / 버튼 / 인풋 */
+    .pbox{ background:var(--paper); border:3px solid var(--ink); box-shadow:4px 4px 0 var(--ink); }
+    .pbtn{ border:3px solid var(--ink); box-shadow:4px 4px 0 var(--ink); cursor:pointer; transition:transform .03s; line-height:1; }
+    .pbtn:active:not(:disabled){ transform:translate(4px,4px); box-shadow:0 0 0 var(--ink); }
+    .pbtn:disabled{ opacity:.45; cursor:not-allowed; }
+    .pinput{ background:#fff; border:3px solid var(--ink); padding:9px 10px; width:100%; outline:none;
+             font-family:'Galmuri11','DungGeunMo',monospace; color:var(--ink); }
+    .pinput::placeholder{ color:#9a958a; }
+    .pinput:focus{ box-shadow:inset 0 0 0 2px var(--green); }
+    .chip{ display:inline-block; border:2px solid var(--ink); padding:2px 6px; font-size:11px; line-height:1.2; }
+    /* 냉장고 본체 */
+    .fridge{ position:relative; background:var(--cream); border:4px solid var(--ink); box-shadow:8px 8px 0 rgba(0,0,0,.45); }
+    /* 냉장고 문 손잡이 */
+    .handle{ position:absolute; right:10px; top:74px; bottom:24px; width:12px; z-index:5;
+             background:var(--steel); border:3px solid var(--ink);
+             box-shadow:inset 2px 0 0 #fff, inset -2px 0 0 rgba(0,0,0,.3); }
+    /* Win95 타이틀바 */
+    .titlebar{ background:var(--navy); color:#fff; border-bottom:3px solid var(--ink);
+               display:flex; align-items:center; justify-content:space-between; padding:7px 8px; }
+    .winbtn{ display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+             background:var(--steel); border:2px solid var(--ink); color:var(--ink); font-size:9px; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body>
   <div id="root"></div>
 
   <script type="text/babel">
@@ -38,8 +84,9 @@
     function Toast({ msg }) {
       if (!msg) return null;
       return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-50">
-          {msg}
+        <div className="pbox fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 z-50 text-[13px]"
+             style={{ background: 'var(--navy)', color: '#fff', borderColor: 'var(--ink)' }}>
+          ❄ {msg}
         </div>
       );
     }
@@ -97,29 +144,30 @@
 
       return (
         <div className="space-y-5">
-          <form onSubmit={add} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
+          <form onSubmit={add} className="pbox p-4 space-y-3">
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 value={name} onChange={(e) => setName(e.target.value)}
                 placeholder="재료 이름 (예: 양파)" maxLength={60}
-                className="flex-1 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+                className="pinput flex-1 text-[14px]"
               />
               <input
                 value={quantity} onChange={(e) => setQuantity(e.target.value)}
                 placeholder="수량 (예: 2개)" maxLength={40}
-                className="sm:w-32 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+                className="pinput sm:w-32 text-[14px]"
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={category} onChange={(e) => setCategory(e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] bg-white"
+                className="pinput flex-1 text-[14px]"
               >
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <button
                 type="submit" disabled={!name.trim() || busy}
-                className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-emerald-700 transition whitespace-nowrap"
+                className="pbtn px-5 py-2 text-[13px] text-white whitespace-nowrap"
+                style={{ background: 'var(--green)' }}
               >
                 {busy ? '등록 중…' : '＋ 재료 등록'}
               </button>
@@ -127,26 +175,27 @@
           </form>
 
           {loading ? (
-            <p className="text-center text-slate-400 py-10">불러오는 중…</p>
+            <p className="text-center py-10 text-[13px] text-white/90">불러오는 중…</p>
           ) : items.length === 0 ? (
-            <p className="text-center text-slate-400 py-10">냉장고가 비어 있어요. 위에서 재료를 등록해 보세요!</p>
+            <p className="text-center py-10 text-[13px] text-white/90">냉장고가 비어 있어요. 위에서 재료를 등록해 보세요!</p>
           ) : (
             <div className="space-y-4">
               {Object.entries(groups).map(([cat, list]) => (
                 <div key={cat}>
-                  <h3 className="text-xs font-semibold text-slate-500 mb-2 px-1">{cat} · {list.length}</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <h3 className="chip mb-2 text-white" style={{ background: 'var(--navy)' }}>{cat} · {list.length}</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {list.map((it) => (
-                      <div key={it.id} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 flex items-center justify-between group">
+                      <div key={it.id} className="pbox px-3 py-2.5 flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-slate-800 font-medium truncate">{it.name}</p>
-                          {it.quantity && <p className="text-xs text-slate-400">{it.quantity}</p>}
+                          <p className="text-[14px] truncate">{it.name}</p>
+                          {it.quantity && <p className="text-[11px] text-[#8a857a]">{it.quantity}</p>}
                         </div>
                         <button
                           onClick={() => remove(it.id)}
-                          className="ml-2 text-slate-300 hover:text-red-500 transition text-lg leading-none"
+                          className="pbtn w-6 h-6 text-white text-[12px] shrink-0"
+                          style={{ background: 'var(--red)', boxShadow: '2px 2px 0 var(--ink)' }}
                           title="삭제"
-                        >×</button>
+                        >✕</button>
                       </div>
                     ))}
                   </div>
@@ -169,10 +218,16 @@
       const [steps, setSteps] = useState('');
       const [busy, setBusy] = useState(false);
       const [genBusy, setGenBusy] = useState(false);
+      const [mainInput, setMainInput] = useState('');   // 자동 추천 주재료
+      const [fridgeNames, setFridgeNames] = useState([]); // 주재료 자동완성용
 
       const load = useCallback(async () => {
         setLoading(true);
-        try { setRecipes(await api('/api/recipes')); }
+        try {
+          const [rs, ings] = await Promise.all([api('/api/recipes'), api('/api/ingredients')]);
+          setRecipes(rs);
+          setFridgeNames(ings.map((i) => i.name));
+        }
         catch (e) { notify(e.message); }
         finally { setLoading(false); }
       }, [notify]);
@@ -204,10 +259,12 @@
           const created = await api('/api/recipes/auto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
+            body: JSON.stringify({ main: mainInput.trim() }),
           });
           setRecipes((prev) => [created, ...prev]);
-          notify('냉장고 재료로 레시피를 자동 생성했어요!');
+          notify(mainInput.trim()
+            ? `'${mainInput.trim()}' 주재료로 레시피를 추천했어요!`
+            : '냉장고 재료로 레시피를 자동 생성했어요!');
         } catch (e) { notify(e.message); }
         finally { setGenBusy(false); }
       };
@@ -223,39 +280,58 @@
 
       return (
         <div className="space-y-5">
-          <div className="bg-gradient-to-r from-amber-50 to-emerald-50 rounded-2xl border border-amber-200 p-4 flex items-center justify-between gap-3">
+          {/* 자동 추천 패널 */}
+          <div className="pbox p-4 space-y-3" style={{ background: '#fff7e6' }}>
             <div>
-              <p className="font-semibold text-slate-800">🪄 냉장고 재료로 자동 추천</p>
-              <p className="text-xs text-slate-500 mt-0.5">현재 등록된 재료를 골라 간단한 레시피를 만들어 저장합니다.</p>
+              <p className="px text-[11px]" style={{ color: 'var(--amber)' }}>★ AUTO-CHEF</p>
+              <p className="text-[15px] mt-1">🪄 냉장고 재료로 자동 추천</p>
+              <p className="text-[12px] text-[#7a7568] mt-1">주재료를 넣으면 그 재료를 중심으로, 비우면 냉장고 재료로 레시피를 만들어 저장합니다.</p>
             </div>
-            <button
-              onClick={autoGenerate} disabled={genBusy}
-              className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium disabled:opacity-40 hover:bg-amber-600 transition whitespace-nowrap"
+            <form
+              onSubmit={(e) => { e.preventDefault(); autoGenerate(); }}
+              className="flex flex-col sm:flex-row gap-2"
             >
-              {genBusy ? '생성 중…' : '자동 생성'}
-            </button>
+              <input
+                value={mainInput} onChange={(e) => setMainInput(e.target.value)}
+                list="fridge-names" placeholder="주재료 (예: 돼지고기) · 비우면 랜덤" maxLength={60}
+                className="pinput flex-1 text-[14px]"
+              />
+              <datalist id="fridge-names">
+                {fridgeNames.map((n) => <option key={n} value={n} />)}
+              </datalist>
+              <button
+                type="submit" disabled={genBusy}
+                className="pbtn px-4 py-2 text-[13px] text-white whitespace-nowrap"
+                style={{ background: 'var(--amber)' }}
+              >
+                {genBusy ? '생성 중…' : (mainInput.trim() ? '이 재료로 추천' : '자동 생성')}
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={save} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-2">
+          {/* 직접 작성 폼 */}
+          <form onSubmit={save} className="pbox p-4 space-y-2">
+            <p className="px text-[10px] mb-1" style={{ color: 'var(--navy)' }}>＋ NEW RECIPE</p>
             <input
               value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="레시피 제목 (예: 양파 볶음)" maxLength={100}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px]"
+              className="pinput text-[14px]"
             />
             <textarea
               value={ingredients} onChange={(e) => setIngredients(e.target.value)}
               placeholder="재료 (한 줄에 하나씩)" rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] resize-none"
+              className="pinput text-[14px] resize-none"
             />
             <textarea
               value={steps} onChange={(e) => setSteps(e.target.value)}
               placeholder="조리 순서" rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none focus:border-emerald-500 text-[15px] resize-none"
+              className="pinput text-[14px] resize-none"
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 type="submit" disabled={!title.trim() || busy}
-                className="px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-40 hover:bg-slate-700 transition"
+                className="pbtn px-5 py-2 text-[13px] text-white"
+                style={{ background: 'var(--navy)' }}
               >
                 {busy ? '저장 중…' : '레시피 저장'}
               </button>
@@ -263,38 +339,39 @@
           </form>
 
           {loading ? (
-            <p className="text-center text-slate-400 py-10">불러오는 중…</p>
+            <p className="text-center py-10 text-[13px] text-white/90">불러오는 중…</p>
           ) : recipes.length === 0 ? (
-            <p className="text-center text-slate-400 py-10">아직 저장된 레시피가 없어요. 직접 작성하거나 자동 생성해 보세요!</p>
+            <p className="text-center py-10 text-[13px] text-white/90">아직 저장된 레시피가 없어요. 직접 작성하거나 자동 생성해 보세요!</p>
           ) : (
             <div className="space-y-3">
               {recipes.map((r) => (
-                <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 group">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div key={r.id} className="pbox p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-[16px] flex items-center gap-2 flex-wrap">
                       {r.title}
                       {r.source === 'auto'
-                        ? <span className="text-[11px] font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">자동</span>
-                        : <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">직접</span>}
+                        ? <span className="chip text-white" style={{ background: 'var(--amber)' }}>자동</span>
+                        : <span className="chip" style={{ background: 'var(--steel)' }}>직접</span>}
                     </h3>
                     <button
                       onClick={() => remove(r.id)}
-                      className="text-slate-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 text-sm"
-                    >삭제</button>
+                      className="pbtn px-2 py-1 text-white text-[11px] shrink-0"
+                      style={{ background: 'var(--red)', boxShadow: '2px 2px 0 var(--ink)' }}
+                    >DEL</button>
                   </div>
                   {r.ingredients && (
-                    <div className="mt-2">
-                      <p className="text-xs font-semibold text-slate-400 mb-1">재료</p>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.ingredients}</p>
+                    <div className="mt-3">
+                      <p className="chip mb-1" style={{ background: 'var(--green)', color: '#fff' }}>재료</p>
+                      <p className="text-[13px] whitespace-pre-wrap leading-relaxed">{r.ingredients}</p>
                     </div>
                   )}
                   {r.steps && (
-                    <div className="mt-2">
-                      <p className="text-xs font-semibold text-slate-400 mb-1">조리 순서</p>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{r.steps}</p>
+                    <div className="mt-3">
+                      <p className="chip mb-1 text-white" style={{ background: 'var(--navy)' }}>조리 순서</p>
+                      <p className="text-[13px] whitespace-pre-wrap leading-relaxed">{r.steps}</p>
                     </div>
                   )}
-                  <p className="text-xs text-slate-400 mt-3">{fmt(r.created_at)}</p>
+                  <p className="text-[11px] text-[#8a857a] mt-3">⏱ {fmt(r.created_at)}</p>
                 </div>
               ))}
             </div>
@@ -304,7 +381,7 @@
     }
 
     // ============================================================
-    //  앱 루트
+    //  앱 루트 — 냉장고 본체 프레임
     // ============================================================
     function App() {
       const [tab, setTab] = useState(location.hash === '#recipe' ? 'recipe' : 'fridge');
@@ -315,25 +392,55 @@
         setTimeout(() => setToast(''), 2200);
       }, []);
 
+      const tabBtn = (id, label, color) => (
+        <button
+          onClick={() => setTab(id)}
+          className="pbtn flex-1 py-2.5 text-[13px]"
+          style={tab === id
+            ? { background: color, color: '#fff' }
+            : { background: 'var(--cream)', color: 'var(--ink)' }}
+        >{label}</button>
+      );
+
       return (
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <header className="mb-6 text-center">
-            <h1 className="text-2xl font-extrabold text-slate-800">🧊 냉장고 재료 &amp; 레시피</h1>
-            <p className="text-sm text-slate-500 mt-1">재료와 레시피를 등록하고 자동으로 요리를 추천받으세요 · PostgreSQL 저장</p>
-          </header>
+        <div className="max-w-xl mx-auto px-4 py-7">
+          <div className="fridge">
+            <div className="handle" />
 
-          <div className="flex bg-white rounded-xl border border-slate-200 p-1 mb-6 shadow-sm">
-            <button
-              onClick={() => setTab('fridge')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${tab === 'fridge' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-            >🥬 냉장고 재료</button>
-            <button
-              onClick={() => setTab('recipe')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${tab === 'recipe' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-            >🍳 레시피</button>
+            {/* Win95 타이틀바 */}
+            <div className="titlebar">
+              <span className="px text-[9px]">❄ FRIDGE-95.EXE</span>
+              <div className="flex gap-1">
+                <span className="winbtn">_</span>
+                <span className="winbtn">□</span>
+                <span className="winbtn">✕</span>
+              </div>
+            </div>
+
+            <div className="p-4 pr-8 sm:p-5 sm:pr-9">
+              {/* 헤더 */}
+              <header className="mb-4">
+                <h1 className="text-[19px] leading-tight">🧊 냉장고 재료 &amp; 레시피</h1>
+                <div className="flex items-center gap-2 mt-2 flex-wrap text-[10px]">
+                  <span className="chip px text-white" style={{ background: 'var(--green)', fontSize: '8px' }}>❄ -18℃</span>
+                  <span className="chip px" style={{ background: 'var(--steel)', fontSize: '8px' }}>PostgreSQL ONLINE</span>
+                </div>
+              </header>
+
+              {/* 탭 */}
+              <div className="flex gap-3 mb-5">
+                {tabBtn('fridge', '🥬 냉장고 재료', 'var(--green)')}
+                {tabBtn('recipe', '🍳 레시피', 'var(--amber)')}
+              </div>
+
+              {tab === 'fridge' ? <FridgeTab notify={notify} /> : <RecipeTab notify={notify} />}
+
+              {/* 푸터 */}
+              <p className="px text-center text-[8px] mt-6 text-[#9a958a]">
+                © 1995 FRIDGE-95 · INSERT COIN TO COOK
+              </p>
+            </div>
           </div>
-
-          {tab === 'fridge' ? <FridgeTab notify={notify} /> : <RecipeTab notify={notify} />}
           <Toast msg={toast} />
         </div>
       );
