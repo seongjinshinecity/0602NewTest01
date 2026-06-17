@@ -49,13 +49,6 @@
       content:""; position:absolute; top:0; left:0; right:0; height:120px; pointer-events:none;
       background:linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0));
     }
-    /* 크롬 손잡이 */
-    .handle{
-      position:absolute; right:16px; top:96px; bottom:36px; width:20px; z-index:3;
-      border-radius:14px;
-      background:linear-gradient(90deg,#cfcfcf 0%,#ffffff 35%,#b8b8b8 65%,#eaeaea 100%);
-      box-shadow:0 6px 14px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.4);
-    }
     /* 70s 스트라이프 액센트 바 */
     .stripes{ height:10px; display:flex; }
     .stripes i{ flex:1; }
@@ -218,10 +211,9 @@
       return (
         <div className="max-w-xl mx-auto px-4 py-8">
           <div className="fridge">
-            <div className="handle" />
             <Stripes />
 
-            <div className="px-6 pr-12 py-7 sm:px-8 sm:pr-14">
+            <div className="px-6 py-7 sm:px-8">
               {/* 브랜드 헤더 (SMEG 스타일 크롬 배지) */}
               <header className="text-center mb-5">
                 <div className="inline-block px-6 py-2 rounded-full mb-2"

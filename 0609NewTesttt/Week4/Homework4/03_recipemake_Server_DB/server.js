@@ -89,13 +89,14 @@ async function generateWithClaude(ingredients, apiKey) {
     max_tokens: 2000,
     system:
       '당신은 한국 가정식에 능숙한 요리사입니다. 주어진 재료로 실제로 만들 수 있는 ' +
-      '간단하고 맛있는 요리 레시피 1개를 한국어로 제안합니다. 입력된 재료를 최대한 활용하고, ' +
-      '소금·후추·식용유 같은 기본 양념은 자유롭게 더해도 됩니다. 분량과 조리 순서는 초보자도 ' +
-      '따라 할 수 있도록 구체적으로 작성하세요.',
+      '간단하고 맛있는 **볶음요리** 레시피 1개를 한국어로 제안합니다. 반드시 팬이나 웍에 ' +
+      '기름을 두르고 볶는 조리법이어야 하며, 요리 이름에도 "볶음"이 들어가야 합니다. ' +
+      '입력된 재료를 최대한 활용하고, 소금·후추·식용유·간장 같은 기본 양념은 자유롭게 더해도 됩니다. ' +
+      '분량과 조리 순서는 초보자도 따라 할 수 있도록 구체적으로 작성하세요.',
     messages: [
       {
         role: 'user',
-        content: `다음 재료로 만들 수 있는 요리 레시피를 하나 만들어 주세요: ${ingredients.join(', ')}`,
+        content: `다음 재료로 만들 수 있는 볶음요리 레시피를 하나 만들어 주세요: ${ingredients.join(', ')}`,
       },
     ],
     output_config: { format: { type: 'json_schema', schema: RECIPE_SCHEMA } },
@@ -116,37 +117,21 @@ async function generateWithClaude(ingredients, apiKey) {
   return { ...data, source: 'ai' };
 }
 
-// 규칙 기반 폴백 레시피 생성 (API 키 없이도 동작)
+// 규칙 기반 폴백 레시피 생성 (API 키 없이도 동작) — 항상 볶음요리
 function fallbackRecipe(ingredients) {
   const main = ingredients[0] || '재료';
-  const methods = [
-    { name: '볶음', time: '약 15분', diff: '쉬움', steps: (xs) => [
-      `${xs.join(', ')}을(를) 먹기 좋은 크기로 손질합니다.`,
-      `달군 팬에 식용유를 두르고 ${xs[0]}부터 넣어 중불에서 볶습니다.`,
-      `나머지 재료를 넣고 함께 볶습니다.`,
-      `소금·후추로 간을 맞추고 한 번 더 볶아 완성합니다.`,
-    ] },
-    { name: '국', time: '약 20분', diff: '쉬움', steps: (xs) => [
-      `냄비에 물 3컵을 붓고 ${xs[0]}을(를) 넣어 끓입니다.`,
-      `끓어오르면 ${xs.slice(1).join(', ') || '준비한 재료'}를 넣습니다.`,
-      `중불에서 5~10분간 더 끓여 재료를 익힙니다.`,
-      `소금으로 간을 맞추고 불을 끕니다.`,
-    ] },
-    { name: '무침', time: '약 10분', diff: '쉬움', steps: (xs) => [
-      `${xs.join(', ')}을(를) 깨끗이 손질해 한입 크기로 썹니다.`,
-      `필요하면 살짝 데쳐 물기를 뺍니다.`,
-      `소금·참기름·깨를 넣고 조물조물 무칩니다.`,
-      `그릇에 담아 완성합니다.`,
-    ] },
-  ];
-  const m = methods[main.length % methods.length];
   return {
-    title: `${main} ${m.name}`,
-    description: `냉장고 속 ${ingredients.join(', ')}(으)로 만드는 간단한 ${m.name} 요리입니다.`,
-    ingredients: [...ingredients.map((n) => `${n} 적당량`), '기본 양념 (소금, 후추, 식용유 등)'],
-    steps: m.steps(ingredients),
-    cook_time: m.time,
-    difficulty: m.diff,
+    title: `${main} 볶음`,
+    description: `냉장고 속 ${ingredients.join(', ')}(으)로 만드는 간단한 볶음요리입니다.`,
+    ingredients: [...ingredients.map((n) => `${n} 적당량`), '식용유 1큰술', '간장 1작은술', '소금·후추 약간'],
+    steps: [
+      `${ingredients.join(', ')}을(를) 먹기 좋은 크기로 손질합니다.`,
+      `달군 팬에 식용유를 두르고 ${main}부터 넣어 센 불에서 볶습니다.`,
+      `나머지 재료를 넣고 골고루 볶습니다.`,
+      `간장을 둘러 향을 내고, 소금·후추로 간을 맞춰 한 번 더 볶아 완성합니다.`,
+    ],
+    cook_time: '약 15분',
+    difficulty: '쉬움',
     source: 'fallback',
   };
 }
