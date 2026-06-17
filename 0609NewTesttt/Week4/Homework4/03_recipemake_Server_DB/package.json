@@ -1,0 +1,27 @@
+{
+  "name": "recipemake-server-db",
+  "version": "1.0.0",
+  "description": "재료 기반 AI 레시피 자동 생성 + DB 저장 앱 (React + Express + Claude + PostgreSQL/Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "recipe",
+    "ai",
+    "claude",
+    "anthropic",
+    "postgresql",
+    "supabase",
+    "pglite",
+    "express",
+    "react"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "@electric-sql/pglite": "^0.5.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}
