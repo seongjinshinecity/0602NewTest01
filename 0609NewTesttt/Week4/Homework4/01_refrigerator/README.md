@@ -37,6 +37,11 @@
 
 ![로제 떡볶이](recipes/recipe_screenshot_2.png)
 
+### 3. `/recipe` 명령어(스킬) 정의
+> 레시피를 생성하는 `/recipe` 스킬의 정의 파일(`SKILL.md`) — 프론트매터와 실행 절차
+
+![/recipe 스킬 정의](recipes/recipe_skill_command.png)
+
 ## 🍳 생성된 레시피 목록
 
 | 파일 | 레시피 | 비고 |
