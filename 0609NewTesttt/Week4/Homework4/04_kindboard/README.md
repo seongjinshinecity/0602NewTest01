@@ -3,7 +3,7 @@
 **익명으로 글을 남기고**, 서로의 글에 **공감(❤️)** 을 눌러줄 수 있는 따뜻한 익명 게시판입니다.
 **고민 게시판 / 칭찬 게시판**을 탭으로 나눠 두었고, 글은 **최신순 / 시간순 / 공감순**으로 정렬해 볼 수 있습니다.
 모든 글과 공감 수는 **DB(PostgreSQL)에 저장**됩니다.
-디자인은 **코르크보드 + 포스트잇(압정 메모)** 무드 — 고민은 차분한 라벤더블루 `#7c83ff`, 칭찬은 따뜻한 코랄 `#ff8a5c`.
+디자인은 **다크 + 무지갯빛 글로우 그라데이션(글래스모피즘)** 무드 — 깊은 다크 배경 위에 노을·오로라빛 그라데이션과 필름 그레인. 고민 게시판은 차분한 보라·핑크 글로우, 칭찬 게시판은 따뜻한 앰버·코랄 글로우로 분위기가 바뀝니다.
 
 ### 데이터 흐름
 ```
@@ -71,7 +71,7 @@ CREATE TABLE posts (
 ## 🛠 기술 스택
 
 - **프런트엔드** — React 18 + Tailwind (CDN, 단일 `index.html`)
-  - **디자인** — 코르크보드 + 포스트잇(압정 메모): 고민 `#7c83ff` / 칭찬 `#ff8a5c`, Jua·Gowun Dodum 폰트, 도트 패턴
+  - **디자인** — 다크 + 무지갯빛 글로우 그라데이션(글래스모피즘): 보라·핑크·코랄·앰버 노을빛, 필름 그레인, Outfit·Noto Sans KR 폰트, 게시판별 글로우 전환
 - **백엔드** — Node.js + Express 5 (REST API)
 - **데이터베이스** — PostgreSQL · 로컬 PGlite / 운영 Supabase
 - **배포** — Vercel (`vercel.json`)
@@ -80,7 +80,7 @@ CREATE TABLE posts (
 
 ```
 04_kindboard/
-├── index.html      # React + Tailwind 프런트엔드 (코르크보드/포스트잇 디자인)
+├── index.html      # React + Tailwind 프런트엔드 (다크/글로우 그라데이션 디자인)
 ├── server.js       # Express REST API (글쓰기·공감·정렬·삭제)
 ├── db.js           # PostgreSQL 모듈 (PGlite / Supabase 자동 전환)
 ├── package.json
