@@ -1,13 +1,19 @@
 # 🧑‍🍳 냉장고 셰프 — AI 레시피 메이커 (Server + DB)
 
-냉장고에 있는 **재료를 입력하면 AI(Claude)가 레시피를 자동 생성**하고, 마음에 들면 **DB(PostgreSQL)에 저장**해 두고 **목록으로 조회**할 수 있는 풀스택 웹앱입니다.
-디자인은 **SMEG 냉장고 + 1970년대 미국 레트로** 무드 — 민트 컬러 `#5cffd1` / `#BDFCC9`, 크롬 손잡이, 둥근 라인, 70s 스트라이프로 꾸몄습니다.
+냉장고 **재료를 DB에 등록**해 두면, **그 재료를 읽어 AI(Claude)가 볶음 레시피를 자동 생성**하고, 마음에 들면 **DB(PostgreSQL)에 저장**해 **목록으로 조회**할 수 있는 풀스택 웹앱입니다.
+디자인은 **SMEG 냉장고 + 1970년대 미국 레트로** 무드 — 민트 컬러 `#5cffd1` / `#BDFCC9`, 둥근 라인, 70s 스트라이프로 꾸몄습니다.
+
+### 데이터 흐름
+```
+[DB에서 재료 조회] → [Server: AI API 호출] → [레시피 자동 생성] → [DB에 저장] → [레시피 목록에 표시]
+```
 
 ![냉장고 셰프 화면](screenshot.png)
 
 ## ✨ 기능
 
-- **AI 레시피 생성** — 재료(쉼표로 구분)를 입력하면 Claude가 요리 이름·소개·재료·조리순서·시간·난이도를 만들어 줍니다.
+- **재료 DB 관리** — 냉장고 재료를 등록/조회/삭제 (`ingredients` 테이블).
+- **AI 레시피 생성** — DB에 저장된 재료를 읽어 Claude가 **볶음요리** 레시피(이름·소개·재료·조리순서·시간·난이도)를 생성합니다.
 - **DB 저장** — 생성된 레시피를 PostgreSQL에 저장 (`AI 생성`/`데모 생성` 출처 표시).
 - **목록 조회** — 저장된 레시피를 카드로 조회하고 펼쳐 보기 / 삭제.
 - **키 없이도 동작** — `ANTHROPIC_API_KEY`가 없으면 규칙 기반 폴백 생성기로 대체.
@@ -52,7 +58,10 @@ npm start
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | GET | `/api/status` | AI 사용 가능 여부 / 모델명 |
-| POST | `/api/recipes/generate` | 재료로 레시피 생성(저장 X) `{ ingredients: [...] }` |
+| GET | `/api/ingredients` | 냉장고 재료 목록 조회 |
+| POST | `/api/ingredients` | 재료 등록 `{ name }` |
+| DELETE | `/api/ingredients/:id` | 재료 삭제 |
+| POST | `/api/recipes/generate` | **DB의 재료를 읽어** 레시피 생성(저장 X, body 불필요) |
 | GET | `/api/recipes` | 저장된 레시피 목록 |
 | POST | `/api/recipes` | 레시피 저장 |
 | DELETE | `/api/recipes/:id` | 레시피 삭제 |
@@ -60,6 +69,13 @@ npm start
 ## 🗂 데이터베이스 스키마
 
 ```sql
+-- 냉장고 재료 (AI 생성의 입력 소스)
+CREATE TABLE ingredients (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE recipes (
   id                SERIAL PRIMARY KEY,
   title             TEXT NOT NULL,

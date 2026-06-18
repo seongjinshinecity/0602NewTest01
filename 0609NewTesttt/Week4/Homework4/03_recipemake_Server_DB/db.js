@@ -20,6 +20,12 @@ let _ready = null;
 // AI가 생성한 레시피를 저장하는 테이블.
 // ingredients/steps/used_ingredients 는 JSON 문자열(배열)로 저장합니다.
 const SCHEMA = [
+  // 냉장고 재료 (AI 생성의 입력 소스). 레시피는 이 테이블에서 재료를 읽어 생성합니다.
+  `CREATE TABLE IF NOT EXISTS ingredients (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
   `CREATE TABLE IF NOT EXISTS recipes (
     id                SERIAL PRIMARY KEY,
     title             TEXT NOT NULL,

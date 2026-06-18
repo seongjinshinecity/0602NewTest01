@@ -149,13 +149,61 @@ async function generateRecipe(ingredients) {
   return fallbackRecipe(ingredients);
 }
 
-// ----- 생성(미리보기): 저장하지 않고 레시피만 반환 -----
-app.post('/api/recipes/generate', async (req, res) => {
-  const ingredients = normalizeIngredients(req.body?.ingredients);
-  if (ingredients.length === 0) {
-    return res.status(400).json({ success: false, message: '재료를 1개 이상 입력해 주세요.' });
-  }
+// ============================================================
+//  냉장고 재료 (AI 생성의 입력 소스)
+// ============================================================
+
+// ----- 재료 목록 조회 -----
+app.get('/api/ingredients', async (_req, res) => {
   try {
+    const { rows } = await query('SELECT id, name, created_at FROM ingredients ORDER BY id DESC');
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '재료를 불러오지 못했습니다.' });
+  }
+});
+
+// ----- 재료 등록 -----
+app.post('/api/ingredients', async (req, res) => {
+  const name = clean(req.body?.name, 40);
+  if (!name) return res.status(400).json({ success: false, message: '재료 이름을 입력해 주세요.' });
+  try {
+    const { rows } = await query(
+      'INSERT INTO ingredients (name) VALUES ($1) RETURNING id, name, created_at',
+      [name]
+    );
+    res.status(201).json({ success: true, data: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '재료 저장에 실패했습니다.' });
+  }
+});
+
+// ----- 재료 삭제 -----
+app.delete('/api/ingredients/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ success: false, message: '잘못된 ID 입니다.' });
+  try {
+    const { rows } = await query('DELETE FROM ingredients WHERE id = $1 RETURNING id', [id]);
+    if (rows.length === 0) return res.status(404).json({ success: false, message: '재료를 찾을 수 없습니다.' });
+    res.json({ success: true, data: { id } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '재료 삭제에 실패했습니다.' });
+  }
+});
+
+// ----- 생성(미리보기): ① DB에서 재료를 읽어 ② AI 호출 ③ 레시피 반환(저장 X) -----
+app.post('/api/recipes/generate', async (req, res) => {
+  try {
+    // ① DB에서 재료 조회
+    const { rows } = await query('SELECT name FROM ingredients ORDER BY id');
+    const ingredients = normalizeIngredients(rows.map((r) => r.name));
+    if (ingredients.length === 0) {
+      return res.status(400).json({ success: false, message: '냉장고가 비어 있어요. 먼저 재료를 등록해 주세요.' });
+    }
+    // ② AI 호출 → ③ 레시피 자동 생성
     const recipe = await generateRecipe(ingredients);
     res.json({ success: true, data: { ...recipe, used_ingredients: ingredients } });
   } catch (err) {

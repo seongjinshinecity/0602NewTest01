@@ -146,7 +146,9 @@
     // ============================================================
     function App() {
       const [ai, setAi] = useState(null);          // {ai, model} | null
-      const [input, setInput] = useState('');
+      const [ings, setIngs] = useState([]);        // DB의 냉장고 재료 [{id,name}]
+      const [newIng, setNewIng] = useState('');
+      const [addBusy, setAddBusy] = useState(false);
       const [generating, setGenerating] = useState(false);
       const [preview, setPreview] = useState(null);
       const [saving, setSaving] = useState(false);
@@ -157,8 +159,6 @@
 
       const notify = useCallback((m) => { setToast(m); setTimeout(() => setToast(''), 2400); }, []);
 
-      const chips = [...new Set(input.split(/[,\n]/).map((s) => s.trim()).filter(Boolean))];
-
       const loadRecipes = useCallback(async () => {
         setLoading(true);
         try { setRecipes(await api('/api/recipes')); }
@@ -166,18 +166,47 @@
         finally { setLoading(false); }
       }, [notify]);
 
+      const loadIngs = useCallback(async () => {
+        try { setIngs(await api('/api/ingredients')); }
+        catch (e) { notify(e.message); }
+      }, [notify]);
+
       useEffect(() => {
         api('/api/status').then(setAi).catch(() => setAi({ ai: false }));
+        loadIngs();
         loadRecipes();
-      }, [loadRecipes]);
+      }, [loadIngs, loadRecipes]);
 
+      const addIng = async (e) => {
+        e.preventDefault();
+        const name = newIng.trim();
+        if (!name || addBusy) return;
+        setAddBusy(true);
+        try {
+          const created = await api('/api/ingredients', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          });
+          setIngs((prev) => [created, ...prev]);
+          setNewIng('');
+        } catch (e) { notify(e.message); }
+        finally { setAddBusy(false); }
+      };
+
+      const removeIng = async (id) => {
+        try {
+          await api(`/api/ingredients/${id}`, { method: 'DELETE' });
+          setIngs((prev) => prev.filter((x) => x.id !== id));
+        } catch (e) { notify(e.message); }
+      };
+
+      // ① DB의 재료로 AI 생성 (서버가 DB에서 재료를 읽음 → body 불필요)
       const generate = async () => {
-        if (chips.length === 0 || generating) return;
+        if (ings.length === 0 || generating) return;
         setGenerating(true); setPreview(null);
         try {
           const r = await api('/api/recipes/generate', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ingredients: chips }),
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
           });
           setPreview(r);
         } catch (e) { notify(e.message); }
@@ -231,26 +260,38 @@
                 )}
               </header>
 
-              {/* 재료 입력 + 생성 */}
+              {/* 냉장고 재료(DB) 관리 + 생성 */}
               <div className="card p-5">
-                <label className="text-[15px]" style={{ color: ORANGE }}>🧺 냉장고 속 재료</label>
-                <textarea
-                  value={input} onChange={(e) => setInput(e.target.value)}
-                  placeholder="쉼표로 구분해 입력하세요  (예: 양파, 계란, 대파, 햄)"
-                  rows={2} maxLength={400}
-                  className="w-full mt-2 p-3 text-[15px] resize-none outline-none"
-                  style={{ background: '#fff', border: '2px solid ' + MINT_PALE, borderRadius: 18 }}
-                />
-                {chips.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {chips.map((c, i) => <span key={i} className="pill" style={{ background: MINT_PALE, color: INK }}>{c}</span>)}
+                <label className="text-[15px]" style={{ color: ORANGE }}>🧺 냉장고 재료 <span className="text-[12px] text-[#a59e8b]">(DB에 저장돼요)</span></label>
+                <form onSubmit={addIng} className="flex gap-2 mt-2">
+                  <input
+                    value={newIng} onChange={(e) => setNewIng(e.target.value)}
+                    placeholder="재료 추가 (예: 양파)" maxLength={40}
+                    className="flex-1 p-3 text-[15px] outline-none"
+                    style={{ background: '#fff', border: '2px solid ' + MINT_PALE, borderRadius: 16 }}
+                  />
+                  <button type="submit" disabled={!newIng.trim() || addBusy}
+                    className="btn px-5 text-[15px]" style={{ background: MINT_PALE, color: INK }}>＋ 추가</button>
+                </form>
+
+                {ings.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {ings.map((it) => (
+                      <span key={it.id} className="pill" style={{ background: MINT_PALE, color: INK }}>
+                        {it.name}
+                        <button onClick={() => removeIng(it.id)} className="ml-1 text-[#5a7a66] hover:text-red-500" title="삭제">×</button>
+                      </span>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-[14px] text-[#a59e8b] mt-3">냉장고가 비어 있어요. 재료를 추가해 주세요 🥕</p>
                 )}
+
                 <button
-                  onClick={generate} disabled={chips.length === 0 || generating}
+                  onClick={generate} disabled={ings.length === 0 || generating}
                   className="btn w-full mt-4 py-3 text-[17px]"
                   style={{ background: MINT, color: INK }}>
-                  {generating ? <span><span className="spin">🍳</span> 레시피 만드는 중…</span> : '✨ AI 레시피 생성'}
+                  {generating ? <span><span className="spin">🍳</span> 레시피 만드는 중…</span> : '✨ 냉장고 재료로 AI 레시피 생성'}
                 </button>
               </div>
 
