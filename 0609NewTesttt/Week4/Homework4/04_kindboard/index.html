@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💌 마음게시판 · 익명 고민·칭찬 보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Gaegu:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== 따뜻한 익명 게시판 · 코르크보드 + 포스트잇 테마 ===== */
+    :root{
+      --ink:#3a3530;
+      --paper:#fbf7ef;
+      --worry:#7c83ff;       /* 고민 = 차분한 라벤더블루 */
+      --worry-pale:#e7e8ff;
+      --praise:#ff8a5c;      /* 칭찬 = 따뜻한 코랄 */
+      --praise-pale:#ffe6da;
+      --heart:#ff5a7a;
+    }
+    body{
+      margin:0; min-height:100vh; color:var(--ink);
+      font-family:'Gowun Dodum','Apple SD Gothic Neo',sans-serif;
+      background:
+        radial-gradient(circle at 50% -10%, #fff6e8 0%, #f7eedd 45%, #efe2c9 100%);
+    }
+    /* 은은한 도트 패턴 */
+    body::before{
+      content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.45;
+      background-image: radial-gradient(rgba(124,131,255,.18) 2px, transparent 2px);
+      background-size: 28px 28px;
+    }
+    .display{ font-family:'Jua',sans-serif; }
+    .hand{ font-family:'Gaegu',cursive; }
+
+    /* 코르크보드 본체 */
+    .board{
+      position:relative; z-index:1;
+      background:linear-gradient(160deg,#e7c79a 0%, #d9b483 100%);
+      border:8px solid #fff;
+      border-radius:36px;
+      box-shadow:0 26px 60px rgba(80,55,30,.28), inset 0 3px 0 rgba(255,255,255,.5);
+      overflow:hidden;
+    }
+    .card{ background:var(--paper); border-radius:22px; box-shadow:0 10px 24px rgba(80,55,30,.16); }
+    .btn{
+      font-family:'Gowun Dodum',sans-serif; border:none; cursor:pointer; border-radius:999px;
+      transition:transform .08s, box-shadow .08s, filter .08s;
+      box-shadow:0 5px 0 rgba(0,0,0,.12);
+    }
+    .btn:active:not(:disabled){ transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.12); }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .pill{ display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 12px; font-size:13px; }
+    /* 포스트잇 메모 */
+    .note{ position:relative; border-radius:6px; box-shadow:0 8px 18px rgba(80,55,30,.18); }
+    .note::before{ /* 압정 */
+      content:""; position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+      width:16px; height:16px; border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, #fff, #d23b54 60%, #9c1d33);
+      box-shadow:0 3px 5px rgba(0,0,0,.3);
+    }
+    input::placeholder,textarea::placeholder{ color:#b6ac99; }
+    .heart-pop{ animation:pop .32s ease; display:inline-block; }
+    @keyframes pop{ 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
+    .spin{ animation:spin 1s linear infinite; display:inline-block; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+    const INK = '#3a3530';
+
+    // 게시판 메타 (탭/색상/문구)
+    const BOARDS = {
+      worry:  { key: 'worry',  emoji: '🌧️', label: '고민 게시판', accent: '#7c83ff', pale: '#e7e8ff',
+                placeholder: '혼자 담아두기 힘든 고민을 편하게 털어놓아 보세요…',
+                note: '#eef0ff', empty: '아직 올라온 고민이 없어요. 첫 고민을 익명으로 남겨보세요 🌧️' },
+      praise: { key: 'praise', emoji: '🌟', label: '칭찬 게시판', accent: '#ff8a5c', pale: '#ffe6da',
+                placeholder: '누군가에게, 혹은 스스로에게 전하고 싶은 칭찬을 적어보세요…',
+                note: '#fff3e6', empty: '아직 칭찬이 없어요. 따뜻한 한마디를 익명으로 남겨보세요 🌟' },
+    };
+    const SORTS = [
+      { key: 'new',   label: '최신순' },
+      { key: 'old',   label: '시간순' },
+      { key: 'likes', label: '공감순' },
+    ];
+
+    // 내가 공감한 글 id (브라우저별 localStorage) — 중복 공감 방지 + 토글
+    const LIKED_KEY = 'kindboard_liked';
+    const loadLiked = () => {
+      try { return new Set(JSON.parse(localStorage.getItem(LIKED_KEY) || '[]')); }
+      catch { return new Set(); }
+    };
+    const saveLiked = (set) => {
+      try { localStorage.setItem(LIKED_KEY, JSON.stringify([...set])); } catch {}
+    };
+
+    function fmt(iso) {
+      const d = new Date(iso);
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60) return '방금 전';
+      if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+    }
+    async function api(url, opts) {
+      const res = await fetch(url, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.message || '요청에 실패했습니다.');
+      return json.data;
+    }
+
+    function Toast({ msg }) {
+      if (!msg) return null;
+      return (
+        <div className="card" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 50, padding: '10px 20px', background: INK, color: '#fff', borderRadius: 999 }}>
+          {msg}
+        </div>
+      );
+    }
+
+    // ----- 글 한 장 (포스트잇) -----
+    function PostCard({ post, meta, liked, onLike, onDelete }) {
+      return (
+        <div className="note p-4" style={{ background: meta.note }}>
+          <p className="whitespace-pre-wrap leading-relaxed text-[15.5px] text-[#43403a]">{post.content}</p>
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-[13px] text-[#a59a82]">🙈 {post.nickname} · {fmt(post.created_at)}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onLike(post)}
+                className="btn px-3 py-1.5 text-[14px]"
+                style={liked
+                  ? { background: 'var(--heart)', color: '#fff', boxShadow: '0 4px 0 #d23b54' }
+                  : { background: '#fff', color: '#c2485f', boxShadow: '0 4px 0 ' + meta.pale }}
+                title={liked ? '공감 취소' : '공감하기'}>
+                <span className={liked ? 'heart-pop' : ''}>{liked ? '❤️' : '🤍'}</span> 공감 {post.likes}
+              </button>
+              <button onClick={() => onDelete(post.id)} className="text-[#bfb39c] hover:text-red-500 text-[18px] leading-none" title="삭제">×</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    function App() {
+      const [board, setBoard] = useState('worry');     // 'worry' | 'praise'
+      const [sort, setSort] = useState('new');          // 'new' | 'old' | 'likes'
+      const [posts, setPosts] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [content, setContent] = useState('');
+      const [nickname, setNickname] = useState('');
+      const [posting, setPosting] = useState(false);
+      const [liked, setLiked] = useState(loadLiked);    // Set<number>
+      const [toast, setToast] = useState('');
+
+      const meta = BOARDS[board];
+      const notify = useCallback((m) => { setToast(m); setTimeout(() => setToast(''), 2400); }, []);
+
+      const load = useCallback(async (b, s) => {
+        setLoading(true);
+        try { setPosts(await api(`/api/posts?board=${b}&sort=${s}`)); }
+        catch (e) { notify(e.message); }
+        finally { setLoading(false); }
+      }, [notify]);
+
+      useEffect(() => { load(board, sort); }, [board, sort, load]);
+
+      const submit = async (e) => {
+        e.preventDefault();
+        const text = content.trim();
+        if (!text || posting) return;
+        setPosting(true);
+        try {
+          const created = await api('/api/posts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ board, content: text, nickname: nickname.trim() }),
+          });
+          // 최신순일 때만 즉시 맨 위로, 아니면 새로고침해 정렬 반영
+          if (sort === 'new') setPosts((prev) => [created, ...prev]);
+          else load(board, sort);
+          setContent(''); setNickname('');
+          notify('익명으로 등록했어요 ✍️');
+        } catch (e) { notify(e.message); }
+        finally { setPosting(false); }
+      };
+
+      // 공감 토글: 내가 누른 적 없으면 +1, 있으면 -1
+      const like = async (post) => {
+        const has = liked.has(post.id);
+        const delta = has ? -1 : 1;
+        try {
+          const updated = await api(`/api/posts/${post.id}/like`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ delta }),
+          });
+          setPosts((prev) => {
+            const next = prev.map((p) => (p.id === post.id ? { ...p, likes: updated.likes } : p));
+            // 공감순 정렬이면 즉시 재정렬해 자리 이동을 반영
+            return sort === 'likes'
+              ? [...next].sort((a, b) => b.likes - a.likes || new Date(b.created_at) - new Date(a.created_at))
+              : next;
+          });
+          setLiked((prev) => {
+            const ns = new Set(prev);
+            if (has) ns.delete(post.id); else ns.add(post.id);
+            saveLiked(ns);
+            return ns;
+          });
+        } catch (e) { notify(e.message); }
+      };
+
+      const remove = async (id) => {
+        if (!window.confirm('이 글을 삭제할까요?')) return;
+        try {
+          await api(`/api/posts/${id}`, { method: 'DELETE' });
+          setPosts((prev) => prev.filter((p) => p.id !== id));
+          notify('삭제했어요.');
+        } catch (e) { notify(e.message); }
+      };
+
+      return (
+        <div className="max-w-xl mx-auto px-4 py-8">
+          <div className="board">
+            <div className="px-5 py-7 sm:px-8">
+              {/* 헤더 */}
+              <header className="text-center mb-5">
+                <h1 className="display text-[30px] leading-tight" style={{ color: '#fff', textShadow: '0 2px 6px rgba(80,55,30,.35)' }}>
+                  💌 마음게시판
+                </h1>
+                <p className="text-[14px] mt-1" style={{ color: '#fff8ee' }}>익명으로 고민을 나누고, 서로를 칭찬해요</p>
+              </header>
+
+              {/* 탭 (고민 / 칭찬) */}
+              <div className="flex gap-2 p-1.5 rounded-full" style={{ background: 'rgba(255,255,255,.55)' }}>
+                {Object.values(BOARDS).map((b) => {
+                  const on = board === b.key;
+                  return (
+                    <button key={b.key} onClick={() => setBoard(b.key)}
+                      className="flex-1 py-2.5 text-[16px] rounded-full transition"
+                      style={on
+                        ? { background: b.accent, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,.18)' }
+                        : { background: 'transparent', color: '#7a6e58' }}>
+                      {b.emoji} {b.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 글쓰기 카드 */}
+              <form onSubmit={submit} className="card p-5 mt-4" style={{ border: '3px solid ' + meta.pale }}>
+                <textarea
+                  value={content} onChange={(e) => setContent(e.target.value)}
+                  placeholder={meta.placeholder} maxLength={1000} rows={3}
+                  className="w-full p-3 text-[15px] outline-none resize-none"
+                  style={{ background: '#fff', border: '2px solid ' + meta.pale, borderRadius: 16 }}
+                />
+                <div className="flex gap-2 mt-2">
+                  <input
+                    value={nickname} onChange={(e) => setNickname(e.target.value)}
+                    placeholder="별명 (비우면 '익명')" maxLength={20}
+                    className="flex-1 p-3 text-[14px] outline-none"
+                    style={{ background: '#fff', border: '2px solid ' + meta.pale, borderRadius: 16 }}
+                  />
+                  <button type="submit" disabled={!content.trim() || posting}
+                    className="btn px-6 text-[15px]" style={{ background: meta.accent, color: '#fff' }}>
+                    {posting ? <span className="spin">✍️</span> : '익명 등록'}
+                  </button>
+                </div>
+              </form>
+
+              {/* 정렬 + 개수 */}
+              <div className="flex items-center justify-between mt-6 mb-3">
+                <span className="pill" style={{ background: 'rgba(255,255,255,.7)', color: '#7a6e58' }}>
+                  {meta.emoji} {posts.length}개의 글
+                </span>
+                <div className="flex gap-1.5">
+                  {SORTS.map((s) => {
+                    const on = sort === s.key;
+                    return (
+                      <button key={s.key} onClick={() => setSort(s.key)}
+                        className="px-3 py-1.5 text-[13px] rounded-full transition"
+                        style={on
+                          ? { background: meta.accent, color: '#fff' }
+                          : { background: 'rgba(255,255,255,.7)', color: '#7a6e58' }}>
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 글 목록 */}
+              {loading ? (
+                <p className="text-center py-10" style={{ color: '#fff8ee' }}>불러오는 중…</p>
+              ) : posts.length === 0 ? (
+                <div className="card p-7 text-center text-[#8a7e68]">{meta.empty}</div>
+              ) : (
+                <div className="grid gap-5 pt-2">
+                  {posts.map((p) => (
+                    <PostCard key={p.id} post={p} meta={meta}
+                      liked={liked.has(p.id)} onLike={like} onDelete={remove} />
+                  ))}
+                </div>
+              )}
+
+              <p className="text-center text-[12px] mt-8" style={{ color: '#fff8ee' }}>
+                💌 마음게시판 · 익명 보드 · PostgreSQL 저장
+              </p>
+            </div>
+          </div>
+          <Toast msg={toast} />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
