@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💸 연봉/지출 비교 💸</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#070b16;
+      --txt:#eaf0ff;
+      --muted:#94a0c4;
+      --card:rgba(255,255,255,.045);
+      --line:rgba(255,255,255,.09);
+      --accent:#6ee7b7;
+      --accent2:#7c9cff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; min-height:100vh; color:var(--txt);
+      font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;
+      background:
+        radial-gradient(50% 40% at 85% -8%, rgba(124,156,255,.28), transparent 70%),
+        radial-gradient(45% 40% at 8% 4%, rgba(110,231,183,.20), transparent 72%),
+        radial-gradient(55% 50% at 50% 120%, rgba(180,110,255,.20), transparent 70%),
+        var(--bg);
+      background-attachment:fixed;
+    }
+    h1,h2,h3,.num{ font-family:'Outfit','Noto Sans KR',sans-serif; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:20px; backdrop-filter:blur(8px); }
+    .field{ background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:12px; }
+    /* 연차·월급 강조 — 테두리를 30% 밝기(흰색 .3)로 더 밝게 */
+    .field-hl{ border-color:rgba(255,255,255,.3); }
+    .field:focus-within{ border-color:var(--accent2); box-shadow:0 0 0 3px rgba(124,156,255,.18); }
+    input.bare{ background:transparent; border:0; outline:0; color:var(--txt); width:100%; }
+    input.bare::placeholder{ color:var(--muted); }
+    select.bare{ background:transparent; border:0; outline:0; color:var(--txt); width:100%; appearance:none; }
+    select.bare option{ background:#10162a; color:var(--txt); }
+    .seg{ background:rgba(255,255,255,.05); border:1px solid var(--line); }
+    .seg-on{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#06122a; font-weight:700; }
+    .gradtext{ background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .btn-primary{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#06122a; font-weight:800; }
+    .btn-primary:hover{ filter:brightness(1.06); }
+    .pill{ background:rgba(255,255,255,.06); border:1px solid var(--line); }
+    ::-webkit-scrollbar{ width:10px; height:10px; }
+    ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:10px; }
+    .fade-in{ animation:fade .4s ease both; }
+    @keyframes fade{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ── 도메인 상수 ──────────────────────────────────────────
+    const JOB_LABELS = { dev:'개발', design:'디자인', pm:'기획/PM', marketing:'마케팅', sales:'영업', etc:'기타' };
+    const CATEGORY_FALLBACK = [
+      { key:'food', label:'식비' }, { key:'housing', label:'주거' },
+      { key:'transport', label:'교통' }, { key:'telecom', label:'통신' },
+      { key:'subscription', label:'구독료' }, { key:'leisure', label:'여가' },
+      { key:'etc', label:'기타' },
+    ];
+    const CAT_ICON = { food:'🍚', housing:'🏠', transport:'🚇', telecom:'📱', subscription:'🔁', leisure:'🎬', etc:'🧾' };
+
+    // ── 표시 유틸 ────────────────────────────────────────────
+    const won = (manwon) => {
+      const n = Number(manwon) || 0;
+      if (n >= 10000) return (n/10000).toFixed(n%10000===0?0:1) + '억';
+      return n.toLocaleString('ko-KR') + '만원';
+    };
+    const numFmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+
+    // ── 작은 차트 래퍼 (Chart.js) ────────────────────────────
+    // 주의: Chart.js 반응형은 캔버스 부모가 position:relative + 크기를 가져야
+    //       정확히 그려집니다. 또 첫 렌더 시 레이아웃이 늦게 잡히면 폭이 0으로
+    //       잡힐 수 있어, 생성 직후 한 프레임 뒤에 resize()로 다시 그립니다.
+    function ChartBox({ type, data, options, height=260 }){
+      const ref = useRef(null); const inst = useRef(null);
+      useEffect(() => {
+        if (!ref.current) return;
+        if (inst.current) inst.current.destroy();
+        inst.current = new Chart(ref.current, { type, data, options });
+        const id = requestAnimationFrame(() => { if (inst.current) inst.current.resize(); });
+        return () => { cancelAnimationFrame(id); if (inst.current) inst.current.destroy(); };
+      }, [JSON.stringify(data), JSON.stringify(options), type]);
+      return <div style={{ position:'relative', width:'100%', height }}><canvas ref={ref}></canvas></div>;
+    }
+
+    const GRID = 'rgba(255,255,255,.07)';
+    const TICK = '#94a0c4';
+
+    // ── 통계 카드 ────────────────────────────────────────────
+    function Stat({ label, value, sub }){
+      return (
+        <div className="card p-4">
+          <div className="text-xs" style={{color:'var(--muted)'}}>{label}</div>
+          <div className="num text-2xl font-extrabold mt-1">{value}</div>
+          {sub && <div className="text-xs mt-1" style={{color:'var(--muted)'}}>{sub}</div>}
+        </div>
+      );
+    }
+
+    // ── 입력 폼 ──────────────────────────────────────────────
+    function Form({ categories, onSubmit, busy }){
+      const [job, setJob] = useState('dev');
+      const [years, setYears] = useState('');
+      const [salary, setSalary] = useState('');
+      const [exp, setExp] = useState(() => Object.fromEntries(categories.map(c => [c.key, ''])));
+
+      const setCat = (k, v) => setExp(p => ({ ...p, [k]: v }));
+      const totalExp = useMemo(() => categories.reduce((s,c)=> s + (Number(exp[c.key])||0), 0), [exp, categories]);
+      const sal = Number(salary)||0;
+      const saveRate = sal>0 ? Math.max(0, Math.round((sal-totalExp)/sal*100)) : 0;
+
+      const submit = (e) => {
+        e.preventDefault();
+        if (!sal) return;
+        onSubmit({ job, years:Number(years)||0, salary:sal, ...Object.fromEntries(categories.map(c=>[c.key, Number(exp[c.key])||0])) });
+      };
+
+      return (
+        <form onSubmit={submit} className="card p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-bold">내 정보 입력</h2>
+            <p className="text-xs mt-1" style={{color:'var(--muted)'}}>익명으로 저장돼요. 이름·이메일 등은 받지 않습니다.</p>
+          </div>
+
+          {/* 직군 */}
+          <div>
+            <label className="text-sm font-medium">직군</label>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {Object.entries(JOB_LABELS).map(([k,v]) => (
+                <button type="button" key={k} onClick={()=>setJob(k)}
+                  className={"seg rounded-xl py-2 text-sm transition " + (job===k ? "seg-on" : "")}>{v}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium">연차</label>
+              <div className="field field-hl flex items-center px-3 py-2.5 mt-2">
+                <input className="bare num" type="number" min="0" max="60" placeholder="3" value={years} onChange={e=>setYears(e.target.value)} />
+                <span className="text-sm whitespace-nowrap" style={{color:'var(--muted)'}}>년</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">월급</label>
+              <div className="field field-hl flex items-center px-3 py-2.5 mt-2">
+                <input className="bare num" type="number" min="0" placeholder="350" value={salary} onChange={e=>setSalary(e.target.value)} />
+                <span className="text-sm whitespace-nowrap" style={{color:'var(--muted)'}}>만원</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 카테고리 지출 */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">월 지출 (카테고리별)</label>
+              <span className="text-xs pill px-2 py-1 rounded-lg">합계 {won(totalExp)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {categories.map(c => (
+                <div key={c.key} className="field flex items-center px-3 py-2.5">
+                  <span className="mr-1">{CAT_ICON[c.key]||'•'}</span>
+                  <span className="text-xs mr-2 whitespace-nowrap" style={{color:'var(--muted)'}}>{c.label}</span>
+                  <input className="bare num text-right" type="number" min="0" placeholder="0" value={exp[c.key]} onChange={e=>setCat(c.key, e.target.value)} />
+                  <span className="text-xs ml-1" style={{color:'var(--muted)'}}>만</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 저축률 미리보기 */}
+          {sal>0 && (
+            <div className="pill rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-sm" style={{color:'var(--muted)'}}>예상 저축률</span>
+              <span className="num font-bold gradtext text-lg">{saveRate}%</span>
+            </div>
+          )}
+
+          <button type="submit" disabled={busy || !sal}
+            className="btn-primary w-full rounded-xl py-3.5 text-base disabled:opacity-50">
+            {busy ? '제출 중…' : '제출하고 비교 보기'}
+          </button>
+        </form>
+      );
+    }
+
+    // ── 결과 화면 ────────────────────────────────────────────
+    function Results({ result, categories }){
+      const { stats, jobStats, me } = result;
+      const [scope, setScope] = useState('all'); // all | job
+      const view = scope==='all' ? stats : jobStats;
+      const pct = scope==='all' ? me.percentileAll : me.percentileJob;
+
+      // 월급 분포 차트 — 내 구간 강조
+      const dist = stats.salary.distribution;
+      const myBucket = (() => {
+        const edges = [200,300,400,500,700,1000];
+        const s = me.salary;
+        if (s < 200) return 0; if (s<300) return 1; if (s<400) return 2;
+        if (s<500) return 3; if (s<700) return 4; if (s<1000) return 5; return 6;
+      })();
+      const distData = {
+        labels: dist.map(d=>d.label),
+        datasets:[{
+          label:'인원',
+          data: dist.map(d=>d.count),
+          backgroundColor: dist.map((_,i)=> i===myBucket ? '#6ee7b7' : 'rgba(124,156,255,.45)'),
+          borderRadius:6,
+        }]
+      };
+
+      // 카테고리별: 내 지출 vs 전체 평균
+      const catData = {
+        labels: view.expense.byCategory.map(c=>c.label),
+        datasets:[
+          { label:'나', data: view.expense.byCategory.map(c=> me.expenses[c.key]||0), backgroundColor:'#6ee7b7', borderRadius:5 },
+          { label:'평균', data: view.expense.byCategory.map(c=> c.avg), backgroundColor:'rgba(124,156,255,.55)', borderRadius:5 },
+        ]
+      };
+
+      const barOpts = (legend=false) => ({
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:legend, labels:{ color:TICK } } },
+        scales:{ x:{ ticks:{ color:TICK }, grid:{ color:GRID } }, y:{ ticks:{ color:TICK }, grid:{ color:GRID }, beginAtZero:true } }
+      });
+
+      const salaryVsAvg = me.salary - view.salary.avg;
+
+      return (
+        <div className="space-y-5 fade-in">
+          {/* 내 위치 헤더 */}
+          <div className="card p-6 text-center">
+            <div className="text-sm" style={{color:'var(--muted)'}}>내 월급은 {scope==='all'?'전체':JOB_LABELS[me.job]} 기준</div>
+            <div className="num text-5xl font-extrabold mt-1">상위 <span className="gradtext">{pct}%</span></div>
+            <div className="text-sm mt-2" style={{color:'var(--muted)'}}>
+              내 월급 <b style={{color:'var(--txt)'}}>{won(me.salary)}</b> · 평균 {won(view.salary.avg)}
+              <span className={salaryVsAvg>=0?'text-emerald-300':'text-rose-300'}> ({salaryVsAvg>=0?'+':''}{won(salaryVsAvg)})</span>
+            </div>
+            {/* 범위 토글 */}
+            <div className="inline-flex seg rounded-xl p-1 mt-4">
+              <button onClick={()=>setScope('all')} className={"px-4 py-1.5 rounded-lg text-sm transition "+(scope==='all'?'seg-on':'')}>전체</button>
+              <button onClick={()=>setScope('job')} className={"px-4 py-1.5 rounded-lg text-sm transition "+(scope==='job'?'seg-on':'')}>{JOB_LABELS[me.job]} 직군</button>
+            </div>
+          </div>
+
+          {/* 요약 통계 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="표본 수" value={numFmt(view.count)+'명'} sub={scope==='all'?'전체 제출':JOB_LABELS[me.job]+' 직군'} />
+            <Stat label="평균 월급" value={won(view.salary.avg)} sub={"중앙값 "+won(view.salary.median)} />
+            <Stat label="평균 지출" value={won(view.expense.avgTotal)} sub={"내 지출 "+won(me.expenseTotal)} />
+            <Stat label="평균 저축률" value={view.savingsRate+'%'} sub={"내 저축률 "+me.savingsRate+'%'} />
+          </div>
+
+          {/* 월급 분포 */}
+          <div className="card p-6">
+            <h3 className="font-bold mb-1">월급 분포 <span className="text-xs font-normal" style={{color:'var(--muted)'}}>(전체 · 단위: 만원)</span></h3>
+            <p className="text-xs mb-3" style={{color:'var(--muted)'}}>초록 막대가 내가 속한 구간이에요.</p>
+            <ChartBox type="bar" data={distData} options={barOpts(false)} height={240} />
+          </div>
+
+          {/* 카테고리별 비교 */}
+          <div className="card p-6">
+            <h3 className="font-bold mb-1">카테고리별 지출 — 나 vs {scope==='all'?'전체':JOB_LABELS[me.job]} 평균</h3>
+            <p className="text-xs mb-3" style={{color:'var(--muted)'}}>단위: 만원</p>
+            <ChartBox type="bar" data={catData} options={barOpts(true)} height={260} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+              {view.expense.byCategory.map(c => {
+                const mine = me.expenses[c.key]||0; const diff = mine - c.avg;
+                return (
+                  <div key={c.key} className="pill rounded-xl p-3">
+                    <div className="text-xs" style={{color:'var(--muted)'}}>{CAT_ICON[c.key]} {c.label}</div>
+                    <div className="num font-bold mt-0.5">{won(mine)}</div>
+                    <div className={"text-xs "+(diff>0?'text-rose-300':'text-emerald-300')}>평균比 {diff>=0?'+':''}{won(diff)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── 제출 전: 현재 평균 미리보기 ──────────────────────────
+    function Preview({ stats }){
+      if (!stats || !stats.count) {
+        return <div className="card p-8 text-center" style={{color:'var(--muted)'}}>
+          <div className="text-4xl mb-2">📊</div>
+          아직 데이터가 없어요. 첫 제출의 주인공이 되어보세요!
+        </div>;
+      }
+      return (
+        <div className="card p-6 space-y-3">
+          <h3 className="font-bold">지금까지의 전체 평균 <span className="text-xs font-normal" style={{color:'var(--muted)'}}>· {numFmt(stats.count)}명</span></h3>
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="평균 월급" value={won(stats.salary.avg)} />
+            <Stat label="평균 지출" value={won(stats.expense.avgTotal)} />
+            <Stat label="평균 저축률" value={stats.savingsRate+'%'} />
+          </div>
+          <p className="text-xs" style={{color:'var(--muted)'}}>← 왼쪽에 내 정보를 입력하면 내 위치(상위 %)와 카테고리별 비교를 볼 수 있어요.</p>
+        </div>
+      );
+    }
+
+    // ── 앱 루트 ──────────────────────────────────────────────
+    function App(){
+      const [categories, setCategories] = useState(CATEGORY_FALLBACK);
+      const [preStats, setPreStats] = useState(null);
+      const [result, setResult] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const [err, setErr] = useState('');
+
+      useEffect(() => {
+        fetch('/api/stats').then(r=>r.json()).then(j => {
+          if (j.success) { setPreStats(j.data); if (j.meta?.categories?.length) setCategories(j.meta.categories); }
+        }).catch(()=>{});
+      }, []);
+
+      const submit = async (payload) => {
+        setBusy(true); setErr('');
+        try {
+          const r = await fetch('/api/submissions', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+          });
+          const j = await r.json();
+          if (!j.success) throw new Error(j.message||'제출 실패');
+          setResult(j.data);
+          window.scrollTo({ top:0, behavior:'smooth' });
+        } catch(e){ setErr(e.message); } finally { setBusy(false); }
+      };
+
+      const reset = () => setResult(null);
+
+      return (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <header className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-extrabold">💸 연봉/지출 비교 💸</h1>
+            <p className="mt-2 text-sm" style={{color:'var(--muted)'}}>
+              월급·지출을 익명으로 입력하면 전체 평균, 분포, 내 위치(상위 %), 카테고리별 비교를 보여드려요.
+            </p>
+          </header>
+
+          {err && <div className="card p-3 mb-4 text-center text-rose-300 text-sm">{err}</div>}
+
+          {!result ? (
+            <div className="grid md:grid-cols-2 gap-6 items-start">
+              <Form categories={categories} onSubmit={submit} busy={busy} />
+              <Preview stats={preStats} />
+            </div>
+          ) : (
+            <div>
+              <div className="flex justify-end mb-3">
+                <button onClick={reset} className="pill rounded-xl px-4 py-2 text-sm hover:brightness-125">← 다시 입력</button>
+              </div>
+              <Results result={result} categories={categories} />
+            </div>
+          )}
+
+          <footer className="text-center mt-10 text-xs" style={{color:'var(--muted)'}}>
+            모든 데이터는 개인 식별 정보 없이 PostgreSQL(PGlite / Supabase)에 익명 저장됩니다.
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

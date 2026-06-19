@@ -1,0 +1,26 @@
+{
+  "name": "salary-expense-compare",
+  "version": "1.0.0",
+  "description": "익명 연봉/지출 비교 — 월급·지출·직군·연차 익명 제출 + 평균/분포/상위% + 카테고리별 지출 비교 (React + Express + PostgreSQL/Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "salary",
+    "expense",
+    "anonymous",
+    "statistics",
+    "postgresql",
+    "supabase",
+    "pglite",
+    "express",
+    "react"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}
