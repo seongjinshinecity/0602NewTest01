@@ -1,0 +1,25 @@
+{
+  "name": "newbalance-game",
+  "version": "1.0.0",
+  "description": "실시간 밸런스 게임 — 질문 등록 + 둘 중 하나 투표 + 실시간 퍼센티지 + DB 저장 (React + Express + PostgreSQL/Supabase)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "balance-game",
+    "vote",
+    "realtime",
+    "postgresql",
+    "supabase",
+    "pglite",
+    "express",
+    "react"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0"
+  }
+}
