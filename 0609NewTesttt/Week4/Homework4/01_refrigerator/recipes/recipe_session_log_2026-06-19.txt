@@ -1,0 +1,157 @@
+================================================================
+  레시피 스킬 전체 작업 로그 (recipe session log)
+  폴더: Week4/Homework4/01_refrigerator
+  사용자: shinecity
+  기록 범위: 2026-06-17 ~ 2026-06-19 (시간순)
+================================================================
+
+
+################################################################
+#  [2026-06-17]  이전 작업 내역
+################################################################
+
+
+--- 2026-06-17 13:48  (1차 /recipe 실행) ---------------------
+
+[사용자 명령]
+/recipe  (냉장고 재료로 요리 추천)
+
+[실행한 작업]
+1) 재료 JSON 폴더 탐색
+   $ find . -type d -name "ingredients_json"
+   → Week4/Homework4/01_refrigerator/ingredients_json (재료 50개)
+2) 모든 재료 JSON 읽기 (50개)
+3) 레시피 3가지 생성 후 저장
+   → recipes/recipe_2026-06-17.md
+       1. 베이컨 김치볶음밥
+       2. 두부 애호박 된장찌개
+       3. (세 번째 요리)
+
+--- 2026-06-17 13:50 ----------------------------------------
+   결과 스크린샷 저장
+   → recipes/recipe_screenshot.png
+
+
+--- 2026-06-17 14:36  (2차 /recipe 실행) ---------------------
+
+[사용자 명령]
+/recipe  (이전과 겹치지 않는 새 레시피)
+
+[실행한 작업]
+1) 재료 JSON 50개 재확인
+2) 기존 추천과 겹치지 않는 레시피 1개 생성 후 저장
+   → recipes/recipe_2026-06-17_2.md
+       1. 로제 떡볶이
+
+--- 2026-06-17 14:39 ----------------------------------------
+   결과 스크린샷 저장
+   → recipes/recipe_screenshot_2.png
+
+--- 2026-06-17 14:59 ----------------------------------------
+   /recipe 스킬 명령 스크린샷 저장
+   → recipes/recipe_skill_command.png
+
+[관련 git 커밋]
+   d8afe79  Add /recipe skill and refrigerator recipe project (Week4/Homework4)
+   b9d9be4  Add /recipe skill definition screenshot to refrigerator README
+
+
+################################################################
+#  [2026-06-19]  이번 세션 작업 내역
+################################################################
+
+
+[사용자 명령 1]
+----------------------------------------------------------------
+/recipe 냉장고에 있는 재료로 레시피 하나만 만들어 줘
+
+
+[실행한 명령어 / 작업 내역]
+----------------------------------------------------------------
+
+1) 재료 JSON 폴더 찾기
+   $ find . -type d \( -name "ingredients" -o -name "ingredients_json" \) 2>/dev/null
+   $ find . -name "*.json" -path "*ingredient*" 2>/dev/null | head -50
+
+   결과: ./Week4/Homework4/01_refrigerator/ingredients_json (재료 JSON 50개)
+
+2) 모든 재료 JSON 한 번에 읽기
+   $ cd "Week4/Homework4/01_refrigerator/ingredients_json" \
+       && jq -s '[.[] | {name, category, usage, recommended_storage}]' *.json
+
+   읽은 재료 50개:
+   - 신선칸(야채/과일): 대파, 양파, 마늘, 감자, 당근, 애호박, 무,
+     청양고추/홍고추, 팽이/새송이버섯, 양배추, 상추/깻잎, 토마토,
+     사과, 레몬
+   - 냉장 메인(단백질/반찬): 달걀, 두부, 국물용멸치/다시마, 우유,
+     요거트, 체다/모짜렐라치즈, 어묵, 크래미/맛살, 베이컨, 슬라이스햄,
+     김치, 밑반찬
+   - 소스/양념(문쪽): 간장, 고추장, 된장, 쌈장, 굴소스, 케첩,
+     마요네즈, 머스터드, 새우젓, 버터, 들기름/참기름, 잼
+   - 냉동(장기보관): 냉동만두, 대패삼겹살/차돌박이, 닭가슴살,
+     국거리용 소/돼지고기, 냉동새우, 오징어, 피자치즈,
+     떡볶이/떡국떡, 식빵, 냉동대파, 다진마늘큐브, 얼음
+
+3) 썸네일 생성 시도 (나노바나나 = Google Gemini gemini-2.5-flash-image)
+   $ GEMINI_PROMPT="A sizzling Korean dish of dubu kimchi: stir-fried
+     aged kimchi with thin slices of beef brisket and onion, served
+     beside neatly arranged warm tofu slices, garnished with chopped
+     green onion and a drizzle of sesame oil, 45-degree angle food
+     photography, warm natural lighting, rustic ceramic plate on a
+     wooden table, appetizing and vibrant, square 1:1 composition" \
+     GEMINI_OUTPUT="recipes/thumbnails/dubu-kimchi.png" \
+     python3 - <<'PY' ... PY
+
+   결과: NO_KEY  → GEMINI_API_KEY 환경변수 없음, 썸네일 생성 건너뜀
+
+4) recipes 폴더 확인 및 마크다운 저장
+   $ mkdir -p recipes
+   저장: recipes/recipe_2026-06-19.md  (차돌박이 두부김치 1개)
+
+
+[생성한 레시피]
+----------------------------------------------------------------
+## 차돌박이 두부김치 🥘
+- 조리 시간: 약 15분 · 난이도: ★★☆☆☆
+- 사용 재료: 김치, 두부, 대패삼겹살/차돌박이, 양파, 대파, 다진 마늘
+- 기본 양념: 식용유, 참기름, 굴소스 약간, 후추
+
+만드는 법
+1. 두부는 1.5cm 두께로 썰어 끓는 물에 소금 한 꼬집 넣고 3~4분 데친 뒤
+   접시 한쪽에 가지런히 담아둔다.
+2. 달군 팬에 식용유를 두르고 차돌박이(또는 대패삼겹살)를 노릇하게 굽다가,
+   채 썬 양파와 다진 마늘을 넣고 함께 볶는다.
+3. 고기 기름이 나오면 송송 썬 김치를 넣고 중불에서 5~7분간 김치가
+   노릇하고 부드러워질 때까지 볶는다.
+4. 굴소스 약간과 후추로 간을 맞추고, 마지막에 참기름을 두르고
+   어슷 썬 대파를 넣어 가볍게 섞는다.
+5. 데친 두부 옆에 볶은 김치를 소복이 올려 완성한다.
+
+팁: 김치는 신 김치일수록 깊은 맛. 두부는 데쳐서 따뜻하게 곁들이면
+    짠맛과 균형이 좋다. 고기는 냉동이라 살짝 해동만 해도 금방 익는다.
+
+
+[결과 보고]
+----------------------------------------------------------------
+- 저장 파일: Week4/Homework4/01_refrigerator/recipes/recipe_2026-06-19.md
+- 생성한 레시피: 1개 (차돌박이 두부김치)
+- 사용한 재료 수: 50개 (전부 읽음, 건너뛴 파일 없음)
+- 생성된 썸네일: 0개
+
+[썸네일 미생성 사유]
+GEMINI_API_KEY 환경변수가 없어 나노바나나(Gemini) 이미지 생성을 건너뜀.
+레시피 마크다운은 정상 저장됨.
+해결 방법:
+  1) https://aistudio.google.com/apikey 에서 키 발급
+  2) export GEMINI_API_KEY="발급받은키"  (영구 설정은 ~/.zshrc 에 추가)
+  3) /recipe 다시 실행 → recipes/thumbnails/dubu-kimchi.png 생성
+
+
+[사용자 명령 2]
+----------------------------------------------------------------
+모든 명령어와 대화를 txt파일로 저장해 줘
+  → 본 파일(recipe_session_log_2026-06-19.txt) 저장
+
+================================================================
+  로그 끝
+================================================================
