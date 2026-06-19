@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>밸런스 게임 · Balance Game</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React + ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- Babel (JSX) — v7 핀 고정: v8 standalone은 인라인 스크립트를 module로 컴파일해 깨짐 -->
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* Tailwind으로 표현하기 어려운 부분만 커스텀 */
+    @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap');
+    body { font-family: 'Gowun Dodum', system-ui, sans-serif; }
+    .font-display { font-family: 'Jua', system-ui, sans-serif; }
+
+    /* 진입 애니메이션 */
+    @keyframes floatUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-float-up { animation: floatUp .5s cubic-bezier(.22,1,.36,1) both; }
+
+    @keyframes popIn {
+      0%   { opacity: 0; transform: scale(.85); }
+      60%  { opacity: 1; transform: scale(1.04); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .animate-pop-in { animation: popIn .35s cubic-bezier(.22,1,.36,1) both; }
+
+    /* 부드러운 스크롤 */
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50 min-h-screen text-slate-700">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+
+    // ========================================
+    // ⚙️ 설정 (Supabase)
+    // ========================================
+    // ▼ Supabase URL: 프로젝트 ref(jzcrdxewlctgafjltcpm) 기준
+    const SUPABASE_URL = 'https://jzcrdxewlctgafjltcpm.supabase.co';
+    // ▼ anon public key 를 여기에 넣으세요.
+    //   Supabase 대시보드 → Project Settings → API → Project API keys → "anon public" 값 복사.
+    //   (이 placeholder 그대로 두면 자동으로 localStorage 모드로 동작합니다.)
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+    const STORAGE_KEY = 'balance_game_questions_v1';
+    const VOTED_KEY = 'balance_game_voted_v1'; // 내가 이미 투표한 질문 id 목록
+
+    // anon key 가 placeholder 면 Supabase 초기화 자체를 건너뛰고 localStorage 모드로 동작.
+    const SUPABASE_READY =
+      SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY' &&
+      typeof SUPABASE_ANON_KEY === 'string' &&
+      SUPABASE_ANON_KEY.length > 20;
+
+    // 전역 shadowing 방지: window.supabase 에서 createClient 만 추출.
+    let sb = null;
+    if (SUPABASE_READY && window.supabase && window.supabase.createClient) {
+      try {
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } catch (e) {
+        console.warn('[balance-game] Supabase 초기화 실패, localStorage 모드로 전환:', e);
+        sb = null;
+      }
+    }
+
+    // ========================================
+    // 💾 데이터 레이어 (Supabase 우선, localStorage fallback)
+    // ========================================
+    const uuid = () =>
+      (crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+
+    const local = {
+      read() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+        catch { return []; }
+      },
+      write(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      },
+      readVoted() {
+        try { return JSON.parse(localStorage.getItem(VOTED_KEY) || '{}'); }
+        catch { return {}; }
+      },
+      markVoted(id, choice) {
+        const v = local.readVoted();
+        v[id] = choice;
+        localStorage.setItem(VOTED_KEY, JSON.stringify(v));
+      },
+    };
+
+    const dataApi = {
+      // 모든 질문 목록 조회
+      async list() {
+        if (sb) {
+          const { data, error } = await sb
+            .from('balance_questions')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          return data || [];
+        }
+        return local.read().sort((a, b) =>
+          new Date(b.created_at) - new Date(a.created_at));
+      },
+
+      // 질문 등록
+      async create({ title, option_a, option_b }) {
+        if (sb) {
+          const { data, error } = await sb
+            .from('balance_questions')
+            .insert([{ title, option_a, option_b }])
+            .select()
+            .single();
+          if (error) throw error;
+          return data;
+        }
+        const row = {
+          id: uuid(),
+          title, option_a, option_b,
+          votes_a: 0, votes_b: 0,
+          created_at: new Date().toISOString(),
+        };
+        const list = local.read();
+        list.push(row);
+        local.write(list);
+        return row;
+      },
+
+      // 투표 (choice: 'a' | 'b'). prevChoice 가 있으면 "선택 변경"으로 처리.
+      async vote(id, choice, prevChoice) {
+        if (sb) {
+          if (prevChoice && prevChoice !== choice) {
+            // 이전 선택 차감 + 새 선택 증가 (동시성 안전한 RPC)
+            const { error } = await sb.rpc('change_vote', {
+              question_id: id, old_choice: prevChoice, new_choice: choice,
+            });
+            if (error) throw error;
+          } else {
+            const { error } = await sb.rpc('increment_vote', { question_id: id, choice });
+            if (error) throw error;
+          }
+          // 권위 있는 최신값은 realtime payload 로 받으므로 여기선 반환값 불필요
+          return null;
+        }
+        const list = local.read();
+        const q = list.find((x) => x.id === id);
+        if (!q) throw new Error('질문을 찾을 수 없습니다.');
+        if (prevChoice === 'a') q.votes_a = Math.max(0, q.votes_a - 1);
+        else if (prevChoice === 'b') q.votes_b = Math.max(0, q.votes_b - 1);
+        if (choice === 'a') q.votes_a += 1; else q.votes_b += 1;
+        local.write(list);
+        return q;
+      },
+    };
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트
+    // ========================================
+    function Button({ variant = 'primary', size = 'md', disabled, onClick, className = '', children, type = 'button', ...rest }) {
+      const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-2xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-1 active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed';
+      const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-5 py-2.5 text-base', lg: 'px-7 py-3.5 text-lg' };
+      const variants = {
+        primary: 'bg-gradient-to-r from-rose-400 to-orange-400 text-white shadow-lg shadow-rose-200 hover:shadow-xl hover:-translate-y-0.5 focus:ring-rose-200',
+        secondary: 'bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 focus:ring-slate-200',
+        ghost: 'bg-transparent text-slate-500 hover:bg-slate-100 focus:ring-slate-100',
+        danger: 'bg-rose-500 text-white shadow-lg shadow-rose-200 hover:bg-rose-600 focus:ring-rose-200',
+      };
+      return (
+        <button type={type} onClick={onClick} disabled={disabled}
+          className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...rest}>
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, value, onChange, placeholder, error, maxLength, disabled, id }) {
+      const inputId = id || ('in-' + (label || '').replace(/\s/g, ''));
+      return (
+        <div className="w-full">
+          {label && (
+            <label htmlFor={inputId} className="block mb-1.5 text-sm font-semibold text-slate-600">
+              {label}
+            </label>
+          )}
+          <input
+            id={inputId}
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            maxLength={maxLength}
+            disabled={disabled}
+            aria-invalid={!!error}
+            className={`w-full px-4 py-3 rounded-2xl bg-white border text-slate-700 placeholder:text-slate-300 shadow-sm transition focus:outline-none focus:ring-4 ${
+              error
+                ? 'border-rose-300 focus:ring-rose-100'
+                : 'border-slate-200 focus:border-rose-300 focus:ring-rose-100'
+            }`}
+          />
+          {error && <p className="mt-1 text-sm text-rose-500">{error}</p>}
+        </div>
+      );
+    }
+
+    function Card({ className = '', children }) {
+      return (
+        <div className={`bg-white/80 backdrop-blur rounded-3xl shadow-xl shadow-slate-200/60 border border-white ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function Badge({ children, className = '' }) {
+      return (
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    // 상단 상태 배너 (Supabase 연결 / localStorage 모드)
+    function StatusBanner() {
+      const [open, setOpen] = useState(true);
+      if (!open) return null;
+      const connected = !!sb;
+      return (
+        <div className={`flex items-start gap-3 px-4 py-3 rounded-2xl text-sm border ${
+          connected
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <span className="text-lg leading-none mt-0.5">{connected ? '🟢' : '🟡'}</span>
+          <div className="flex-1">
+            {connected ? (
+              <span><b>Supabase 실시간 연결됨.</b> 투표가 모든 사용자에게 실시간 반영됩니다.</span>
+            ) : (
+              <span>
+                <b>로컬(localStorage) 데모 모드.</b> anon key 가 입력되지 않아 이 브라우저에만 저장됩니다.
+                실시간 공유를 켜려면 <code className="px-1 bg-amber-100 rounded">SUPABASE_ANON_KEY</code> 를 입력하세요. (README 참고)
+              </span>
+            )}
+          </div>
+          <button onClick={() => setOpen(false)} aria-label="닫기"
+            className="text-slate-400 hover:text-slate-600 leading-none">✕</button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 밸런스 게임 결과 바 (A vs B 게이지)
+    // ========================================
+    function VoteGauge({ q, myChoice }) {
+      const total = q.votes_a + q.votes_b;
+      const pctA = total === 0 ? 50 : Math.round((q.votes_a / total) * 100);
+      const pctB = total === 0 ? 50 : 100 - pctA;
+      const voted = total > 0;
+
+      return (
+        <div className="mt-1">
+          <div className="flex items-center justify-between mb-2 text-sm">
+            <span className={`font-bold ${myChoice === 'a' ? 'text-rose-500' : 'text-slate-400'}`}>
+              {myChoice === 'a' && '✓ '}{pctA}%
+            </span>
+            <span className="text-slate-400 text-xs">총 {total.toLocaleString()}명 참여</span>
+            <span className={`font-bold ${myChoice === 'b' ? 'text-sky-500' : 'text-slate-400'}`}>
+              {pctB}%{myChoice === 'b' && ' ✓'}
+            </span>
+          </div>
+          <div className="flex h-7 w-full overflow-hidden rounded-full bg-slate-100 shadow-inner" role="img"
+            aria-label={`${q.option_a} ${pctA}퍼센트, ${q.option_b} ${pctB}퍼센트`}>
+            <div
+              className="h-full bg-gradient-to-r from-rose-400 to-orange-300 transition-all duration-700 ease-out"
+              style={{ width: `${voted ? pctA : 50}%` }}
+            />
+            <div
+              className="h-full bg-gradient-to-r from-sky-300 to-emerald-300 transition-all duration-700 ease-out"
+              style={{ width: `${voted ? pctB : 50}%` }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 질문 카드 (VS 분할 레이아웃 + 투표)
+    // ========================================
+    function QuestionCard({ q, myChoice, onVote, pending }) {
+      const voted = !!myChoice;
+
+      const Side = ({ side }) => {
+        const isA = side === 'a';
+        const text = isA ? q.option_a : q.option_b;
+        const chosen = myChoice === side;
+        const palette = isA
+          ? {
+              bg: 'from-rose-50 to-orange-50',
+              ring: 'hover:ring-rose-200',
+              chosen: 'ring-4 ring-rose-300 from-rose-100 to-orange-100',
+              dot: 'bg-rose-400',
+              label: 'text-rose-500',
+            }
+          : {
+              bg: 'from-sky-50 to-emerald-50',
+              ring: 'hover:ring-sky-200',
+              chosen: 'ring-4 ring-sky-300 from-sky-100 to-emerald-100',
+              dot: 'bg-sky-400',
+              label: 'text-sky-500',
+            };
+        return (
+          <button
+            onClick={() => !pending && onVote(q.id, side)}
+            disabled={pending}
+            aria-pressed={chosen}
+            className={`group relative flex-1 min-h-[120px] p-5 rounded-3xl bg-gradient-to-br ${palette.bg} ring-2 ring-transparent ${palette.ring} text-left transition-all duration-200 ${
+              pending ? 'cursor-wait' : 'hover:-translate-y-1 hover:shadow-lg cursor-pointer'
+            } ${chosen ? palette.chosen : ''} disabled:opacity-100`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${palette.dot}`} />
+              <span className={`text-xs font-bold uppercase tracking-wider ${palette.label}`}>
+                {isA ? 'A' : 'B'}
+              </span>
+              {chosen && <span className={`ml-auto text-xs font-bold ${palette.label}`}>내 선택 ✓</span>}
+            </div>
+            <p className="text-lg md:text-xl font-display text-slate-700 leading-snug break-keep">
+              {text}
+            </p>
+          </button>
+        );
+      };
+
+      return (
+        <Card className="p-6 animate-float-up">
+          <h3 className="font-display text-xl md:text-2xl text-slate-800 mb-4 break-keep flex items-start gap-2">
+            <span className="text-rose-300">❝</span>
+            <span>{q.title}</span>
+          </h3>
+
+          <div className="relative flex items-stretch gap-3">
+            <Side side="a" />
+            {/* VS 뱃지 */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+              <div className="w-12 h-12 rounded-full bg-white shadow-lg shadow-slate-300/60 border-2 border-slate-100 flex items-center justify-center font-display text-slate-700 text-sm animate-pop-in">
+                VS
+              </div>
+            </div>
+            <Side side="b" />
+          </div>
+
+          {voted ? (
+            <div className="mt-5">
+              <VoteGauge q={q} myChoice={myChoice} />
+              <p className="mt-3 text-center text-xs text-slate-400">
+                {pending ? '반영 중…' : '다른 쪽을 누르면 선택을 바꿀 수 있어요 🔁'}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-5 text-center text-sm text-slate-400">
+              {pending ? '투표 중…' : '둘 중 하나를 골라 투표하면 결과가 공개됩니다 👀'}
+            </p>
+          )}
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🧩 질문 등록 폼
+    // ========================================
+    function CreateForm({ onCreated }) {
+      const [title, setTitle] = useState('');
+      const [a, setA] = useState('');
+      const [b, setB] = useState('');
+      const [errors, setErrors] = useState({});
+      const [submitting, setSubmitting] = useState(false);
+      const [open, setOpen] = useState(false);
+
+      const validate = () => {
+        const e = {};
+        if (!title.trim()) e.title = '질문 제목을 입력해 주세요.';
+        if (!a.trim()) e.a = '선택지 A 를 입력해 주세요.';
+        if (!b.trim()) e.b = '선택지 B 를 입력해 주세요.';
+        if (a.trim() && b.trim() && a.trim() === b.trim()) e.b = '두 선택지가 같을 수 없어요.';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+      };
+
+      const submit = async () => {
+        if (!validate()) return;
+        setSubmitting(true);
+        try {
+          const created = await dataApi.create({
+            title: title.trim(), option_a: a.trim(), option_b: b.trim(),
+          });
+          onCreated(created);
+          setTitle(''); setA(''); setB(''); setErrors({}); setOpen(false);
+        } catch (err) {
+          setErrors({ form: '등록에 실패했습니다: ' + (err.message || err) });
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      if (!open) {
+        return (
+          <Card className="p-5">
+            <Button variant="primary" size="lg" className="w-full" onClick={() => setOpen(true)}>
+              ✏️ 새 밸런스 게임 만들기
+            </Button>
+          </Card>
+        );
+      }
+
+      return (
+        <Card className="p-6 animate-float-up">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl text-slate-800">새 밸런스 게임 만들기</h2>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>닫기 ✕</Button>
+          </div>
+          <div className="space-y-4">
+            <Input label="질문 제목" value={title} onChange={setTitle}
+              placeholder="예: 평생 한 가지만 먹어야 한다면?" error={errors.title} maxLength={120} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-3xl bg-gradient-to-br from-rose-50 to-orange-50 p-4">
+                <Input label="🅰 선택지 A" value={a} onChange={setA}
+                  placeholder="예: 평생 치킨만" error={errors.a} maxLength={60} />
+              </div>
+              <div className="rounded-3xl bg-gradient-to-br from-sky-50 to-emerald-50 p-4">
+                <Input label="🅱 선택지 B" value={b} onChange={setB}
+                  placeholder="예: 평생 피자만" error={errors.b} maxLength={60} />
+              </div>
+            </div>
+            {errors.form && <p className="text-sm text-rose-500">{errors.form}</p>}
+            <Button variant="primary" size="lg" className="w-full" onClick={submit} disabled={submitting}>
+              {submitting ? '등록 중…' : '등록하기'}
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🧩 레벨 진행 표시 (LEVEL n / total + 단계 점)
+    // ========================================
+    function LevelBar({ current, total }) {
+      return (
+        <div className="flex flex-col items-center gap-3">
+          <Badge className="bg-gradient-to-r from-rose-400 to-orange-400 text-white shadow-md shadow-rose-200 tracking-widest">
+            LEVEL {current} / {total}
+          </Badge>
+          <div className="flex flex-wrap items-center justify-center gap-2 max-w-xs">
+            {Array.from({ length: total }).map((_, i) => {
+              const done = i < current - 1;
+              const active = i === current - 1;
+              return (
+                <span
+                  key={i}
+                  className={`rounded-full transition-all duration-300 ${
+                    active
+                      ? 'w-6 h-2.5 bg-gradient-to-r from-rose-400 to-orange-400'
+                      : done
+                      ? 'w-2.5 h-2.5 bg-rose-300'
+                      : 'w-2.5 h-2.5 bg-slate-200'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 완료 화면 (모든 레벨 클리어 + 내 선택 요약)
+    // ========================================
+    function Completion({ stages, voted, onRestart }) {
+      return (
+        <Card className="p-8 text-center animate-pop-in">
+          <div className="text-6xl mb-3">🎉</div>
+          <h2 className="font-display text-2xl md:text-3xl text-slate-800 mb-1">
+            {stages.length}단계 클리어!
+          </h2>
+          <p className="text-slate-400 mb-6">모든 밸런스 게임에 투표를 마쳤어요.</p>
+
+          <div className="space-y-2 text-left mb-6">
+            {stages.map((q, i) => {
+              const my = voted[q.id];
+              const myText = my === 'a' ? q.option_a : my === 'b' ? q.option_b : '미투표';
+              return (
+                <div key={q.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-50">
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-white shadow-sm flex items-center justify-center text-xs font-bold text-slate-500">
+                    {i + 1}
+                  </span>
+                  <span className="flex-1 text-sm text-slate-500 break-keep truncate">{q.title}</span>
+                  <span className={`shrink-0 text-sm font-bold ${
+                    my === 'a' ? 'text-rose-500' : my === 'b' ? 'text-sky-500' : 'text-slate-300'
+                  }`}>
+                    {my ? `→ ${myText}` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <Button variant="primary" size="lg" className="w-full" onClick={onRestart}>
+            🔄 처음부터 다시 보기
+          </Button>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [questions, setQuestions] = useState([]);
+      const [voted, setVoted] = useState(() => local.readVoted());
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [pendingId, setPendingId] = useState(null);
+      const [currentStage, setCurrentStage] = useState(0); // 0-based 단계 인덱스
+
+      // 게임 단계: 만든 순서대로 모든 질문 (레벨 1 = 가장 먼저 만든 질문)
+      const stages = useMemo(
+        () => [...questions].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+        [questions]
+      );
+
+      // 최초 로드
+      const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const list = await dataApi.list();
+          setQuestions(list);
+        } catch (err) {
+          setError(err.message || String(err));
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => { load(); }, [load]);
+
+      // Realtime 구독 (Supabase 연결 시) — postgres_changes 가 권위 있는 소스
+      useEffect(() => {
+        if (!sb) return;
+        const channel = sb
+          .channel('balance_questions_changes')
+          .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'balance_questions' },
+            (payload) => {
+              setQuestions((prev) => {
+                if (payload.eventType === 'INSERT') {
+                  if (prev.some((q) => q.id === payload.new.id)) return prev;
+                  return [payload.new, ...prev];
+                }
+                if (payload.eventType === 'UPDATE') {
+                  return prev.map((q) => (q.id === payload.new.id ? payload.new : q));
+                }
+                if (payload.eventType === 'DELETE') {
+                  return prev.filter((q) => q.id !== payload.old.id);
+                }
+                return prev;
+              });
+            })
+          .subscribe();
+        return () => { sb.removeChannel(channel); };
+      }, []);
+
+      const handleCreated = useCallback((created) => {
+        // Supabase 모드에선 realtime INSERT 로도 들어오지만 중복 가드가 있어 안전.
+        setQuestions((prev) =>
+          prev.some((q) => q.id === created.id) ? prev : [created, ...prev]);
+      }, []);
+
+      const handleVote = useCallback(async (id, choice) => {
+        const prevChoice = voted[id];
+        if (prevChoice === choice) return; // 같은 선택을 다시 누르면 무시
+        setPendingId(id);
+
+        // 내 선택 즉시 기록. 표 수는 권위 소스(realtime/RPC)에 맡김.
+        setVoted((prev) => {
+          const next = { ...prev, [id]: choice };
+          local.markVoted(id, choice);
+          return next;
+        });
+
+        // localStorage 모드: 낙관적으로 카운트 즉시 반영 (이전 선택은 차감)
+        const apply = (q, from, to) => {
+          let { votes_a, votes_b } = q;
+          if (from === 'a') votes_a = Math.max(0, votes_a - 1);
+          else if (from === 'b') votes_b = Math.max(0, votes_b - 1);
+          if (to === 'a') votes_a += 1; else if (to === 'b') votes_b += 1;
+          return { ...q, votes_a, votes_b };
+        };
+        if (!sb) {
+          setQuestions((prev) => prev.map((q) =>
+            q.id === id ? apply(q, prevChoice, choice) : q));
+        }
+
+        try {
+          await dataApi.vote(id, choice, prevChoice);
+          // Supabase 모드: 실제 카운트는 realtime UPDATE payload 로 반영됨.
+        } catch (err) {
+          // 실패 시 이전 선택으로 롤백
+          setVoted((prev) => {
+            const next = { ...prev };
+            if (prevChoice) next[id] = prevChoice; else delete next[id];
+            const stored = local.readVoted();
+            if (prevChoice) stored[id] = prevChoice; else delete stored[id];
+            localStorage.setItem(VOTED_KEY, JSON.stringify(stored));
+            return next;
+          });
+          if (!sb) {
+            setQuestions((prev) => prev.map((q) =>
+              q.id === id ? apply(q, choice, prevChoice) : q));
+          }
+          setError('투표 처리에 실패했습니다: ' + (err.message || err));
+        } finally {
+          setPendingId(null);
+        }
+      }, [voted]);
+
+      // 단계 수가 줄어도 currentStage 가 범위를 벗어나지 않도록 클램프
+      useEffect(() => {
+        setCurrentStage((s) => Math.min(s, stages.length));
+      }, [stages.length]);
+
+      const goNext = useCallback(() => setCurrentStage((s) => s + 1), []);
+      const goPrev = useCallback(() => setCurrentStage((s) => Math.max(0, s - 1)), []);
+      const restart = useCallback(() => setCurrentStage(0), []);
+
+      const totalVotes = useMemo(
+        () => questions.reduce((s, q) => s + q.votes_a + q.votes_b, 0),
+        [questions]
+      );
+
+      const finished = stages.length > 0 && currentStage >= stages.length;
+      const currentQ = stages[currentStage];
+
+      return (
+        <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+          {/* 헤더 */}
+          <header className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 mb-3">
+              <Badge className="bg-rose-100 text-rose-500">🔥 실시간</Badge>
+              <Badge className="bg-sky-100 text-sky-500">밸런스 게임</Badge>
+            </div>
+            <h1 className="font-display text-4xl md:text-5xl text-slate-800 mb-2">
+              둘 중 <span className="text-rose-400">하나</span>만 골라!
+            </h1>
+            <p className="text-slate-400">
+              한 문제씩 투표하며 <b className="text-slate-500">레벨</b>을 끝까지 올려보세요.
+            </p>
+          </header>
+
+          <div className="space-y-5">
+            <StatusBanner />
+
+            {error && (
+              <Card className="p-4 border-rose-100">
+                <p className="text-rose-500 text-sm">⚠️ {error}</p>
+                <Button variant="secondary" size="sm" className="mt-2" onClick={load}>다시 시도</Button>
+              </Card>
+            )}
+
+            {/* 로딩 */}
+            {loading && (
+              <Card className="p-6" aria-hidden="true">
+                <div className="h-6 w-2/3 bg-slate-100 rounded-full animate-pulse mb-4 mx-auto" />
+                <div className="flex gap-3">
+                  <div className="flex-1 h-28 bg-slate-100 rounded-3xl animate-pulse" />
+                  <div className="flex-1 h-28 bg-slate-100 rounded-3xl animate-pulse" />
+                </div>
+              </Card>
+            )}
+
+            {/* 빈 상태: 질문이 하나도 없을 때 */}
+            {!loading && stages.length === 0 && !error && (
+              <Card className="p-10 text-center">
+                <div className="text-5xl mb-3">🤔</div>
+                <p className="font-display text-xl text-slate-700 mb-1">아직 질문이 없어요</p>
+                <p className="text-slate-400 text-sm">아래 “새 밸런스 게임 만들기”로 첫 질문을 올리면 레벨 1이 됩니다!</p>
+              </Card>
+            )}
+
+            {/* 완료 화면 */}
+            {!loading && finished && (
+              <Completion stages={stages} voted={voted} onRestart={restart} />
+            )}
+
+            {/* 진행 중: 현재 단계 한 문항만 표시 */}
+            {!loading && !finished && currentQ && (
+              <div className="space-y-5">
+                <LevelBar current={currentStage + 1} total={stages.length} />
+
+                <QuestionCard
+                  key={currentQ.id}
+                  q={currentQ}
+                  myChoice={voted[currentQ.id]}
+                  onVote={handleVote}
+                  pending={pendingId === currentQ.id}
+                />
+
+                {/* 단계 이동 */}
+                <div className="flex items-center justify-between gap-3">
+                  <Button variant="ghost" size="md" onClick={goPrev} disabled={currentStage === 0}>
+                    ← 이전
+                  </Button>
+                  {voted[currentQ.id] ? (
+                    <Button variant="primary" size="md" onClick={goNext}>
+                      {currentStage === stages.length - 1 ? '결과 보기 🎉' : '다음 레벨 →'}
+                    </Button>
+                  ) : (
+                    <span className="text-sm text-slate-300">투표하면 다음으로 넘어갈 수 있어요</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 질문 등록 (게임과 분리, 접힘) */}
+            {!loading && (
+              <div className="pt-2">
+                <CreateForm onCreated={handleCreated} />
+                {stages.length > 0 && (
+                  <p className="mt-3 text-center text-xs text-slate-300">
+                    질문 {questions.length}개(레벨 {stages.length}단계) · 누적 투표 {totalVotes.toLocaleString()}표
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <footer className="mt-12 text-center text-xs text-slate-300">
+            Balance Game · React + Tailwind + Supabase · 단일 index.html
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
