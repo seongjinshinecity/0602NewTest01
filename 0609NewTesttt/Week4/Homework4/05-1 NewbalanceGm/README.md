@@ -1,8 +1,10 @@
 # 🎯 실시간 밸런스 게임 (NewbalanceGm)
 
-둘 중 하나만 고르는 **실시간 밸런스 게임** 웹앱입니다.
-누구나 밸런스 질문(A vs B)을 등록하고, 둘 중 하나에 투표하면 **퍼센티지가 실시간으로** 바뀌며,
-선택지별 득표 수와 **총 참여자 수**를 한눈에 볼 수 있습니다.
+둘 중 하나만 고르는 **실시간 밸런스 게임** 웹앱입니다. 상단 탭으로 두 가지 모드를 즐길 수 있어요.
+
+- **🗳 실시간 투표** — 밸런스 질문(A vs B)을 등록하고 투표하면 **퍼센티지가 실시간으로** 바뀝니다. 선택지별 득표 수와 **총 참여자 수**를 한눈에 볼 수 있습니다.
+- **🏆 토너먼트(음식 이상형 월드컵)** — 음식 항목들을 8/16/32강으로 맞붙여 이긴 쪽이 진출, 최후의 1개를 가립니다. 우승·승률 통계가 **명예의 전당**에 실시간 누적됩니다.
+
 모든 데이터는 **PostgreSQL(Supabase)** 에 저장됩니다.
 
 기본 문항으로 **음식 밸런스 게임(`Food Balance.json`) 100문항**이 5개 카테고리로 들어가 있고,
@@ -22,9 +24,17 @@
 
 ## 📸 미리보기
 
+**🗳 실시간 투표**
+
 | 투표 전 (선택지) | 투표 후 (실시간 결과) |
 |---|---|
 | ![투표 화면](screenshot.png) | ![결과 화면](screenshot-result.png) |
+
+**🏆 토너먼트 (음식 이상형 월드컵)**
+
+| 시작 화면 + 명예의 전당 | 대결 화면 | 우승 화면 |
+|---|---|---|
+| ![토너먼트 시작](screenshot-tournament.png) | ![토너먼트 대결](screenshot-tournament-match.png) | ![토너먼트 우승](screenshot-tournament-win.png) |
 
 ---
 
@@ -37,7 +47,9 @@
 - **결과 표시** — 선택지별 퍼센티지·득표 수, 그리고 질문별 / 전체 **총 참여자 수**를 보여줍니다.
 - **내 선택 표시(MY PICK)** — 브라우저에 기억해 중복 투표를 막고 내가 고른 쪽을 강조합니다.
 - **질문 삭제** — 필요 없는 질문은 삭제할 수 있습니다.
-- **DB 저장** — 모든 질문과 득표 수가 PostgreSQL(Supabase)에 영속 저장됩니다.
+- **🏆 토너먼트 모드** — 음식 항목을 8/16/32강 싱글 엘리미네이션으로 진행해 우승을 가립니다. 라운드(16강→8강→…→결승) 진행바와 함께 한 경기씩 선택합니다.
+- **명예의 전당** — 우승 횟수·매치 승률 랭킹을 Supabase에 누적해 실시간으로 보여줍니다.
+- **DB 저장** — 질문·득표 수와 토너먼트 통계가 모두 PostgreSQL(Supabase)에 영속 저장됩니다.
 
 ---
 
@@ -79,6 +91,9 @@ DATABASE_URL=postgresql://postgres.xxxx:비밀번호@aws-1-us-east-1.pooler.supa
 | `POST`   | `/api/questions`           | 질문 등록 `{ optionA, optionB, category? }` |
 | `POST`   | `/api/questions/:id/vote`  | 투표 `{ choice: "a" \| "b" }` |
 | `DELETE` | `/api/questions/:id`       | 질문 삭제 |
+| `GET`    | `/api/tournament/items`    | 토너먼트 후보 항목(음식 카테고리 선택지) |
+| `GET`    | `/api/tournament/ranking`  | 명예의 전당 — 우승 횟수·승률 랭킹 |
+| `POST`   | `/api/tournament/result`   | 토너먼트 결과 저장 `{ champion, matches: [{winner, loser}] }` |
 
 응답의 각 질문에는 `votesA`, `votesB`, `total`, `percentA`, `percentB`가 포함됩니다.
 
@@ -98,4 +113,16 @@ CREATE TABLE IF NOT EXISTS balance_questions (
 );
 ```
 
-> 총 참여자 수 = `votes_a + votes_b`
+```sql
+-- 토너먼트(이상형 월드컵) 항목별 통계
+CREATE TABLE IF NOT EXISTS tournament_stats (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+  wins        INTEGER NOT NULL DEFAULT 0,   -- 토너먼트 우승 횟수
+  picks       INTEGER NOT NULL DEFAULT 0,   -- 매치에서 선택(승리)된 횟수
+  matches     INTEGER NOT NULL DEFAULT 0,   -- 매치 등장 횟수
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+> 총 참여자 수 = `votes_a + votes_b` · 매치 승률 = `picks / matches`

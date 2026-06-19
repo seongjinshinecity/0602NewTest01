@@ -121,6 +121,103 @@ app.delete('/api/questions/:id', async (req, res) => {
   }
 });
 
+// ============================================================
+//  토너먼트(이상형 월드컵) API
+// ============================================================
+
+// 토너먼트 후보 항목 — 음식 항목이 명확한 카테고리의 선택지(중복 제거)
+app.get('/api/tournament/items', async (_req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT DISTINCT option_a AS name FROM balance_questions
+         WHERE category IN ('korean_food','snack_dessert','global_food')
+       UNION
+       SELECT DISTINCT option_b AS name FROM balance_questions
+         WHERE category IN ('korean_food','snack_dessert','global_food')`
+    );
+    res.json({ success: true, data: rows.map(r => r.name) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '항목을 불러오지 못했습니다.' });
+  }
+});
+
+// 우승 랭킹(명예의 전당) — 우승 횟수 → 선택 횟수 순
+app.get('/api/tournament/ranking', async (_req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT name, wins, picks, matches FROM tournament_stats
+       WHERE wins > 0 OR picks > 0
+       ORDER BY wins DESC, picks DESC, matches DESC
+       LIMIT 20`
+    );
+    const data = rows.map(r => {
+      const matches = Number(r.matches) || 0;
+      const picks = Number(r.picks) || 0;
+      return {
+        name: r.name,
+        wins: Number(r.wins) || 0,
+        picks, matches,
+        winRate: matches === 0 ? 0 : Math.round((picks / matches) * 100),
+      };
+    });
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '랭킹을 불러오지 못했습니다.' });
+  }
+});
+
+// 토너먼트 결과 저장 — { champion, matches: [{winner, loser}, ...] }
+app.post('/api/tournament/result', async (req, res) => {
+  const champion = clean(req.body?.champion, 80);
+  const matches = Array.isArray(req.body?.matches) ? req.body.matches : [];
+  if (!champion || matches.length === 0) {
+    return res.status(400).json({ success: false, message: '토너먼트 결과가 올바르지 않습니다.' });
+  }
+
+  // 항목별 증분 집계: 승자=picks+1·matches+1, 패자=matches+1
+  const agg = {};
+  const bump = (name, k) => {
+    const n = clean(name, 80);
+    if (!n) return;
+    agg[n] = agg[n] || { wins: 0, picks: 0, matches: 0 };
+    agg[n][k] += 1;
+  };
+  for (const m of matches) {
+    bump(m.winner, 'picks'); bump(m.winner, 'matches'); bump(m.loser, 'matches');
+  }
+  bump(champion, 'wins');
+
+  const names = Object.keys(agg);
+  if (names.length === 0) return res.status(400).json({ success: false, message: '집계할 항목이 없습니다.' });
+
+  const valuesSql = [];
+  const params = [];
+  names.forEach((n, i) => {
+    const b = i * 4;
+    valuesSql.push(`($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4})`);
+    params.push(n, agg[n].wins, agg[n].picks, agg[n].matches);
+  });
+
+  try {
+    await query(
+      `INSERT INTO tournament_stats (name, wins, picks, matches)
+       VALUES ${valuesSql.join(', ')}
+       ON CONFLICT (name) DO UPDATE SET
+         wins    = tournament_stats.wins    + EXCLUDED.wins,
+         picks   = tournament_stats.picks   + EXCLUDED.picks,
+         matches = tournament_stats.matches + EXCLUDED.matches,
+         updated_at = now()`,
+      params
+    );
+    res.status(201).json({ success: true, data: { champion, recorded: names.length } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: '결과 저장에 실패했습니다.' });
+  }
+});
+
 // ----- SPA fallback -----
 app.use((_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

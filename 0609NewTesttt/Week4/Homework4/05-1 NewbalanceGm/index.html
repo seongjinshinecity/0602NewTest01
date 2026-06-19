@@ -81,6 +81,14 @@
         body: JSON.stringify({ choice }),
       }).then(r => r.json()),
       remove: (id) => fetch(`/api/questions/${id}`, { method: 'DELETE' }).then(r => r.json()),
+      tournament: {
+        items:   () => fetch('/api/tournament/items').then(r => r.json()),
+        ranking: () => fetch('/api/tournament/ranking').then(r => r.json()),
+        result:  (champion, matches) => fetch('/api/tournament/result', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ champion, matches }),
+        }).then(r => r.json()),
+      },
     };
 
     // 내가 어떤 질문에 어떤 선택을 했는지 브라우저에 기억 (중복 투표 방지 + 결과 강조)
@@ -242,12 +250,199 @@
       );
     }
 
+    // ----- 명예의 전당 (우승 랭킹) -----
+    function HallOfFame({ ranking }) {
+      const medals = ['🥇','🥈','🥉'];
+      return (
+        <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-5">
+          <div className="display text-xl mb-1 flex items-center gap-2">
+            <span className="inline-block bg-[#ffc400] text-[#15131a] px-2 border-2 border-[#15131a]">👑</span>
+            명예의 전당
+          </div>
+          <p className="font-bold text-xs opacity-50 mb-4">토너먼트 우승 횟수 · 매치 승률 (Supabase 실시간 집계)</p>
+          {ranking.length === 0 ? (
+            <p className="font-bold opacity-50 text-sm py-6 text-center">아직 우승 기록이 없어요. 첫 우승자가 되어보세요! 🏆</p>
+          ) : (
+            <ol className="space-y-2">
+              {ranking.map((r, i) => (
+                <li key={r.name} className="flex items-center gap-3 border-2 border-[#15131a]/10 px-3 py-2">
+                  <span className="display text-lg w-7 text-center">{medals[i] || (i+1)}</span>
+                  <span className="font-extrabold flex-1 break-keep">{r.name}</span>
+                  <span className="text-xs font-bold opacity-60">승률 {r.winRate}%</span>
+                  <span className="display text-base bg-[#15131a] text-[#ffc400] px-2 py-0.5">{r.wins}🏆</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      );
+    }
+
+    // ----- 토너먼트 한쪽 후보 카드 -----
+    function TItem({ name, side, onPick }) {
+      const isA = side === 'a';
+      const color = isA ? 'var(--red)' : 'var(--blue)';
+      const soft = isA ? '#fff0f4' : '#eef0ff';
+      return (
+        <button onClick={onPick}
+          className="group relative overflow-hidden flex-1 border-[3px] border-[#15131a] block3d-sm px-5 py-10 sm:py-16 transition active:scale-[.97] hover:-translate-y-1"
+          style={{ background: soft }}>
+          <div className="halftone absolute inset-0 opacity-0 group-hover:opacity-100 transition" style={{ background: color, mixBlendMode:'multiply' }} />
+          <div className="relative text-center">
+            <div className="display text-xs tracking-widest mb-3" style={{ color }}>{isA ? 'A' : 'B'}</div>
+            <div className="display text-2xl sm:text-3xl leading-tight break-keep">{name}</div>
+            <div className="mt-4 font-bold text-sm opacity-60">👆 선택</div>
+          </div>
+        </button>
+      );
+    }
+
+    // ----- 토너먼트(이상형 월드컵) -----
+    function Tournament() {
+      const [phase, setPhase] = useState('setup'); // setup | playing | done
+      const [pool, setPool] = useState([]);
+      const [round, setRound] = useState([]);      // 현재 라운드 항목들
+      const [next, setNext] = useState([]);        // 다음 라운드 진출자
+      const [idx, setIdx] = useState(0);           // 현재 매치(쌍) 시작 인덱스
+      const [matches, setMatches] = useState([]);  // {winner, loser} 누적
+      const [champion, setChampion] = useState(null);
+      const [size, setSize] = useState(0);
+      const [ranking, setRanking] = useState([]);
+      const [loadingPool, setLoadingPool] = useState(true);
+      const [saving, setSaving] = useState(false);
+
+      const loadRanking = useCallback(async () => {
+        const r = await api.tournament.ranking();
+        if (r.success) setRanking(r.data);
+      }, []);
+
+      useEffect(() => {
+        (async () => {
+          const r = await api.tournament.items();
+          if (r.success) setPool(r.data);
+          setLoadingPool(false);
+        })();
+        loadRanking();
+      }, [loadRanking]);
+
+      const shuffle = (arr) => {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+
+      const roundName = (len) => (len === 2 ? '결승' : `${len}강`);
+
+      const start = (n) => {
+        const picked = shuffle(pool).slice(0, n);
+        setSize(n); setRound(picked); setNext([]); setIdx(0);
+        setMatches([]); setChampion(null); setPhase('playing');
+      };
+
+      const pick = (winner, loser) => {
+        const ms = [...matches, { winner, loser }];
+        const nx = [...next, winner];
+        const ni = idx + 2;
+        if (ni >= round.length) {
+          // 이번 라운드 종료
+          if (nx.length === 1) {
+            setMatches(ms); setChampion(nx[0]); setPhase('done');
+            (async () => {
+              setSaving(true);
+              await api.tournament.result(nx[0], ms);
+              await loadRanking();
+              setSaving(false);
+            })();
+          } else {
+            setRound(nx); setNext([]); setIdx(0); setMatches(ms);
+          }
+        } else {
+          setMatches(ms); setNext(nx); setIdx(ni);
+        }
+      };
+
+      // ===== 설정 화면 =====
+      if (phase === 'setup') {
+        return (
+          <div className="space-y-6">
+            <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-6 sm:p-8 text-center">
+              <div className="display text-3xl sm:text-4xl mb-2">🏆 음식 이상형 월드컵</div>
+              <p className="font-bold opacity-60 mb-6">둘 중 하나! 살아남는 음식이 우승한다 · 후보 {pool.length}종</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {[8, 16, 32].map(n => (
+                  <button key={n} disabled={loadingPool || pool.length < n} onClick={() => start(n)}
+                    className="display text-xl bg-[#15131a] text-white px-7 py-4 block3d-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition active:scale-95 disabled:opacity-40">
+                    {n}강 시작
+                  </button>
+                ))}
+              </div>
+              {loadingPool && <p className="mt-4 font-bold opacity-50">후보 불러오는 중…</p>}
+            </div>
+            <HallOfFame ranking={ranking} />
+          </div>
+        );
+      }
+
+      // ===== 우승 화면 =====
+      if (phase === 'done') {
+        return (
+          <div className="space-y-6">
+            <div className="relative z-10 bg-[#15131a] text-white block3d border-[3px] border-[#15131a] p-8 text-center pop">
+              <div className="font-bold tracking-widest text-[#ffc400] mb-2">{size}강 토너먼트 우승</div>
+              <div className="text-6xl mb-3">🏆</div>
+              <div className="display text-4xl sm:text-5xl text-[#ffc400] break-keep">{champion}</div>
+              <div className="mt-3 font-bold opacity-60 text-sm">
+                {saving ? '결과 저장 중…' : '결과가 Supabase에 저장되었습니다 ✔'}
+              </div>
+              <button onClick={() => setPhase('setup')}
+                className="display mt-6 bg-[#ffc400] text-[#15131a] text-lg px-8 py-3 border-[3px] border-white hover:scale-105 transition active:scale-95">
+                🔄 다시 하기
+              </button>
+            </div>
+            <HallOfFame ranking={ranking} />
+          </div>
+        );
+      }
+
+      // ===== 진행 화면 =====
+      const a = round[idx], b = round[idx + 1];
+      const matchNo = idx / 2 + 1;
+      const matchTotal = round.length / 2;
+      const done = matches.length;
+      const totalMatches = size - 1;
+      return (
+        <div className="space-y-5">
+          <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-4 text-center">
+            <div className="display text-2xl">
+              {roundName(round.length)} <span className="opacity-40 text-lg">· {matchNo} / {matchTotal} 경기</span>
+            </div>
+            <div className="mt-2 h-3 border-2 border-[#15131a] overflow-hidden">
+              <div className="bar h-full bg-[#ffc400]" style={{ width: `${Math.round((done / totalMatches) * 100)}%` }} />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch gap-3 relative">
+            <TItem name={a} side="a" onPick={() => pick(a, b)} />
+            <div className="display text-2xl sm:text-3xl flex items-center justify-center text-white bg-[#15131a] w-full sm:w-14 py-2 sm:py-0 select-none">VS</div>
+            <TItem name={b} side="b" onPick={() => pick(b, a)} />
+          </div>
+
+          <button onClick={() => setPhase('setup')}
+            className="font-bold text-sm text-[#15131a]/50 hover:text-[#ff2e5f] transition">← 그만두기</button>
+        </div>
+      );
+    }
+
     // ----- 앱 본체 -----
     function App() {
       const [questions, setQuestions] = useState([]);
       const [total, setTotal] = useState(0);
       const [voted, setVoted] = useState(loadVoted());
       const [loading, setLoading] = useState(true);
+      const [mode, setMode] = useState('vote'); // 'vote' | 'tournament'
       const [activeCat, setActiveCat] = useState('all'); // 'all' | 카테고리 key
       const votedRef = useRef(voted);
       votedRef.current = voted;
@@ -320,6 +515,22 @@
               </div>
             </header>
 
+            {/* 모드 전환 (투표 / 토너먼트) */}
+            <div className="flex gap-2 mb-7">
+              {[{ k:'vote', label:'🗳 실시간 투표' }, { k:'tournament', label:'🏆 토너먼트' }].map(m => {
+                const on = mode === m.k;
+                return (
+                  <button key={m.k} onClick={() => setMode(m.k)}
+                    className={`display text-base sm:text-lg flex-1 px-4 py-3 border-[3px] border-[#15131a] transition active:scale-95 ${on ? 'bg-[#15131a] text-white block3d-sm' : 'bg-white hover:-translate-y-0.5'}`}>
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {mode === 'tournament' && <Tournament />}
+
+            {mode === 'vote' && (<>
             {/* 등록 폼 */}
             <div className="mb-6"><NewQuestion onAdd={refresh} /></div>
 
@@ -355,6 +566,7 @@
                 ))
               )}
             </div>
+            </>)}
 
             <footer className="mt-14 text-center text-xs font-bold opacity-40">
               데이터는 PostgreSQL(Supabase)에 저장됩니다 · 2.5초마다 실시간 갱신

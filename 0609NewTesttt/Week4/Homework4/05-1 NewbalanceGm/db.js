@@ -33,6 +33,20 @@ const SCHEMA = [
   )`,
   // 기존 테이블에도 category 컬럼 보강 (이미 있으면 무시)
   `ALTER TABLE balance_questions ADD COLUMN IF NOT EXISTS category TEXT`,
+
+  // 토너먼트(이상형 월드컵) 항목별 통계
+  //   name    : 음식 항목 이름 (고유)
+  //   wins    : 토너먼트 우승 횟수
+  //   picks   : 매치에서 선택(승리)된 횟수
+  //   matches : 매치에 등장한 횟수  → 승률 = picks / matches
+  `CREATE TABLE IF NOT EXISTS tournament_stats (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    wins        INTEGER NOT NULL DEFAULT 0,
+    picks       INTEGER NOT NULL DEFAULT 0,
+    matches     INTEGER NOT NULL DEFAULT 0,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
 ];
 
 async function init() {
