@@ -72,9 +72,9 @@
 
     const api = {
       list: () => fetch('/api/questions').then(r => r.json()),
-      add:  (optionA, optionB) => fetch('/api/questions', {
+      add:  (optionA, optionB, category) => fetch('/api/questions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ optionA, optionB }),
+        body: JSON.stringify({ optionA, optionB, category }),
       }).then(r => r.json()),
       vote: (id, choice) => fetch(`/api/questions/${id}/vote`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -87,6 +87,16 @@
     const VOTED_KEY = 'balance_voted_v1';
     const loadVoted = () => { try { return JSON.parse(localStorage.getItem(VOTED_KEY)) || {}; } catch { return {}; } };
     const saveVoted = (m) => localStorage.setItem(VOTED_KEY, JSON.stringify(m));
+
+    // 카테고리 메타 (Food Balance.json 기준) — 탭 라벨 + 강조 색
+    const CATEGORIES = [
+      { key: 'korean_food',    tab: '🍚 한식',      full: '한식 & 식사 취향',            color: '#ff2e5f' },
+      { key: 'snack_dessert',  tab: '🍰 간식·디저트', full: '간식 & 디저트 & 야식',          color: '#ffc400' },
+      { key: 'extreme_choice', tab: '🌶 극한 선택',   full: '평생 하나만 먹기',             color: '#3a2bff' },
+      { key: 'eating_habit',   tab: '🍴 식습관',     full: '먹방 & 식습관',               color: '#00c2d6' },
+      { key: 'global_food',    tab: '🌍 세계 요리',   full: '양식 & 일식 & 중식 & 세계 요리', color: '#11d08a' },
+    ];
+    const CAT_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
 
     // ----- 배경 3D 도형 -----
     function Shapes() {
@@ -110,6 +120,7 @@
     function NewQuestion({ onAdd }) {
       const [a, setA] = useState('');
       const [b, setB] = useState('');
+      const [cat, setCat] = useState(CATEGORIES[0].key);
       const [busy, setBusy] = useState(false);
       const [err, setErr] = useState('');
 
@@ -117,7 +128,7 @@
         e.preventDefault();
         if (!a.trim() || !b.trim()) { setErr('두 선택지를 모두 입력해 주세요.'); return; }
         setBusy(true); setErr('');
-        const res = await api.add(a.trim(), b.trim());
+        const res = await api.add(a.trim(), b.trim(), cat);
         setBusy(false);
         if (res.success) { setA(''); setB(''); onAdd(); }
         else setErr(res.message || '등록 실패');
@@ -139,10 +150,16 @@
               className="w-full bg-[#eef0ff] border-[3px] border-[#15131a] px-4 py-3 font-bold outline-none focus:bg-white placeholder:text-[#3a2bff]/50" />
           </div>
           {err && <p className="mt-3 text-[#ff2e5f] font-bold text-sm">⚠ {err}</p>}
-          <button disabled={busy}
-            className="display mt-4 w-full sm:w-auto bg-[#15131a] text-white text-lg px-8 py-3 block3d-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition active:scale-95 disabled:opacity-50">
-            {busy ? '등록 중…' : '＋ 질문 올리기'}
-          </button>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <select value={cat} onChange={e=>setCat(e.target.value)}
+              className="border-[3px] border-[#15131a] bg-white px-3 py-3 font-bold outline-none cursor-pointer">
+              {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.tab} · {c.full}</option>)}
+            </select>
+            <button disabled={busy}
+              className="display bg-[#15131a] text-white text-lg px-8 py-3 block3d-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition active:scale-95 disabled:opacity-50">
+              {busy ? '등록 중…' : '＋ 질문 올리기'}
+            </button>
+          </div>
         </form>
       );
     }
@@ -187,11 +204,20 @@
     // ----- 질문 카드 -----
     function QuestionCard({ q, voted, myChoice, onVote, onDelete }) {
       const showResult = voted;
+      const cat = CAT_BY_KEY[q.category];
       return (
         <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
-            <div className="font-bold text-sm opacity-60">
-              👥 참여 <span className="display text-base text-[#15131a] opacity-100">{q.total.toLocaleString()}</span> 명
+            <div className="flex items-center gap-2">
+              {cat && (
+                <span className="text-[11px] font-extrabold px-2 py-0.5 border-2 border-[#15131a]"
+                  style={{ background: cat.color, color: cat.color === '#ffc400' ? '#15131a' : '#fff' }}>
+                  {cat.tab}
+                </span>
+              )}
+              <span className="font-bold text-sm opacity-60">
+                👥 <span className="display text-base text-[#15131a] opacity-100">{q.total.toLocaleString()}</span>명
+              </span>
             </div>
             <button onClick={() => onDelete(q.id)} title="삭제"
               className="text-xs font-bold text-[#15131a]/40 hover:text-[#ff2e5f] transition">삭제 ✕</button>
@@ -222,8 +248,13 @@
       const [total, setTotal] = useState(0);
       const [voted, setVoted] = useState(loadVoted());
       const [loading, setLoading] = useState(true);
+      const [activeCat, setActiveCat] = useState('all'); // 'all' | 카테고리 key
       const votedRef = useRef(voted);
       votedRef.current = voted;
+
+      // 카테고리별 문항 수 + 현재 탭 기준 필터링
+      const countByCat = questions.reduce((m, q) => { m[q.category] = (m[q.category]||0)+1; return m; }, {});
+      const visible = activeCat === 'all' ? questions : questions.filter(q => q.category === activeCat);
 
       const refresh = useCallback(async () => {
         const res = await api.list();
@@ -290,19 +321,34 @@
             </header>
 
             {/* 등록 폼 */}
-            <div className="mb-8"><NewQuestion onAdd={refresh} /></div>
+            <div className="mb-6"><NewQuestion onAdd={refresh} /></div>
+
+            {/* 카테고리 필터 탭 */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {[{ key:'all', tab:'전체', color:'#15131a' }, ...CATEGORIES].map(c => {
+                const on = activeCat === c.key;
+                const n = c.key === 'all' ? questions.length : (countByCat[c.key] || 0);
+                return (
+                  <button key={c.key} onClick={() => setActiveCat(c.key)}
+                    className={`display text-sm px-3 py-2 border-[3px] border-[#15131a] transition active:scale-95 ${on ? 'block3d-sm text-white' : 'bg-white hover:-translate-y-0.5'}`}
+                    style={ on ? { background: c.color, color: c.color === '#ffc400' ? '#15131a' : '#fff' } : {} }>
+                    {c.tab} <span className="opacity-70">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* 질문 목록 */}
             <div className="space-y-5">
               {loading ? (
                 <div className="text-center py-16 font-bold opacity-50">불러오는 중…</div>
-              ) : questions.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <div className="bg-white border-[3px] border-dashed border-[#15131a]/40 p-12 text-center">
-                  <div className="display text-2xl mb-2">아직 질문이 없어요</div>
-                  <p className="font-bold opacity-60">위에서 첫 번째 밸런스 질문을 만들어 보세요!</p>
+                  <div className="display text-2xl mb-2">질문이 없어요</div>
+                  <p className="font-bold opacity-60">다른 카테고리를 골라보거나 위에서 새 질문을 만들어 보세요!</p>
                 </div>
               ) : (
-                questions.map(q => (
+                visible.map(q => (
                   <QuestionCard key={q.id} q={q}
                     voted={!!voted[q.id]} myChoice={voted[q.id]}
                     onVote={handleVote} onDelete={handleDelete} />

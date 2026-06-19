@@ -5,6 +5,17 @@
 선택지별 득표 수와 **총 참여자 수**를 한눈에 볼 수 있습니다.
 모든 데이터는 **PostgreSQL(Supabase)** 에 저장됩니다.
 
+기본 문항으로 **음식 밸런스 게임(`Food Balance.json`) 100문항**이 5개 카테고리로 들어가 있고,
+상단 탭으로 카테고리별로 골라볼 수 있습니다.
+
+| 카테고리 | 설명 | 문항 |
+|---|---|---|
+| 🍚 한식 | 한식 & 식사 취향 | 20 |
+| 🍰 간식·디저트 | 간식 & 디저트 & 야식 | 20 |
+| 🌶 극한 선택 | 평생 하나만 먹기 | 20 |
+| 🍴 식습관 | 먹방 & 식습관 | 20 |
+| 🌍 세계 요리 | 양식 & 일식 & 중식 & 세계 요리 | 20 |
+
 디자인은 강렬한 3D 기하 도형이 떠다니는 포스터 무드(굵은 산세리프 + 하프톤 점 텍스처 + 입체 그림자)를 참고했습니다.
 
 ---
@@ -19,7 +30,8 @@
 
 ## ✨ 기능
 
-- **질문 등록** — 선택지 A vs B 두 개를 입력해 새 밸런스 질문을 올립니다.
+- **카테고리 탭** — 전체 / 한식 / 간식·디저트 / 극한 선택 / 식습관 / 세계 요리로 문항을 필터링합니다.
+- **질문 등록** — 선택지 A vs B 두 개와 카테고리를 골라 새 밸런스 질문을 올립니다.
 - **투표** — 둘 중 하나를 클릭하면 즉시 한 표가 반영됩니다 (낙관적 업데이트).
 - **실시간 퍼센티지** — 2.5초마다 자동 폴링하여 다른 사람의 투표까지 반영된 비율이 갱신됩니다.
 - **결과 표시** — 선택지별 퍼센티지·득표 수, 그리고 질문별 / 전체 **총 참여자 수**를 보여줍니다.
@@ -64,7 +76,7 @@ DATABASE_URL=postgresql://postgres.xxxx:비밀번호@aws-1-us-east-1.pooler.supa
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | `GET`    | `/api/questions`           | 질문 목록(최신순) + 전체 총 참여자 수 |
-| `POST`   | `/api/questions`           | 질문 등록 `{ optionA, optionB }` |
+| `POST`   | `/api/questions`           | 질문 등록 `{ optionA, optionB, category? }` |
 | `POST`   | `/api/questions/:id/vote`  | 투표 `{ choice: "a" \| "b" }` |
 | `DELETE` | `/api/questions/:id`       | 질문 삭제 |
 
@@ -79,6 +91,7 @@ CREATE TABLE IF NOT EXISTS balance_questions (
   id          SERIAL PRIMARY KEY,
   option_a    TEXT NOT NULL,
   option_b    TEXT NOT NULL,
+  category    TEXT,
   votes_a     INTEGER NOT NULL DEFAULT 0,
   votes_b     INTEGER NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()

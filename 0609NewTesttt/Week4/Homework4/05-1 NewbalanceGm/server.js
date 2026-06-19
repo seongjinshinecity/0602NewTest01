@@ -34,6 +34,7 @@ function rowToQuestion(r) {
     id: r.id,
     optionA: r.option_a,
     optionB: r.option_b,
+    category: r.category || null,
     votesA,
     votesB,
     total,
@@ -50,8 +51,8 @@ function rowToQuestion(r) {
 app.get('/api/questions', async (_req, res) => {
   try {
     const { rows } = await query(
-      `SELECT id, option_a, option_b, votes_a, votes_b, created_at
-       FROM balance_questions ORDER BY created_at DESC, id DESC`
+      `SELECT id, option_a, option_b, category, votes_a, votes_b, created_at
+       FROM balance_questions ORDER BY id ASC`
     );
     const data = rows.map(rowToQuestion);
     const totalParticipants = data.reduce((sum, q) => sum + q.total, 0);
@@ -67,15 +68,16 @@ app.post('/api/questions', async (req, res) => {
   const b = req.body || {};
   const optionA = clean(b.optionA);
   const optionB = clean(b.optionB);
+  const category = clean(b.category, 40) || null;
   if (!optionA || !optionB) {
     return res.status(400).json({ success: false, message: '두 선택지를 모두 입력해 주세요.' });
   }
   try {
     const { rows } = await query(
-      `INSERT INTO balance_questions (option_a, option_b)
-       VALUES ($1, $2)
-       RETURNING id, option_a, option_b, votes_a, votes_b, created_at`,
-      [optionA, optionB]
+      `INSERT INTO balance_questions (option_a, option_b, category)
+       VALUES ($1, $2, $3)
+       RETURNING id, option_a, option_b, category, votes_a, votes_b, created_at`,
+      [optionA, optionB, category]
     );
     res.status(201).json({ success: true, data: rowToQuestion(rows[0]) });
   } catch (err) {
@@ -94,7 +96,7 @@ app.post('/api/questions/:id/vote', async (req, res) => {
   try {
     const { rows } = await query(
       `UPDATE balance_questions SET ${col} = ${col} + 1 WHERE id = $1
-       RETURNING id, option_a, option_b, votes_a, votes_b, created_at`,
+       RETURNING id, option_a, option_b, category, votes_a, votes_b, created_at`,
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ success: false, message: '질문을 찾을 수 없습니다.' });

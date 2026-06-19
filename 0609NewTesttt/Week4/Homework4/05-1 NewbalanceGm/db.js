@@ -26,10 +26,13 @@ const SCHEMA = [
     id          SERIAL PRIMARY KEY,
     option_a    TEXT NOT NULL,
     option_b    TEXT NOT NULL,
+    category    TEXT,
     votes_a     INTEGER NOT NULL DEFAULT 0,
     votes_b     INTEGER NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
+  // 기존 테이블에도 category 컬럼 보강 (이미 있으면 무시)
+  `ALTER TABLE balance_questions ADD COLUMN IF NOT EXISTS category TEXT`,
 ];
 
 async function init() {
