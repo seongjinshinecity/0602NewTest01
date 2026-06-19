@@ -53,6 +53,42 @@
 
 ---
 
+## 🔄 앱 구조 / 데이터 흐름
+
+```
+[질문 등록 A vs B]                      [투표 선택]
+  POST /api/questions                    클릭 → 즉시 화면 반영(낙관적 업데이트)
+       │                                      │
+       ▼                                      ▼
+   [Server: server.js]                  POST /api/questions/:id/vote { choice }
+   INSERT balance_questions                   │
+   (votes_a=0, votes_b=0)                      ▼
+       │                              [Server] UPDATE ... SET votes_a/b = +1
+       ▼                                      │
+   ┌─────────── DB (Supabase PostgreSQL) ─────────┐
+   │  balance_questions 테이블에 영속 저장          │
+   └──────────────────────────────────────────────┘
+       │
+       ▼
+   [투표율 계산 = 서버에서]  rowToQuestion()
+   percentA = round(votesA / total × 100), percentB = 100 - percentA
+       │
+       ▼
+   GET /api/questions  ← 클라이언트가 2.5초마다 폴링
+       │
+       ▼
+   [퍼센티지 바 업데이트]  style width: `${percent}%`
+```
+
+골격은 **질문 등록(A vs B) → 투표 선택 → Server → DB 저장 → 실시간 투표율 계산 → 퍼센티지 바 업데이트** 입니다. 두 가지 디테일이 포인트예요.
+
+1. **투표율 계산은 "서버에서"** — 클라이언트가 아니라 `server.js`의 `rowToQuestion()`이 DB의 `votes_a`/`votes_b`를 읽어 `percentA`/`percentB`를 계산해 내려줍니다. 합이 항상 100이 되도록 `percentB = 100 - percentA`로 처리합니다.
+2. **"실시간"은 2.5초 폴링 + 낙관적 업데이트** — WebSocket 푸시가 아니라 클라이언트가 `setInterval`로 2.5초마다 `GET /api/questions`를 다시 불러와 *다른 사람*의 투표까지 반영합니다. 단, **내가 투표한 순간**엔 서버 응답을 기다리지 않고 화면을 먼저 갱신(낙관적 업데이트)한 뒤 서버에 반영하고, 다음 폴링에서 정합성을 맞춥니다. 또한 `localStorage`로 내 선택을 기억해 **중복 투표 방지 + MY PICK 표시**를 합니다.
+
+> 🏆 **토너먼트 모드**는 흐름이 조금 다릅니다 — 매 매치는 브라우저에서 진행하고, **우승이 확정되는 순간 한 번** `POST /api/tournament/result`로 전체 결과(우승자 + 매치 목록)를 보내 `tournament_stats`에 누적합니다(매 클릭마다 저장하지 않고 완료 시 일괄 저장).
+
+---
+
 ## 🛠 기술 스택
 
 - **프런트엔드** : React 18 + Tailwind CSS (CDN, 빌드 도구 없는 단일 `index.html`)
