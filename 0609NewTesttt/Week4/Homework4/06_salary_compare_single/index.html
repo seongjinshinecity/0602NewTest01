@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💸 연봉/지출 비교 (단일 파일) 💸</title>
+
+  <!-- ⚠️ 모든 CDN 버전 고정. 미고정 시 @babel/standalone 이 8.x 로 올라가
+       type="text/babel" 인라인 변환이 깨진다. Babel 은 반드시 7.x. -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.9/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --bg:#070b16;
+      --txt:#eaf0ff;
+      --muted:#94a0c4;
+      --card:rgba(255,255,255,.045);
+      --line:rgba(255,255,255,.09);
+      --accent:#6ee7b7;
+      --accent2:#7c9cff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; min-height:100vh; color:var(--txt);
+      font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;
+      background:
+        radial-gradient(50% 40% at 85% -8%, rgba(124,156,255,.28), transparent 70%),
+        radial-gradient(45% 40% at 8% 4%, rgba(110,231,183,.20), transparent 72%),
+        radial-gradient(55% 50% at 50% 120%, rgba(180,110,255,.20), transparent 70%),
+        var(--bg);
+      background-attachment:fixed;
+    }
+    h1,h2,h3,.num{ font-family:'Outfit','Noto Sans KR',sans-serif; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:20px; backdrop-filter:blur(8px); }
+    .field{ background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:12px; }
+    .field-hl{ border-color:rgba(255,255,255,.3); }
+    .field:focus-within{ border-color:var(--accent2); box-shadow:0 0 0 3px rgba(124,156,255,.18); }
+    input.bare{ background:transparent; border:0; outline:0; color:var(--txt); width:100%; }
+    input.bare::placeholder{ color:var(--muted); }
+    .seg{ background:rgba(255,255,255,.05); border:1px solid var(--line); }
+    .seg-on{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#06122a; font-weight:700; }
+    .gradtext{ background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .btn-primary{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#06122a; font-weight:800; }
+    .btn-primary:hover{ filter:brightness(1.06); }
+    .pill{ background:rgba(255,255,255,.06); border:1px solid var(--line); }
+    ::-webkit-scrollbar{ width:10px; height:10px; }
+    ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:10px; }
+    .fade-in{ animation:fade .4s ease both; }
+    @keyframes fade{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ========================================================
+    // 도메인 상수 (원본 server.js 와 동일)
+    // ========================================================
+    const JOBS = ['dev', 'design', 'pm', 'marketing', 'sales', 'etc'];
+    const JOB_LABELS = { dev:'개발', design:'디자인', pm:'기획/PM', marketing:'마케팅', sales:'영업', etc:'기타' };
+
+    // 지출 카테고리: 단일 파일이므로 DB 컬럼명 대신 key 만 사용한다.
+    const CATEGORIES = [
+      { key:'food',         label:'식비' },
+      { key:'housing',      label:'주거' },
+      { key:'transport',    label:'교통' },
+      { key:'telecom',      label:'통신' },
+      { key:'subscription', label:'구독료' },
+      { key:'leisure',      label:'여가' },
+      { key:'etc',          label:'기타' },
+    ];
+    const CAT_ICON = { food:'🍚', housing:'🏠', transport:'🚇', telecom:'📱', subscription:'🔁', leisure:'🎬', etc:'🧾' };
+
+    // 월급 분포 히스토그램 구간 (만원). [min, max) — 마지막은 상한 없음. (원본과 동일)
+    const SALARY_BUCKETS = [
+      { label: '~200',     min: 0,    max: 200 },
+      { label: '200~300',  min: 200,  max: 300 },
+      { label: '300~400',  min: 300,  max: 400 },
+      { label: '400~500',  min: 400,  max: 500 },
+      { label: '500~700',  min: 500,  max: 700 },
+      { label: '700~1000', min: 700,  max: 1000 },
+      { label: '1000~',    min: 1000, max: Infinity },
+    ];
+
+    const LS_KEY = 'salary_compare_single_submissions_v1';
+
+    // ========================================================
+    // 입력 정리 유틸 (원본 server.js 와 동일)
+    // ========================================================
+    const toInt = (v, max = 100000) => {
+      const n = Math.round(Number(v));
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return Math.min(n, max);
+    };
+    const normJob = (v) => (JOBS.includes(v) ? v : 'etc');
+
+    // 행(row) 1건 = { job, years, salary, food, housing, ... etc }
+    function rowExpenseTotal(r) {
+      return CATEGORIES.reduce((s, c) => s + (r[c.key] || 0), 0);
+    }
+
+    // ========================================================
+    // 통계 계산 (원본 server.js 의 buildStats / salaryPercentile 그대로 이식)
+    //   유일한 차이: 행이 DB가 아니라 코드 내 표본 + localStorage 에서 온다.
+    // ========================================================
+    function buildStats(rows) {
+      const count = rows.length;
+      if (count === 0) {
+        return {
+          count: 0,
+          salary: { avg: 0, median: 0, min: 0, max: 0, distribution: SALARY_BUCKETS.map((b) => ({ label: b.label, count: 0 })) },
+          expense: { avgTotal: 0, byCategory: CATEGORIES.map((c) => ({ key: c.key, label: c.label, avg: 0 })) },
+          savingsRate: 0,
+        };
+      }
+
+      const salaries = rows.map((r) => r.salary).sort((a, b) => a - b);
+      const sum = (arr) => arr.reduce((s, x) => s + x, 0);
+      const avg = (arr) => Math.round(sum(arr) / arr.length);
+      const median = (() => {
+        const m = Math.floor(salaries.length / 2);
+        return salaries.length % 2 ? salaries[m] : Math.round((salaries[m - 1] + salaries[m]) / 2);
+      })();
+
+      const distribution = SALARY_BUCKETS.map((b) => ({
+        label: b.label,
+        count: rows.filter((r) => r.salary >= b.min && r.salary < b.max).length,
+      }));
+
+      const byCategory = CATEGORIES.map((c) => ({
+        key: c.key,
+        label: c.label,
+        avg: avg(rows.map((r) => r[c.key] || 0)),
+      }));
+
+      const totals = rows.map(rowExpenseTotal);
+      const avgTotal = avg(totals);
+
+      // 저축률 = (월급 - 총지출) / 월급, 0~100% 보정 후 평균
+      const rates = rows.map((r) => {
+        if (r.salary <= 0) return 0;
+        return Math.max(0, Math.min(100, ((r.salary - rowExpenseTotal(r)) / r.salary) * 100));
+      });
+      const savingsRate = Math.round(sum(rates) / rates.length);
+
+      return {
+        count,
+        salary: { avg: avg(salaries), median, min: salaries[0], max: salaries[salaries.length - 1], distribution },
+        expense: { avgTotal, byCategory },
+        savingsRate,
+      };
+    }
+
+    // 내 위치: 월급 기준 상위 몇 % (작을수록 상위 — 나보다 많이 버는 사람 비율)
+    function salaryPercentile(rows, mySalary) {
+      const count = rows.length;
+      if (count <= 1) return 1;
+      const higher = rows.filter((r) => r.salary > mySalary).length;
+      return Math.max(1, Math.min(99, Math.round((higher / count) * 100)));
+    }
+
+    // ========================================================
+    // 내장 샘플 분포 데이터셋 (백엔드 DB 집계 대체)
+    //   · 결정적(seeded) 생성기로 ~210개 가상 표본을 만든다.
+    //   · 새로고침해도 동일하게 재현되도록 시드 고정.
+    //   · job 마다 ~35개, 직군별 월급 베이스가 달라 토글이 의미를 가진다.
+    // ========================================================
+    function makeSampleRows() {
+      // 작은 결정적 PRNG (mulberry32)
+      let seed = 0x9e3779b9;
+      const rnd = () => {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      // 정규분포 근사 (평균 0, 표준편차 1)
+      const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) / 1; // 합-2, 대략 ±2
+
+      // 직군별 월급 베이스(만원)와 변동폭 — 현실 감각에 맞춘 가상값
+      const JOB_PROFILE = {
+        dev:       { base: 500, spread: 210, n: 42 },
+        design:    { base: 380, spread: 150, n: 32 },
+        pm:        { base: 490, spread: 200, n: 34 },
+        marketing: { base: 400, spread: 160, n: 34 },
+        sales:     { base: 450, spread: 260, n: 36 }, // 영업: 인센티브로 변동 큼
+        etc:       { base: 360, spread: 150, n: 32 },
+      };
+
+      const rows = [];
+      for (const job of JOBS) {
+        const p = JOB_PROFILE[job];
+        for (let i = 0; i < p.n; i++) {
+          // 연차 0~15, 연차가 높을수록 월급 가산
+          const years = Math.min(15, Math.max(0, Math.round(Math.abs(gauss()) * 5)));
+          let salary = Math.round(p.base + gauss() * p.spread + years * 9);
+          salary = Math.max(160, Math.min(1600, salary)); // 현실 범위로 클램프
+
+          // 지출: 월급에 비례하되 카테고리별 비중 + 노이즈. 대체로 저축이 남도록.
+          const spendRatio = 0.45 + rnd() * 0.35; // 월급의 45~80% 지출
+          const totalSpend = Math.round(salary * spendRatio);
+          const weights = { food:0.22, housing:0.30, transport:0.08, telecom:0.05, subscription:0.04, leisure:0.16, etc:0.15 };
+          const row = { job, years, salary };
+          let acc = 0;
+          CATEGORIES.forEach((c, idx) => {
+            const w = weights[c.key] * (0.7 + rnd() * 0.6); // 비중에 노이즈
+            if (idx === CATEGORIES.length - 1) {
+              row[c.key] = Math.max(0, totalSpend - acc); // 마지막 항목으로 합 맞춤
+            } else {
+              const v = Math.max(0, Math.round(totalSpend * w));
+              row[c.key] = v; acc += v;
+            }
+          });
+          rows.push(row);
+        }
+      }
+      return rows;
+    }
+
+    const SAMPLE_ROWS = makeSampleRows(); // 앱 로드 시 1회 생성, 이후 불변
+
+    // ========================================================
+    // localStorage: 내가 제출한 기록 저장/로드 (브라우저 로컬 한정)
+    // ========================================================
+    function loadMyRows() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch { return []; }
+    }
+    function saveMyRows(rows) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(rows)); } catch {}
+    }
+
+    // 표본 + 내 제출 기록을 하나의 행 배열로 합친다. (원본의 allRows 역할)
+    function combinedRows(myRows) {
+      return SAMPLE_ROWS.concat(myRows);
+    }
+
+    // ========================================================
+    // 표시 유틸 (원본과 동일)
+    // ========================================================
+    const won = (manwon) => {
+      const n = Number(manwon) || 0;
+      if (n >= 10000) return (n/10000).toFixed(n%10000===0?0:1) + '억';
+      return n.toLocaleString('ko-KR') + '만원';
+    };
+    const numFmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+
+    // ========================================================
+    // 🎨 디자인 시스템 / 작은 차트 래퍼 (원본 ChartBox 그대로)
+    //   Chart.js 반응형은 캔버스 부모가 position:relative + 크기 필요.
+    //   첫 렌더 시 폭이 0으로 잡힐 수 있어 한 프레임 뒤 resize() 로 재계산.
+    // ========================================================
+    function ChartBox({ type, data, options, height=260 }){
+      const ref = useRef(null); const inst = useRef(null);
+      useEffect(() => {
+        if (!ref.current) return;
+        if (inst.current) inst.current.destroy();
+        inst.current = new Chart(ref.current, { type, data, options });
+        const id = requestAnimationFrame(() => { if (inst.current) inst.current.resize(); });
+        return () => { cancelAnimationFrame(id); if (inst.current) inst.current.destroy(); };
+      }, [JSON.stringify(data), JSON.stringify(options), type]);
+      return <div style={{ position:'relative', width:'100%', height }}><canvas ref={ref}></canvas></div>;
+    }
+
+    const GRID = 'rgba(255,255,255,.07)';
+    const TICK = '#94a0c4';
+
+    function Stat({ label, value, sub }){
+      return (
+        <div className="card p-4">
+          <div className="text-xs" style={{color:'var(--muted)'}}>{label}</div>
+          <div className="num text-2xl font-extrabold mt-1">{value}</div>
+          {sub && <div className="text-xs mt-1" style={{color:'var(--muted)'}}>{sub}</div>}
+        </div>
+      );
+    }
+
+    // ========================================================
+    // 📄 입력 폼
+    // ========================================================
+    function Form({ onSubmit, busy }){
+      const [job, setJob] = useState('dev');
+      const [years, setYears] = useState('');
+      const [salary, setSalary] = useState('');
+      const [exp, setExp] = useState(() => Object.fromEntries(CATEGORIES.map(c => [c.key, ''])));
+
+      const setCat = (k, v) => setExp(p => ({ ...p, [k]: v }));
+      const totalExp = useMemo(() => CATEGORIES.reduce((s,c)=> s + (Number(exp[c.key])||0), 0), [exp]);
+      const sal = Number(salary)||0;
+      const saveRate = sal>0 ? Math.max(0, Math.round((sal-totalExp)/sal*100)) : 0;
+
+      const submit = (e) => {
+        e.preventDefault();
+        if (!sal) return;
+        onSubmit({ job, years:Number(years)||0, salary:sal, ...Object.fromEntries(CATEGORIES.map(c=>[c.key, Number(exp[c.key])||0])) });
+      };
+
+      return (
+        <form onSubmit={submit} className="card p-6 space-y-5">
+          <div>
+            <h2 className="text-lg font-bold">내 정보 입력</h2>
+            <p className="text-xs mt-1" style={{color:'var(--muted)'}}>익명으로 이 브라우저에만 저장돼요. 이름·이메일 등은 받지 않습니다.</p>
+          </div>
+
+          {/* 직군 */}
+          <div>
+            <label className="text-sm font-medium">직군</label>
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {Object.entries(JOB_LABELS).map(([k,v]) => (
+                <button type="button" key={k} onClick={()=>setJob(k)}
+                  className={"seg rounded-xl py-2 text-sm transition " + (job===k ? "seg-on" : "")}>{v}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium">연차</label>
+              <div className="field field-hl flex items-center px-3 py-2.5 mt-2">
+                <input className="bare num" type="number" min="0" max="60" placeholder="3" value={years} onChange={e=>setYears(e.target.value)} />
+                <span className="text-sm whitespace-nowrap" style={{color:'var(--muted)'}}>년</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">월급</label>
+              <div className="field field-hl flex items-center px-3 py-2.5 mt-2">
+                <input className="bare num" type="number" min="0" placeholder="350" value={salary} onChange={e=>setSalary(e.target.value)} />
+                <span className="text-sm whitespace-nowrap" style={{color:'var(--muted)'}}>만원</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 카테고리 지출 */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">월 지출 (카테고리별)</label>
+              <span className="text-xs pill px-2 py-1 rounded-lg">합계 {won(totalExp)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {CATEGORIES.map(c => (
+                <div key={c.key} className="field flex items-center px-3 py-2.5">
+                  <span className="mr-1">{CAT_ICON[c.key]||'•'}</span>
+                  <span className="text-xs mr-2 whitespace-nowrap" style={{color:'var(--muted)'}}>{c.label}</span>
+                  <input className="bare num text-right" type="number" min="0" placeholder="0" value={exp[c.key]} onChange={e=>setCat(c.key, e.target.value)} />
+                  <span className="text-xs ml-1" style={{color:'var(--muted)'}}>만</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 저축률 미리보기 */}
+          {sal>0 && (
+            <div className="pill rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-sm" style={{color:'var(--muted)'}}>예상 저축률</span>
+              <span className="num font-bold gradtext text-lg">{saveRate}%</span>
+            </div>
+          )}
+
+          <button type="submit" disabled={busy || !sal}
+            className="btn-primary w-full rounded-xl py-3.5 text-base disabled:opacity-50">
+            {busy ? '계산 중…' : '제출하고 비교 보기'}
+          </button>
+        </form>
+      );
+    }
+
+    // ========================================================
+    // 📄 결과 화면 (원본 Results 와 동일한 시각화)
+    // ========================================================
+    function Results({ result }){
+      const { stats, jobStats, me } = result;
+      const [scope, setScope] = useState('all'); // all | job
+      const view = scope==='all' ? stats : jobStats;
+      const pct = scope==='all' ? me.percentileAll : me.percentileJob;
+
+      // 월급 분포 차트 — 내 구간 강조 (edges 는 SALARY_BUCKETS 와 정렬)
+      const dist = stats.salary.distribution;
+      const myBucket = (() => {
+        const s = me.salary;
+        if (s < 200) return 0; if (s<300) return 1; if (s<400) return 2;
+        if (s<500) return 3; if (s<700) return 4; if (s<1000) return 5; return 6;
+      })();
+      const distData = {
+        labels: dist.map(d=>d.label),
+        datasets:[{
+          label:'인원',
+          data: dist.map(d=>d.count),
+          backgroundColor: dist.map((_,i)=> i===myBucket ? '#6ee7b7' : 'rgba(124,156,255,.45)'),
+          borderRadius:6,
+        }]
+      };
+
+      // 카테고리별: 내 지출 vs 평균
+      const catData = {
+        labels: view.expense.byCategory.map(c=>c.label),
+        datasets:[
+          { label:'나', data: view.expense.byCategory.map(c=> me.expenses[c.key]||0), backgroundColor:'#6ee7b7', borderRadius:5 },
+          { label:'평균', data: view.expense.byCategory.map(c=> c.avg), backgroundColor:'rgba(124,156,255,.55)', borderRadius:5 },
+        ]
+      };
+
+      const barOpts = (legend=false) => ({
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:legend, labels:{ color:TICK } } },
+        scales:{ x:{ ticks:{ color:TICK }, grid:{ color:GRID } }, y:{ ticks:{ color:TICK }, grid:{ color:GRID }, beginAtZero:true } }
+      });
+
+      const salaryVsAvg = me.salary - view.salary.avg;
+
+      return (
+        <div className="space-y-5 fade-in">
+          {/* 내 위치 헤더 */}
+          <div className="card p-6 text-center">
+            <div className="text-sm" style={{color:'var(--muted)'}}>내 월급은 {scope==='all'?'전체':JOB_LABELS[me.job]} 기준</div>
+            <div className="num text-5xl font-extrabold mt-1">상위 <span className="gradtext">{pct}%</span></div>
+            <div className="text-sm mt-2" style={{color:'var(--muted)'}}>
+              내 월급 <b style={{color:'var(--txt)'}}>{won(me.salary)}</b> · 평균 {won(view.salary.avg)}
+              <span className={salaryVsAvg>=0?'text-emerald-300':'text-rose-300'}> ({salaryVsAvg>=0?'+':''}{won(salaryVsAvg)})</span>
+            </div>
+            <div className="inline-flex seg rounded-xl p-1 mt-4">
+              <button onClick={()=>setScope('all')} className={"px-4 py-1.5 rounded-lg text-sm transition "+(scope==='all'?'seg-on':'')}>전체</button>
+              <button onClick={()=>setScope('job')} className={"px-4 py-1.5 rounded-lg text-sm transition "+(scope==='job'?'seg-on':'')}>{JOB_LABELS[me.job]} 직군</button>
+            </div>
+          </div>
+
+          {/* 요약 통계 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="표본 수" value={numFmt(view.count)+'명'} sub={scope==='all'?'전체 표본':JOB_LABELS[me.job]+' 직군'} />
+            <Stat label="평균 월급" value={won(view.salary.avg)} sub={"중앙값 "+won(view.salary.median)} />
+            <Stat label="평균 지출" value={won(view.expense.avgTotal)} sub={"내 지출 "+won(me.expenseTotal)} />
+            <Stat label="평균 저축률" value={view.savingsRate+'%'} sub={"내 저축률 "+me.savingsRate+'%'} />
+          </div>
+
+          {/* 월급 분포 */}
+          <div className="card p-6">
+            <h3 className="font-bold mb-1">월급 분포 <span className="text-xs font-normal" style={{color:'var(--muted)'}}>(전체 · 단위: 만원)</span></h3>
+            <p className="text-xs mb-3" style={{color:'var(--muted)'}}>초록 막대가 내가 속한 구간이에요.</p>
+            <ChartBox type="bar" data={distData} options={barOpts(false)} height={240} />
+          </div>
+
+          {/* 카테고리별 비교 */}
+          <div className="card p-6">
+            <h3 className="font-bold mb-1">카테고리별 지출 — 나 vs {scope==='all'?'전체':JOB_LABELS[me.job]} 평균</h3>
+            <p className="text-xs mb-3" style={{color:'var(--muted)'}}>단위: 만원</p>
+            <ChartBox type="bar" data={catData} options={barOpts(true)} height={260} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+              {view.expense.byCategory.map(c => {
+                const mine = me.expenses[c.key]||0; const diff = mine - c.avg;
+                return (
+                  <div key={c.key} className="pill rounded-xl p-3">
+                    <div className="text-xs" style={{color:'var(--muted)'}}>{CAT_ICON[c.key]} {c.label}</div>
+                    <div className="num font-bold mt-0.5">{won(mine)}</div>
+                    <div className={"text-xs "+(diff>0?'text-rose-300':'text-emerald-300')}>평균比 {diff>=0?'+':''}{won(diff)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================================
+    // 📄 제출 전: 현재 전체 평균 미리보기
+    // ========================================================
+    function Preview({ stats, myCount }){
+      return (
+        <div className="card p-6 space-y-3">
+          <h3 className="font-bold">
+            현재 전체 평균
+            <span className="text-xs font-normal" style={{color:'var(--muted)'}}> · {numFmt(stats.count)}명 표본</span>
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="평균 월급" value={won(stats.salary.avg)} />
+            <Stat label="평균 지출" value={won(stats.expense.avgTotal)} />
+            <Stat label="평균 저축률" value={stats.savingsRate+'%'} />
+          </div>
+          <p className="text-xs" style={{color:'var(--muted)'}}>
+            ← 왼쪽에 내 정보를 입력하면 내 위치(상위 %)와 카테고리별 비교를 볼 수 있어요.
+          </p>
+          {myCount > 0 && (
+            <p className="text-xs" style={{color:'var(--muted)'}}>
+              이 브라우저에 저장된 내 제출 <b style={{color:'var(--accent)'}}>{myCount}건</b>이 표본에 함께 합산돼 있어요.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================================
+    // 🚀 앱 루트
+    // ========================================================
+    function App(){
+      const [myRows, setMyRows] = useState(loadMyRows); // localStorage 내 기록
+      const [result, setResult] = useState(null);
+      const [busy, setBusy] = useState(false);
+
+      // 제출 전 미리보기용: 표본 + 내 기록 전체 통계
+      const preStats = useMemo(() => buildStats(combinedRows(myRows)), [myRows]);
+
+      // 제출 = 로컬 계산 (서버 호출 없음).
+      //   원본과 동일하게 "내 제출을 포함한" allRows 로 통계를 낸다:
+      //   먼저 localStorage 에 1건 추가 → 그 전체로 buildStats / percentile.
+      const submit = (payload) => {
+        setBusy(true);
+        // 살짝의 지연으로 계산 중 UX 유지 (선택적)
+        setTimeout(() => {
+          const job = normJob(payload.job);
+          const years = toInt(payload.years, 60);
+          const salary = toInt(payload.salary, 100000);
+          const myRow = { job, years, salary };
+          CATEGORIES.forEach(c => { myRow[c.key] = toInt(payload[c.key], 100000); });
+
+          const nextMyRows = myRows.concat([myRow]);
+          saveMyRows(nextMyRows);
+          setMyRows(nextMyRows);
+
+          const allRows = combinedRows(nextMyRows); // 내 제출 포함
+          const jobRows = allRows.filter(r => r.job === job);
+
+          const myExpenseTotal = rowExpenseTotal(myRow);
+          const mySavingsRate = salary > 0
+            ? Math.max(0, Math.min(100, Math.round(((salary - myExpenseTotal) / salary) * 100)))
+            : 0;
+
+          setResult({
+            stats: buildStats(allRows),
+            jobStats: buildStats(jobRows),
+            me: {
+              job, years, salary,
+              expenses: Object.fromEntries(CATEGORIES.map(c => [c.key, myRow[c.key]])),
+              expenseTotal: myExpenseTotal,
+              savingsRate: mySavingsRate,
+              percentileAll: salaryPercentile(allRows, salary),
+              percentileJob: salaryPercentile(jobRows, salary),
+            },
+          });
+          setBusy(false);
+          window.scrollTo({ top:0, behavior:'smooth' });
+        }, 250);
+      };
+
+      const reset = () => setResult(null);
+
+      const clearMine = () => {
+        if (!window.confirm('이 브라우저에 저장된 내 제출 기록을 모두 지울까요?')) return;
+        saveMyRows([]); setMyRows([]); setResult(null);
+      };
+
+      return (
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <header className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-extrabold">💸 연봉/지출 비교 💸</h1>
+            <p className="mt-2 text-sm" style={{color:'var(--muted)'}}>
+              월급·지출을 입력하면 내장된 표본 분포 속에서 평균·분포·내 위치(상위 %)·카테고리별 비교를 보여드려요.
+            </p>
+          </header>
+
+          {!result ? (
+            <div className="grid md:grid-cols-2 gap-6 items-start">
+              <Form onSubmit={submit} busy={busy} />
+              <Preview stats={preStats} myCount={myRows.length} />
+            </div>
+          ) : (
+            <div>
+              <div className="flex justify-end gap-2 mb-3">
+                {myRows.length > 0 && (
+                  <button onClick={clearMine} className="pill rounded-xl px-4 py-2 text-sm hover:brightness-125">🗑️ 내 기록 초기화</button>
+                )}
+                <button onClick={reset} className="pill rounded-xl px-4 py-2 text-sm hover:brightness-125">← 다시 입력</button>
+              </div>
+              <Results result={result} />
+            </div>
+          )}
+
+          <footer className="text-center mt-10 text-xs leading-relaxed" style={{color:'var(--muted)'}}>
+            비교 기준 데이터는 앱에 내장된 <b style={{color:'var(--txt)'}}>가상 표본 {numFmt(SAMPLE_ROWS.length)}개</b>입니다(실제 통계가 아닙니다).<br/>
+            내 제출 기록은 서버 없이 <b style={{color:'var(--txt)'}}>이 브라우저(localStorage)</b>에만 저장돼 재방문 시 유지되고, 표본에 함께 합산됩니다.
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

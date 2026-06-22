@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BALANCE GAME · 음식 밸런스 게임 (단일파일)</title>
+
+  <!-- ⚠️ 모든 CDN 버전 고정. Babel 은 7.x (8.x 미지원). 원본은 미고정이라 그대로 복사 금지. -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.9/babel.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gothic+A1:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:      #f1eee6;
+      --ink:     #15131a;
+      --red:     #ff2e5f;
+      --yellow:  #ffc400;
+      --blue:    #3a2bff;
+      --cyan:    #00c2d6;
+      --green:   #11d08a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Gothic A1', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .display { font-family: 'Black Han Sans', 'Gothic A1', sans-serif; letter-spacing: .01em; }
+
+    /* 떠다니는 3D 기하 도형 (포스터 무드) */
+    .shape {
+      position: fixed;
+      z-index: 0;
+      pointer-events: none;
+      opacity: .9;
+      animation: float 14s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0) rotate(0deg); }
+      50%     { transform: translateY(-26px) rotate(6deg); }
+    }
+    /* 하프톤 점 텍스처 */
+    .halftone {
+      background-image: radial-gradient(rgba(0,0,0,.22) 1.4px, transparent 1.5px);
+      background-size: 9px 9px;
+    }
+    /* 3D 블록 (입체 그림자) */
+    .block3d { box-shadow: 10px 12px 0 rgba(21,19,26,.9); }
+    .block3d-sm { box-shadow: 6px 7px 0 rgba(21,19,26,.85); }
+
+    .bar { transition: width .9s cubic-bezier(.16,1,.3,1); }
+    .pop { animation: pop .35s cubic-bezier(.16,1.4,.4,1); }
+    @keyframes pop { 0% { transform: scale(.92); } 100% { transform: scale(1); } }
+    .fade-in { animation: fadein .4s ease both; }
+    @keyframes fadein { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-thumb { background: #15131a; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ========================================
+    // 📦 임베드 데이터 (Food Balance.json — categories + 100문제 그대로)
+    //    외부 fetch 없이 자체완결형. option_A/option_B → optionA/optionB 로 매핑.
+    // ========================================
+    const CATEGORY_LABELS = {
+      korean_food:    "한식 & 식사 취향",
+      snack_dessert:  "간식 & 디저트 & 야식",
+      extreme_choice: "평생 하나만 먹기 (매운맛)",
+      eating_habit:   "먹방 & 식습관",
+      global_food:    "양식 & 일식 & 중식 & 세계 요리",
+    };
+
+    const RAW_QUESTIONS = [
+      { id: 1, category: "korean_food", option_A: "평생 탕수육 부먹으로만 먹기", option_B: "평생 탕수육 찍먹으로만 먹기" },
+      { id: 2, category: "korean_food", option_A: "물냉면", option_B: "비빔냉면" },
+      { id: 3, category: "korean_food", option_A: "돼지김치찌개", option_B: "참치김치찌개" },
+      { id: 4, category: "korean_food", option_A: "된장찌개", option_B: "김치찌개" },
+      { id: 5, category: "korean_food", option_A: "순살치킨", option_B: "뼈치킨" },
+      { id: 6, category: "korean_food", option_A: "후라이드 치킨", option_B: "양념 치킨" },
+      { id: 7, category: "korean_food", option_A: "삼겹살에 소주", option_B: "치킨에 맥주" },
+      { id: 8, category: "korean_food", option_A: "매콤한 국물 떡볶이", option_B: "꾸덕한 로제 떡볶이" },
+      { id: 9, category: "korean_food", option_A: "떡볶이에 쌀떡", option_B: "떡볶이에 밀떡" },
+      { id: 10, category: "korean_food", option_A: "라면에 계란 풀기", option_B: "라면에 계란 안 풀고 그대로 익히기" },
+      { id: 11, category: "korean_food", option_A: "꼬들라면", option_B: "퍼진라면" },
+      { id: 12, category: "korean_food", option_A: "설렁탕에 소금 간만 하기", option_B: "설렁탕에 깍두기 국물 대량 투하" },
+      { id: 13, category: "korean_food", option_A: "생선회 초장에 찍어 먹기", option_B: "생선회 간장+와사비에 찍어 먹기" },
+      { id: 14, category: "korean_food", option_A: "간장게장", option_B: "양념게장" },
+      { id: 15, category: "korean_food", option_A: "소금구이 막창", option_B: "양념 곱창볶음" },
+      { id: 16, category: "korean_food", option_A: "순대 소금에 찍어 먹기", option_B: "순대 쌈장(초장)에 찍어 먹기" },
+      { id: 17, category: "korean_food", option_A: "순대만 먹기", option_B: "순대 내장만 먹기" },
+      { id: 18, category: "korean_food", option_A: "팥칼국수", option_B: "들깨칼국수" },
+      { id: 19, category: "korean_food", option_A: "간장계란밥", option_B: "김치볶음밥" },
+      { id: 20, category: "korean_food", option_A: "바싹 익힌 삼겹살", option_B: "육즙 가득 촉촉한 삼겹살" },
+      { id: 21, category: "snack_dessert", option_A: "부드럽고 달콤한 물복 (물렁한 복숭아)", option_B: "아삭하고 상큼한 딱복 (딱딱한 복숭아)" },
+      { id: 22, category: "snack_dessert", option_A: "붕어빵 팥 앙금", option_B: "붕어빵 슈크림" },
+      { id: 23, category: "snack_dessert", option_A: "붕어빵 머리부터 먹기", option_B: "붕어빵 꼬리부터 먹기" },
+      { id: 24, category: "snack_dessert", option_A: "아이스 아메리카노 (얼죽아)", option_B: "따뜻한 아메리카노 (따아)" },
+      { id: 25, category: "snack_dessert", option_A: "민트초코 극호", option_B: "민트초코 불호 (치약맛)" },
+      { id: 26, category: "snack_dessert", option_A: "파인애플 피자 호 (하와이안)", option_B: "파인애플 피자 불호" },
+      { id: 27, category: "snack_dessert", option_A: "탕후루", option_B: "생과일 주스" },
+      { id: 28, category: "snack_dessert", option_A: "초코 디저트", option_B: "치즈 디저트" },
+      { id: 29, category: "snack_dessert", option_A: "시리얼에 우유 붓기 (바삭파)", option_B: "우유에 시리얼 넣기 (눅눅파)" },
+      { id: 30, category: "snack_dessert", option_A: "감자칩 (짠맛 과자)", option_B: "초코칩 쿠키 (단맛 과자)" },
+      { id: 31, category: "snack_dessert", option_A: "배스킨라빈스 파인트 혼자 다 먹기", option_B: "엽기떡볶이 혼자 다 먹기" },
+      { id: 32, category: "snack_dessert", option_A: "구운 가래떡에 조청", option_B: "구운 식빵에 딸기잼" },
+      { id: 33, category: "snack_dessert", option_A: "탄산음료는 무조건 콜라", option_B: "탄산음료는 무조건 사이다" },
+      { id: 34, category: "snack_dessert", option_A: "제로 음료만 마시기", option_B: "일반 오리지널 음료만 마시기" },
+      { id: 35, category: "snack_dessert", option_A: "포테이토칩에 케첩 찍기", option_B: "포테이토칩 그냥 먹기" },
+      { id: 36, category: "snack_dessert", option_A: "식후엔 무조건 디저트 배가 따로 있다", option_B: "식사 끝났으면 디저트는 사치다" },
+      { id: 37, category: "snack_dessert", option_A: "우유 식빵", option_B: "호밀 식빵" },
+      { id: 38, category: "snack_dessert", option_A: "부드러운 소프트 아이스크림", option_B: "아삭한 하드/셔벗 아이스크림" },
+      { id: 39, category: "snack_dessert", option_A: "달걀 완숙 노른자", option_B: "달걀 반숙 노른자" },
+      { id: 40, category: "snack_dessert", option_A: "찐 고구마", option_B: "찐 감자" },
+      { id: 41, category: "extreme_choice", option_A: "평생 삼시세끼 매운 음식만 먹기", option_B: "평생 삼시세끼 느끼한 음식만 먹기" },
+      { id: 42, category: "extreme_choice", option_A: "평생 고기만 먹기 (채소 금지)", option_B: "평생 채소만 먹기 (고기 금지)" },
+      { id: 43, category: "extreme_choice", option_A: "치킨 시켰는데 치킨무 없음", option_B: "라면 끓였는데 김치 없음" },
+      { id: 44, category: "extreme_choice", option_A: "한 달 동안 밀가루 아예 끊기", option_B: "한 달 동안 탄산음료 아예 끊기" },
+      { id: 45, category: "extreme_choice", option_A: "평생 면 요리 안 먹기", option_B: "평생 밥 안 먹기" },
+      { id: 46, category: "extreme_choice", option_A: "국물 없는 라면 (짜파게티 등) 평생 먹기", option_B: "국물 있는 라면 평생 먹기" },
+      { id: 47, category: "extreme_choice", option_A: "여름에 뜨거운 뚝배기 우동 먹기", option_B: "겨울에 살얼음 동동 냉면 먹기" },
+      { id: 48, category: "extreme_choice", option_A: "평생 초콜릿 금지", option_B: "평생 치즈 금지" },
+      { id: 49, category: "extreme_choice", option_A: "탄 음식 먹기", option_B: "덜 익은 음식 먹기" },
+      { id: 50, category: "extreme_choice", option_A: "평생 소금 없이 살기 (무염식)", option_B: "평생 설탕 없이 살기 (무당식)" },
+      { id: 51, category: "extreme_choice", option_A: "양이 엄청 많지만 맛은 평범한 맛집", option_B: "양은 한 입 거리지만 눈물 나게 맛있 맛집" },
+      { id: 52, category: "extreme_choice", option_A: "주방은 더럽지만 우주 최강 맛집", option_B: "주방은 5성급 호텔급인데 맛은 니맛도 내맛도 아님" },
+      { id: 53, category: "extreme_choice", option_A: "평생 아이스 아메리카노 금지", option_B: "평생 라면 금지" },
+      { id: 54, category: "extreme_choice", option_A: "더운 날 에어컨 없이 뜨거운 삼계탕 먹기", option_B: "추운 날 패딩 없이 야외에서 아이스크림 먹기" },
+      { id: 55, category: "extreme_choice", option_A: "평생 배달 음식만 먹기", option_B: "평생 직접 요리해서만 먹기" },
+      { id: 56, category: "extreme_choice", option_A: "김치 없는 삶", option_B: "마늘 없는 삶" },
+      { id: 57, category: "extreme_choice", option_A: "평생 닭가슴살만 먹기", option_B: "평생 연어만 먹기" },
+      { id: 58, category: "extreme_choice", option_A: "초콜릿 맛 짜장면 먹기", option_B: "민트초코 맛 족발 먹기" },
+      { id: 59, category: "extreme_choice", option_A: "평생 아침 안 먹기", option_B: "평생 야식 안 먹기" },
+      { id: 60, category: "extreme_choice", option_A: "새우깡 맛 랍스터", option_B: "랍스터 맛 새우깡" },
+      { id: 61, category: "eating_habit", option_A: "소리 내며 먹는 사람과 밥 먹기 (쩝쩝)", option_B: "음식 흘리며 먹는 사람과 밥 먹기" },
+      { id: 62, category: "eating_habit", option_A: "맛있는 부위 제일 먼저 먹기", option_B: "맛있는 부위 아껴뒀다 마지막에 먹기" },
+      { id: 63, category: "eating_habit", option_A: "메뉴 통일하기", option_B: "각자 다른 거 시켜서 나눠 먹기" },
+      { id: 64, category: "eating_habit", option_A: "한 입만 빌려 빌런에게 내 소중한 한 입 주기", option_B: "내가 눈치 보여서 한 입도 안 뺏어 먹기" },
+      { id: 65, category: "eating_habit", option_A: "음식 사진 무조건 3분 동안 찍고 먹기", option_B: "나오자마자 숟가락부터 들이밀기" },
+      { id: 66, category: "eating_habit", option_A: "뷔페에서 한 놈만 팬다 (고기만 집중)", option_B: "종류별로 한 입씩 다 먹어본다" },
+      { id: 67, category: "eating_habit", option_A: "새우 껍질 까서 먹기 (귀찮음 감수)", option_B: "새우 귀찮아서 껍질째 그냥 씹어 먹기" },
+      { id: 68, category: "eating_habit", option_A: "음식 주문할 때 리뷰 무조건 확인", option_B: "그냥 촉이 오는 대로 주문" },
+      { id: 69, category: "eating_habit", option_A: "식사 속도 엄청 빠른 사람과 맞추기", option_B: "식사 속도 엄청 느린 사람 기다려주기" },
+      { id: 70, category: "eating_habit", option_A: "음식 간이 짤 때 물 부어 먹기", option_B: "그냥 참고 먹기" },
+      { id: 71, category: "eating_habit", option_A: "핫도그에 설탕+케첩+머스터드 다 뿌리기", option_B: "핫도그에 소스 없이 오리지널로 먹기" },
+      { id: 72, category: "eating_habit", option_A: "피자 끝부분(크러스트) 버리기", option_B: "피자 끝부분이 더 맛있어서 먼저 먹기" },
+      { id: 73, category: "eating_habit", option_A: "생선구이 가시 완벽하게 바르고 먹기", option_B: "대충 바르고 가시 씹히면 뱉기" },
+      { id: 74, category: "eating_habit", option_A: "카레 완전히 다 비벼서 먹기", option_B: "카레 안 비비고 떠서 먹기" },
+      { id: 75, category: "eating_habit", option_A: "햄버거 한 입에 베어 물기", option_B: "햄버거 분해해서 포크로 먹기" },
+      { id: 76, category: "eating_habit", option_A: "고깃집 볶음밥은 필수 코스다", option_B: "고기 다 먹었으면 냉면으로 입가심이다" },
+      { id: 77, category: "eating_habit", option_A: "팥빙수 얼음과 팥 다 섞기", option_B: "섞지 않고 그대로 퍼먹기" },
+      { id: 78, category: "eating_habit", option_A: "식사하면서 스마트폰/TV 절대 보기", option_B: "식사할 땐 무조건 미디어 시청 필수" },
+      { id: 79, category: "eating_habit", option_A: "깻잎 논쟁: 내 애인이 친구 깻잎 떼어줘도 됨", option_B: "절대 안 됨 (깻잎은 손수 떼어먹어라)" },
+      { id: 80, category: "eating_habit", option_A: "새우 논쟁: 내 애인이 친구 새우 까줘도 됨", option_B: "이건 이혼/결별 사유다 절대 안 됨" },
+      { id: 81, category: "global_food", option_A: "짜장면", option_B: "짬뽕" },
+      { id: 82, category: "global_food", option_A: "소고기 스테이크 웰던 (바싹)", option_B: "소고기 스테이크 레어 (핏물 촉촉)" },
+      { id: 83, category: "global_food", option_A: "돈까스 소스 따로 (찍먹)", option_B: "돈까스 소스 부어서 (부먹)" },
+      { id: 84, category: "global_food", option_A: "일식 수제 돈카츠", option_B: "경양식 왕돈까스" },
+      { id: 85, category: "global_food", option_A: "연어초밥", option_B: "광어초밥" },
+      { id: 86, category: "global_food", option_A: "타코", option_B: "브리또" },
+      { id: 87, category: "global_food", option_A: "고수 가득 넣은 쌀국수", option_B: "고수 절대 뺀 쌀국수" },
+      { id: 88, category: "global_food", option_A: "마라탕", option_B: "훠궈" },
+      { id: 89, category: "global_food", option_A: "크림 파스타", option_B: "토마토 파스타" },
+      { id: 90, category: "global_food", option_A: "페퍼로니 피자", option_B: "포테이토 피자" },
+      { id: 91, category: "global_food", option_A: "서브웨이 소스 듬뿍 (자극적)", option_B: "서브웨이 올리브유+소금 (담백)" },
+      { id: 92, category: "global_food", option_A: "까르보나라 파스타 (정통 달걀노른자)", option_B: "한국식 크림 까르보나라" },
+      { id: 93, category: "global_food", option_A: "똠얌꿍 호", option_B: "똠얌꿍 불호" },
+      { id: 94, category: "global_food", option_A: "양꼬치에 쯔란 듬뿍", option_B: "향신료 없이 소금만" },
+      { id: 95, category: "global_food", option_A: "멘보샤", option_B: "꿔바로우" },
+      { id: 96, category: "global_food", option_A: "나시고랭 (인도네시아 볶음밥)", option_B: "미고랭 (인도네시아 볶음면)" },
+      { id: 97, category: "global_food", option_A: "타코야끼", option_B: "오코노미야끼" },
+      { id: 98, category: "global_food", option_A: "수제 버거 (칼로 썰어 먹기)", option_B: "프랜차이즈 버거 (손으로 들고 먹기)" },
+      { id: 99, category: "global_food", option_A: "클래식 프렌치프라이", option_B: "케이준 양념 감자튀김" },
+      { id: 100, category: "global_food", option_A: "인도 커리에 난 찍어 먹기", option_B: "인도 커리에 밥 비벼 먹기" },
+    ];
+
+    // option_A/option_B → optionA/optionB 매핑
+    const QUESTIONS = RAW_QUESTIONS.map(q => ({
+      id: q.id, category: q.category, optionA: q.option_A, optionB: q.option_B,
+    }));
+
+    // 카테고리 메타 — 탭 라벨 + 강조 색 (원본 그대로)
+    const CATEGORIES = [
+      { key: 'korean_food',    tab: '🍚 한식',      full: '한식 & 식사 취향',            color: '#ff2e5f' },
+      { key: 'snack_dessert',  tab: '🍰 간식·디저트', full: '간식 & 디저트 & 야식',          color: '#ffc400' },
+      { key: 'extreme_choice', tab: '🌶 극한 선택',   full: '평생 하나만 먹기',             color: '#3a2bff' },
+      { key: 'eating_habit',   tab: '🍴 식습관',     full: '먹방 & 식습관',               color: '#00c2d6' },
+      { key: 'global_food',    tab: '🌍 세계 요리',   full: '양식 & 일식 & 중식 & 세계 요리', color: '#11d08a' },
+    ];
+    const CAT_BY_KEY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
+
+    // ========================================
+    // 🧮 로컬 집계 유틸 (서버 없음 → localStorage)
+    // ========================================
+    // 1) 질문 id 로부터 "그럴듯한" 가상 기준 득표수를 결정적으로 생성한다.
+    //    → 새로고침해도 막대가 출렁이지 않도록 시드는 항상 동일.
+    function seedFor(id) {
+      // 간단한 결정적 해시 → 0~1 범위 두 값
+      const h = (n, salt) => {
+        let x = Math.sin((n * 9301 + salt * 49297) % 233280) * 43758.5453;
+        return x - Math.floor(x); // 0~1
+      };
+      const total = 600 + Math.floor(h(id, 7) * 5400);     // 600~6000 표
+      const ratioA = 0.25 + h(id, 13) * 0.5;               // A 비율 25~75%
+      const votesA = Math.round(total * ratioA);
+      const votesB = total - votesA;
+      return { votesA, votesB };
+    }
+
+    // 2) 내 투표 누적 increment 저장 (질문별 a/b 증가분)
+    const VOTES_KEY = 'fbg_local_votes_v1';   // { [id]: { a, b } }
+    const VOTED_KEY = 'fbg_my_choice_v1';     // { [id]: 'a' | 'b' }  (1인 1표 잠금 + MY PICK)
+    const HOF_KEY   = 'fbg_tournament_stats_v1'; // { [name]: { wins, picks, matches } }
+
+    const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } };
+    const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+    // 표시용 합산: 시드 + 내 누적
+    function tallyFor(id, increments) {
+      const seed = seedFor(id);
+      const inc = increments[id] || { a: 0, b: 0 };
+      const votesA = seed.votesA + (inc.a || 0);
+      const votesB = seed.votesB + (inc.b || 0);
+      const total = votesA + votesB;
+      const percentA = total === 0 ? 0 : Math.round((votesA / total) * 100);
+      const percentB = total === 0 ? 0 : 100 - percentA; // 합이 항상 100
+      return { votesA, votesB, total, percentA, percentB };
+    }
+
+    // ========================================
+    // 🎨 Design System — 배경 3D 도형
+    // ========================================
+    function Shapes() {
+      const blocks = [
+        { c:'var(--red)',    top:'8%',  left:'4%',  w:90,  h:130, d:'8s',  r:'-8deg' },
+        { c:'var(--yellow)', top:'14%', left:'82%', w:120, h:90,  d:'11s', r:'10deg' },
+        { c:'var(--blue)',   top:'62%', left:'2%',  w:100, h:110, d:'13s', r:'6deg'  },
+        { c:'var(--cyan)',   top:'78%', left:'88%', w:80,  h:120, d:'9s',  r:'-12deg'},
+        { c:'var(--green)',  top:'40%', left:'92%', w:70,  h:90,  d:'15s', r:'4deg'  },
+      ];
+      return blocks.map((b, i) => (
+        <div key={i} className="shape halftone" style={{
+          top:b.top, left:b.left, width:b.w, height:b.h, background:b.c,
+          animationDuration:b.d, transform:`rotate(${b.r})`,
+          boxShadow:`12px 14px 0 rgba(21,19,26,.9)`,
+        }} />
+      ));
+    }
+
+    // ========================================
+    // 🧩 밸런스 투표 — 한쪽 선택지 (투표 전 버튼 / 투표 후 결과 바)
+    // ========================================
+    function Side({ side, label, percent, votes, color, soft, voted, myChoice, onVote }) {
+      const isMine = myChoice === side;
+      if (!voted) {
+        return (
+          <button onClick={() => onVote(side)}
+            className="group relative overflow-hidden flex-1 border-[3px] border-[#15131a] text-left px-5 py-7 sm:py-9 transition active:scale-[.98] hover:-translate-y-1"
+            style={{ background: soft }}>
+            <div className="halftone absolute inset-0 opacity-0 group-hover:opacity-100 transition" style={{ background:`${color}`, mixBlendMode:'multiply' }} />
+            <div className="relative">
+              <div className="display text-xs tracking-widest mb-2" style={{ color }}>{side === 'a' ? 'A' : 'B'}</div>
+              <div className="display text-xl sm:text-2xl leading-tight break-keep">{label}</div>
+              <div className="mt-3 font-bold text-sm opacity-60">👆 눌러서 투표</div>
+            </div>
+          </button>
+        );
+      }
+      return (
+        <div className="relative flex-1 border-[3px] border-[#15131a] overflow-hidden bg-white">
+          <div className="bar absolute inset-y-0 left-0" style={{ width:`${percent}%`, background:`${color}22`, borderRight:`5px solid ${color}` }} />
+          <div className="bar absolute inset-y-0 left-0 halftone" style={{ width:`${percent}%`, opacity:.18 }} />
+          <div className="relative px-5 py-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="display text-xs tracking-widest" style={{ color }}>{side === 'a' ? 'A' : 'B'}</span>
+              {isMine && <span className="text-[10px] font-extrabold bg-[#15131a] text-white px-1.5 py-0.5">MY PICK</span>}
+            </div>
+            <div className="display text-lg sm:text-xl leading-tight break-keep">{label}</div>
+            <div className="mt-2 flex items-end gap-2">
+              <span className="display text-3xl sm:text-4xl pop" style={{ color }}>{percent}%</span>
+              <span className="font-bold text-sm opacity-60 mb-1">{votes.toLocaleString()}표</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ----- 질문 카드 -----
+    function QuestionCard({ q, tally, voted, myChoice, onVote }) {
+      const cat = CAT_BY_KEY[q.category];
+      return (
+        <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-4 sm:p-5 fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {cat && (
+                <span className="text-[11px] font-extrabold px-2 py-0.5 border-2 border-[#15131a]"
+                  style={{ background: cat.color, color: cat.color === '#ffc400' ? '#15131a' : '#fff' }}>
+                  {cat.tab}
+                </span>
+              )}
+              <span className="font-bold text-sm opacity-60">
+                👥 <span className="display text-base text-[#15131a] opacity-100">{tally.total.toLocaleString()}</span>명
+              </span>
+            </div>
+            <span className="display text-xs text-[#15131a]/40">#{q.id}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch gap-2 relative">
+            <Side side="a" label={q.optionA} percent={tally.percentA} votes={tally.votesA}
+              color="var(--red)" soft="#fff0f4" voted={voted} myChoice={myChoice}
+              onVote={(s)=>onVote(q.id, s)} />
+            <div className="display text-lg sm:text-2xl flex items-center justify-center text-white bg-[#15131a] w-12 mx-auto sm:mx-0 px-0 py-1 sm:py-0 select-none">VS</div>
+            <Side side="b" label={q.optionB} percent={tally.percentB} votes={tally.votesB}
+              color="var(--blue)" soft="#eef0ff" voted={voted} myChoice={myChoice}
+              onVote={(s)=>onVote(q.id, s)} />
+          </div>
+
+          {voted && (
+            <div className="mt-3 text-center text-[11px] font-bold opacity-50">
+              ※ 이 비율은 서버가 아닌 내 브라우저(localStorage)에 누적된 로컬 집계예요
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🏆 음식 월드컵 (토너먼트)
+    // ========================================
+    // 토너먼트 후보 풀: 음식 항목이 명확한 카테고리의 선택지(중복 제거) — 서버와 동일 소스
+    const TOURNAMENT_POOL = (() => {
+      const set = new Set();
+      QUESTIONS.forEach(q => {
+        if (['korean_food', 'snack_dessert', 'global_food'].includes(q.category)) {
+          set.add(q.optionA); set.add(q.optionB);
+        }
+      });
+      return [...set];
+    })();
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // 명예의 전당 랭킹 계산 (localStorage 통계 → 정렬)
+    function computeRanking() {
+      const stats = loadJSON(HOF_KEY);
+      const rows = Object.entries(stats).map(([name, s]) => {
+        const matches = s.matches || 0, picks = s.picks || 0, wins = s.wins || 0;
+        return { name, wins, picks, matches, winRate: matches === 0 ? 0 : Math.round((picks / matches) * 100) };
+      }).filter(r => r.wins > 0 || r.picks > 0);
+      rows.sort((a, b) => b.wins - a.wins || b.picks - a.picks || b.matches - a.matches);
+      return rows.slice(0, 20);
+    }
+
+    // 토너먼트 결과 저장: 승자=picks+matches, 패자=matches, 우승=wins
+    function saveTournamentResult(champion, matches) {
+      const stats = loadJSON(HOF_KEY);
+      const bump = (name, k) => {
+        if (!name) return;
+        stats[name] = stats[name] || { wins: 0, picks: 0, matches: 0 };
+        stats[name][k] += 1;
+      };
+      matches.forEach(m => { bump(m.winner, 'picks'); bump(m.winner, 'matches'); bump(m.loser, 'matches'); });
+      bump(champion, 'wins');
+      saveJSON(HOF_KEY, stats);
+    }
+
+    // ----- 명예의 전당 -----
+    function HallOfFame({ ranking }) {
+      const medals = ['🥇','🥈','🥉'];
+      return (
+        <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-5">
+          <div className="display text-xl mb-1 flex items-center gap-2">
+            <span className="inline-block bg-[#ffc400] text-[#15131a] px-2 border-2 border-[#15131a]">👑</span>
+            명예의 전당
+          </div>
+          <p className="font-bold text-xs opacity-50 mb-4">토너먼트 우승 횟수 · 매치 승률 (내 브라우저 로컬 집계)</p>
+          {ranking.length === 0 ? (
+            <p className="font-bold opacity-50 text-sm py-6 text-center">아직 우승 기록이 없어요. 첫 우승자가 되어보세요! 🏆</p>
+          ) : (
+            <ol className="space-y-2">
+              {ranking.map((r, i) => (
+                <li key={r.name} className="flex items-center gap-3 border-2 border-[#15131a]/10 px-3 py-2">
+                  <span className="display text-lg w-7 text-center">{medals[i] || (i+1)}</span>
+                  <span className="font-extrabold flex-1 break-keep">{r.name}</span>
+                  <span className="text-xs font-bold opacity-60">승률 {r.winRate}%</span>
+                  <span className="display text-base bg-[#15131a] text-[#ffc400] px-2 py-0.5">{r.wins}🏆</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      );
+    }
+
+    // ----- 토너먼트 후보 카드 -----
+    function TItem({ name, side, onPick }) {
+      const isA = side === 'a';
+      const color = isA ? 'var(--red)' : 'var(--blue)';
+      const soft = isA ? '#fff0f4' : '#eef0ff';
+      return (
+        <button onClick={onPick}
+          className="group relative overflow-hidden flex-1 border-[3px] border-[#15131a] block3d-sm px-5 py-10 sm:py-16 transition active:scale-[.97] hover:-translate-y-1 fade-in"
+          style={{ background: soft }}>
+          <div className="halftone absolute inset-0 opacity-0 group-hover:opacity-100 transition" style={{ background: color, mixBlendMode:'multiply' }} />
+          <div className="relative text-center">
+            <div className="display text-xs tracking-widest mb-3" style={{ color }}>{isA ? 'A' : 'B'}</div>
+            <div className="display text-2xl sm:text-3xl leading-tight break-keep">{name}</div>
+            <div className="mt-4 font-bold text-sm opacity-60">👆 선택</div>
+          </div>
+        </button>
+      );
+    }
+
+    function Tournament() {
+      const [phase, setPhase] = useState('setup'); // setup | playing | done
+      const [round, setRound] = useState([]);      // 현재 라운드 항목들
+      const [next, setNext] = useState([]);        // 다음 라운드 진출자
+      const [idx, setIdx] = useState(0);           // 현재 매치(쌍) 시작 인덱스
+      const [matches, setMatches] = useState([]);  // {winner, loser} 누적
+      const [champion, setChampion] = useState(null);
+      const [size, setSize] = useState(0);
+      const [ranking, setRanking] = useState(computeRanking());
+
+      const roundName = (len) => (len === 2 ? '결승' : `${len}강`);
+
+      const start = (n) => {
+        const picked = shuffle(TOURNAMENT_POOL).slice(0, n);
+        setSize(n); setRound(picked); setNext([]); setIdx(0);
+        setMatches([]); setChampion(null); setPhase('playing');
+      };
+
+      const pick = (winner, loser) => {
+        const ms = [...matches, { winner, loser }];
+        const nx = [...next, winner];
+        const ni = idx + 2;
+        if (ni >= round.length) {
+          // 이번 라운드 종료
+          if (nx.length === 1) {
+            setMatches(ms); setChampion(nx[0]); setPhase('done');
+            saveTournamentResult(nx[0], ms);
+            setRanking(computeRanking());
+          } else {
+            setRound(nx); setNext([]); setIdx(0); setMatches(ms);
+          }
+        } else {
+          setMatches(ms); setNext(nx); setIdx(ni);
+        }
+      };
+
+      // ===== 설정 화면 =====
+      if (phase === 'setup') {
+        return (
+          <div className="space-y-6">
+            <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-6 sm:p-8 text-center">
+              <div className="display text-3xl sm:text-4xl mb-2">🏆 음식 이상형 월드컵</div>
+              <p className="font-bold opacity-60 mb-6">둘 중 하나! 살아남는 음식이 우승한다 · 후보 {TOURNAMENT_POOL.length}종</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {[8, 16, 32].map(n => (
+                  <button key={n} disabled={TOURNAMENT_POOL.length < n} onClick={() => start(n)}
+                    className="display text-xl bg-[#15131a] text-white px-7 py-4 block3d-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition active:scale-95 disabled:opacity-40">
+                    {n}강 시작
+                  </button>
+                ))}
+              </div>
+            </div>
+            <HallOfFame ranking={ranking} />
+          </div>
+        );
+      }
+
+      // ===== 우승 화면 =====
+      if (phase === 'done') {
+        return (
+          <div className="space-y-6">
+            <div className="relative z-10 bg-[#15131a] text-white block3d border-[3px] border-[#15131a] p-8 text-center pop">
+              <div className="font-bold tracking-widest text-[#ffc400] mb-2">{size}강 토너먼트 우승</div>
+              <div className="text-6xl mb-3">🏆</div>
+              <div className="display text-4xl sm:text-5xl text-[#ffc400] break-keep">{champion}</div>
+              <div className="mt-3 font-bold opacity-60 text-sm">명예의 전당에 기록되었습니다 ✔</div>
+              <button onClick={() => setPhase('setup')}
+                className="display mt-6 bg-[#ffc400] text-[#15131a] text-lg px-8 py-3 border-[3px] border-white hover:scale-105 transition active:scale-95">
+                🔄 다시 하기
+              </button>
+            </div>
+            <HallOfFame ranking={ranking} />
+          </div>
+        );
+      }
+
+      // ===== 진행 화면 =====
+      const a = round[idx], b = round[idx + 1];
+      const matchNo = idx / 2 + 1;
+      const matchTotal = round.length / 2;
+      const done = matches.length;
+      const totalMatches = size - 1;
+      return (
+        <div className="space-y-5">
+          <div className="relative z-10 bg-white block3d border-[3px] border-[#15131a] p-4 text-center">
+            <div className="display text-2xl">
+              {roundName(round.length)} <span className="opacity-40 text-lg">· {matchNo} / {matchTotal} 경기</span>
+            </div>
+            <div className="mt-2 h-3 border-2 border-[#15131a] overflow-hidden">
+              <div className="bar h-full bg-[#ffc400]" style={{ width: `${Math.round((done / totalMatches) * 100)}%` }} />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch gap-3 relative" key={idx + '-' + round.length}>
+            <TItem name={a} side="a" onPick={() => pick(a, b)} />
+            <div className="display text-2xl sm:text-3xl flex items-center justify-center text-white bg-[#15131a] w-full sm:w-14 py-2 sm:py-0 select-none">VS</div>
+            <TItem name={b} side="b" onPick={() => pick(b, a)} />
+          </div>
+
+          <button onClick={() => setPhase('setup')}
+            className="font-bold text-sm text-[#15131a]/50 hover:text-[#ff2e5f] transition">← 그만두기</button>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [increments, setIncrements] = useState(loadJSON(VOTES_KEY));
+      const [voted, setVoted] = useState(loadJSON(VOTED_KEY));
+      const [mode, setMode] = useState('vote'); // 'vote' | 'tournament'
+      const [activeCat, setActiveCat] = useState('all');
+
+      // 카테고리별 문항 수
+      const countByCat = useMemo(() => QUESTIONS.reduce((m, q) => {
+        m[q.category] = (m[q.category] || 0) + 1; return m;
+      }, {}), []);
+
+      const visible = activeCat === 'all' ? QUESTIONS : QUESTIONS.filter(q => q.category === activeCat);
+
+      // 총 참여자 = 모든 질문의 표 합 (시드 + 내 누적)
+      const totalParticipants = useMemo(() => QUESTIONS.reduce((sum, q) => {
+        return sum + tallyFor(q.id, increments).total;
+      }, 0), [increments]);
+
+      const handleVote = (id, choice) => {
+        if (voted[id]) return; // 1인 1표
+        const nextVoted = { ...voted, [id]: choice };
+        const cur = increments[id] || { a: 0, b: 0 };
+        const nextInc = { ...increments, [id]: { ...cur, [choice]: (cur[choice] || 0) + 1 } };
+        setVoted(nextVoted); saveJSON(VOTED_KEY, nextVoted);
+        setIncrements(nextInc); saveJSON(VOTES_KEY, nextInc);
+      };
+
+      return (
+        <>
+          <Shapes />
+          <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+            {/* 헤더 */}
+            <header className="mb-8 sm:mb-12">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-4 h-4 bg-[#ff2e5f] inline-block border-2 border-[#15131a]" />
+                    <span className="w-4 h-4 bg-[#ffc400] inline-block border-2 border-[#15131a]" />
+                    <span className="w-4 h-4 bg-[#3a2bff] inline-block border-2 border-[#15131a]" />
+                    <span className="w-4 h-4 bg-[#11d08a] inline-block border-2 border-[#15131a]" />
+                  </div>
+                  <h1 className="display text-5xl sm:text-7xl leading-[0.9]">
+                    밸런스<br/>게임<span className="text-[#ff2e5f]">.</span>
+                  </h1>
+                  <p className="mt-2 font-bold text-sm opacity-60">FOOD BALANCE GAME · 서버 없는 단일 파일 · 둘 중 하나만 골라!</p>
+                </div>
+                <div className="bg-[#15131a] text-white block3d-sm border-[3px] border-[#15131a] px-5 py-3 text-center">
+                  <div className="text-[10px] font-bold tracking-widest opacity-70">총 참여(로컬)</div>
+                  <div className="display text-3xl sm:text-4xl leading-none mt-1 text-[#ffc400]">{totalParticipants.toLocaleString()}</div>
+                </div>
+              </div>
+            </header>
+
+            {/* 모드 전환 */}
+            <div className="flex gap-2 mb-7">
+              {[{ k:'vote', label:'🗳 밸런스 투표' }, { k:'tournament', label:'🏆 음식 월드컵' }].map(m => {
+                const on = mode === m.k;
+                return (
+                  <button key={m.k} onClick={() => setMode(m.k)}
+                    className={`display text-base sm:text-lg flex-1 px-4 py-3 border-[3px] border-[#15131a] transition active:scale-95 ${on ? 'bg-[#15131a] text-white block3d-sm' : 'bg-white hover:-translate-y-0.5'}`}>
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {mode === 'tournament' && <Tournament />}
+
+            {mode === 'vote' && (<>
+              {/* 카테고리 필터 탭 */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {[{ key:'all', tab:'전체', color:'#15131a' }, ...CATEGORIES].map(c => {
+                  const on = activeCat === c.key;
+                  const n = c.key === 'all' ? QUESTIONS.length : (countByCat[c.key] || 0);
+                  return (
+                    <button key={c.key} onClick={() => setActiveCat(c.key)}
+                      className={`display text-sm px-3 py-2 border-[3px] border-[#15131a] transition active:scale-95 ${on ? 'block3d-sm text-white' : 'bg-white hover:-translate-y-0.5'}`}
+                      style={ on ? { background: c.color, color: c.color === '#ffc400' ? '#15131a' : '#fff' } : {} }>
+                      {c.tab} <span className="opacity-70">{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 질문 목록 */}
+              <div className="space-y-5">
+                {visible.length === 0 ? (
+                  <div className="bg-white border-[3px] border-dashed border-[#15131a]/40 p-12 text-center">
+                    <div className="display text-2xl mb-2">질문이 없어요</div>
+                    <p className="font-bold opacity-60">다른 카테고리를 골라보세요!</p>
+                  </div>
+                ) : (
+                  visible.map(q => (
+                    <QuestionCard key={q.id} q={q}
+                      tally={tallyFor(q.id, increments)}
+                      voted={!!voted[q.id]} myChoice={voted[q.id]}
+                      onVote={handleVote} />
+                  ))
+                )}
+              </div>
+            </>)}
+
+            <footer className="mt-14 text-center text-xs font-bold opacity-40">
+              서버·DB 없이 동작하는 자체완결형 단일 index.html · 투표/우승 기록은 내 브라우저(localStorage)에 저장됩니다
+            </footer>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
