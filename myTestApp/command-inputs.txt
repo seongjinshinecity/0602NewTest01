@@ -1,0 +1,29 @@
+[2026-06-22] Visual Timer (Visual Pomodoro Timer) — single-file CDN React + Tailwind
+
+GOAL: A "Visual Timer" web app, inspired by the Google Time Timer, that lets users
+intuitively see how much time remains. Self-contained single index.html, runs by
+opening in a browser.
+
+CORE FEATURES:
+1. Visual Timer Circle
+   - Remaining time shown as a colored circular sector (pie/fan shape).
+   - Colored area shrinks as time elapses (clockwise from 12 o'clock).
+   - SVG <path> arc wedge (filled sector, not a ring) for smooth animation.
+   - MM:SS remaining-time text in the center.
+2. Time setting
+   - Quick buttons: 25 min (Pomodoro), 5 min, 15 min.
+   - Drag on the dial (mouse + touch via pointer events) to set minutes,
+     like twisting the Time Timer disc. Snap to whole minutes. Max 60 min.
+3. Controls
+   - Start / Pause / Reset with clear icons.
+   - Smooth countdown (wall-clock timestamp + requestAnimationFrame).
+4. Sound alert
+   - Web Audio API oscillator beep sequence at 00:00 (no audio files).
+5. Design
+   - Responsive (mobile + PC), modern polished UI, tasteful rose palette.
+
+IMPLEMENTATION NOTES:
+- Fixed 60-minute face: 1 minute = 6°. Wedge angle = (remaining/3600)*360.
+- Drag math: minute = (atan2(dy,dx)*180/PI + 90 + 360) % 360 / 6, clamp 0-60.
+- large-arc-flag = sweep > 180 ? 1 : 0; full 360° special-cased to <circle>.
+- AudioContext resumed on Start gesture; alarm fires exactly once via ref flag.
