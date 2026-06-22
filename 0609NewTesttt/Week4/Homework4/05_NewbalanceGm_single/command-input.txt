@@ -1,4 +1,17 @@
-# 이 앱을 만들 때 입력한 명령어
+기존 풀스택 앱 "실시간 밸런스 게임(Food Balance)"을 서버 없는 단일 index.html(CDN React + Tailwind) 버전으로 새로 만들어줘.
 
-연봉/지출비교앱
-실시간 밸런스 게임은 agent를 통해서 새로 만들 수 있어?
+생성 위치(절대경로): /Users/hwangseongjin/Downloads/0602NewTest01/0609NewTesttt/Week4/Homework4/05_NewbalanceGm_single/index.html
+
+먼저 원본을 읽어서 디자인·기능을 맞춰줘:
+- 원본 프론트: 05-1 NewbalanceGm/index.html
+- 100문제 데이터(필수, 그대로 임베드): 05-1 NewbalanceGm/Food Balance.json — 이 JSON의 categories와 100개 questions를 index.html 안에 자바스크립트 배열로 그대로 포함(외부 fetch 금지, 자체완결형).
+- 서버/DB 투표 집계 로직 참고: 같은 폴더 server.js, db.js, README.md
+
+요구사항(프론트 단독, 백엔드 없이):
+1. 카테고리 탭(한식, 간식/디저트, 극단선택, 식습관, 세계요리)으로 문제 필터.
+2. 밸런스 게임 모드: A vs B 선택. 투표 결과를 localStorage에 누적해 내 선택 비율 막대(%) 표시. 초기 가상 득표수 시드로 자연스러운 비율(로컬 집계임을 UI에 작게 명시).
+3. 음식 월드컵(토너먼트) 모드: 8/16/32강 토너먼트 매치업 → 우승 메뉴 결정. 원본 월드컵 모드 재현.
+4. 한국어 UI, 모바일 반응형, 음식 테마 색감, 부드러운 전환 애니메이션.
+5. 완전 자체완결형 단일 파일. 빌드 도구 없이 브라우저에서 바로 열림.
+
+완성하면 모드 구성과 localStorage 투표 처리, 월드컵 로직을 요약.
