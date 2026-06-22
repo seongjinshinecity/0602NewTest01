@@ -111,28 +111,34 @@
         return ctxRef.current;
       }, []);
 
-      // Play a pleasant ascending 3-tone chime.
+      // Play a soft, mellow chime — low-passed sine notes with a gentle,
+      // long bell-like envelope so it fades out smoothly instead of beeping.
       const playAlarm = useCallback(() => {
         const ctx = ensureCtx();
         if (!ctx) return;
         const now = ctx.currentTime;
-        // C5, E5, G5 — a bright major triad arpeggio, repeated twice.
+        // C5, E5, G5 — major triad, played as two slow overlapping arpeggios.
         const notes = [523.25, 659.25, 783.99];
-        const beep = (freq, start, dur) => {
+        const tone = (freq, start, dur, peak) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
+          const lp = ctx.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.value = 1300;   // shave harsh highs for a warmer tone
+          lp.Q.value = 0.6;
           osc.type = "sine";
           osc.frequency.value = freq;
-          // Soft attack + decay envelope for a gentle bell-like tone.
+          // Gentle attack + long, smooth exponential release.
           gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(peak, start + 0.07);
           gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-          osc.connect(gain).connect(ctx.destination);
+          osc.connect(lp).connect(gain).connect(ctx.destination);
           osc.start(start);
           osc.stop(start + dur + 0.05);
         };
-        notes.forEach((f, i) => beep(f, now + i * 0.18, 0.22));
-        notes.forEach((f, i) => beep(f, now + 0.7 + i * 0.18, 0.22));
+        // Quieter (peak ~0.12 vs old 0.25), slower spacing, much longer decay.
+        notes.forEach((f, i) => tone(f, now + i * 0.30, 1.2, 0.12));
+        notes.forEach((f, i) => tone(f, now + 1.05 + i * 0.30, 1.5, 0.09));
       }, [ensureCtx]);
 
       return { ensureCtx, playAlarm };
