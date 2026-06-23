@@ -16,10 +16,23 @@
     /* ===== 몽환적 파스텔 홀로그래픽 구름 테마 (memo-app 과 동일 톤) ===== */
     :root {
       font-family: 'Quicksand', 'Gowun Dodum', system-ui, sans-serif;
+      /* 커서 인터랙션 (JS 가 갱신) */
+      --gx: 50vw;  --gy: 50vh;   /* 커서 글로우 위치 */
+      --px: 0px;   --py: 0px;     /* 블롭 레이어 패럴랙스 오프셋 */
     }
     body {
       font-family: 'Quicksand', 'Gowun Dodum', system-ui, sans-serif;
       min-height: 100vh;
+      background: #dfeaff; /* 폴백 */
+      overflow-x: hidden;
+    }
+
+    /* ===== 기본 그라데이션 배경 — hue 가 천천히/불규칙하게 돌며 컬러가 변함 ===== */
+    .bg-base {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
       background:
         radial-gradient(60% 50% at 12% 18%, rgba(255, 209, 232, 0.75) 0%, rgba(255, 209, 232, 0) 60%),
         radial-gradient(55% 45% at 88% 12%, rgba(214, 200, 255, 0.75) 0%, rgba(214, 200, 255, 0) 60%),
@@ -27,27 +40,99 @@
         radial-gradient(55% 55% at 18% 88%, rgba(196, 245, 223, 0.7) 0%, rgba(196, 245, 223, 0) 62%),
         radial-gradient(45% 40% at 50% 45%, rgba(255, 248, 204, 0.55) 0%, rgba(255, 248, 204, 0) 60%),
         linear-gradient(180deg, #cfeaff 0%, #e3e8ff 45%, #ffe6f3 100%);
-      background-attachment: fixed;
+      animation: hueDrift 53s ease-in-out infinite;
+      will-change: filter;
+    }
+    /* 비대칭 keyframe → 색이 앞뒤로 천천히, 같은 자리로 안 돌아오게 */
+    @keyframes hueDrift {
+      0%   { filter: hue-rotate(0deg)   saturate(1);    }
+      22%  { filter: hue-rotate(14deg)  saturate(1.08); }
+      48%  { filter: hue-rotate(-12deg) saturate(0.95); }
+      71%  { filter: hue-rotate(22deg)  saturate(1.06); }
+      100% { filter: hue-rotate(0deg)   saturate(1);    }
     }
 
-    .cloud-blob {
+    /* ===== 떠다니는 블롭 레이어 (커서 패럴랙스 적용) ===== */
+    .bg-layer {
       position: fixed;
-      border-radius: 9999px;
-      filter: blur(60px);
-      opacity: 0.55;
-      pointer-events: none;
+      inset: 0;
       z-index: 0;
+      pointer-events: none;
+      transform: translate3d(var(--px), var(--py), 0);
+      transition: transform 0.8s cubic-bezier(0.22, 0.61, 0.36, 1); /* 커서를 천천히 따라옴 */
       will-change: transform;
     }
-    .blob-1 { width: 42vw; height: 42vw; top: -8vw; left: -6vw;  background: #ffc8e4; animation: drift 22s ease-in-out infinite; }
-    .blob-2 { width: 38vw; height: 38vw; top: 5vw;  right: -8vw; background: #cdbcff; animation: drift 27s ease-in-out infinite reverse; }
-    .blob-3 { width: 34vw; height: 34vw; bottom: -10vw; left: 12vw; background: #bdf3da; animation: drift 30s ease-in-out infinite; }
-    .blob-4 { width: 30vw; height: 30vw; bottom: 2vw; right: 6vw; background: #ffe2b8; animation: drift 24s ease-in-out infinite reverse; }
+    .cloud-blob {
+      position: absolute;
+      border-radius: 9999px;
+      opacity: 0.55;
+      pointer-events: none;
+      will-change: transform, filter;
+    }
+    /* 각 블롭: 이동(drift)·색상(hue) 애니메이션을 서로소(coprime) 주기로 → 절대 동기화되지 않아 불규칙해 보임 */
+    .blob-1 { width: 42vw; height: 42vw; top: -8vw;   left: -6vw;  background: #ffc8e4; animation: drift1 41s ease-in-out infinite, hue1 29s ease-in-out infinite; }
+    .blob-2 { width: 38vw; height: 38vw; top: 5vw;    right: -8vw; background: #cdbcff; animation: drift2 53s ease-in-out infinite, hue2 37s ease-in-out infinite; }
+    .blob-3 { width: 34vw; height: 34vw; bottom: -10vw; left: 12vw; background: #bdf3da; animation: drift3 47s ease-in-out infinite, hue3 31s ease-in-out infinite; }
+    .blob-4 { width: 30vw; height: 30vw; bottom: 2vw;  right: 6vw;  background: #ffe2b8; animation: drift4 59s ease-in-out infinite, hue4 43s ease-in-out infinite; }
 
-    @keyframes drift {
-      0%   { transform: translate(0, 0) scale(1); }
-      50%  { transform: translate(2.5vw, -2vw) scale(1.06); }
-      100% { transform: translate(0, 0) scale(1); }
+    /* 비대칭·다단계 경로 → 같은 자리로 곧장 안 돌아오는 불규칙한 흐름 */
+    @keyframes drift1 {
+      0%   { transform: translate(0, 0)        scale(1);    }
+      20%  { transform: translate(3vw, -2vw)   scale(1.05); }
+      45%  { transform: translate(-2vw, 2.5vw) scale(0.97); }
+      70%  { transform: translate(2.4vw, 3vw)  scale(1.08); }
+      100% { transform: translate(0, 0)        scale(1);    }
+    }
+    @keyframes drift2 {
+      0%   { transform: translate(0, 0)         scale(1);    }
+      25%  { transform: translate(-3vw, 2vw)    scale(1.07); }
+      55%  { transform: translate(2vw, -2.6vw)  scale(0.96); }
+      80%  { transform: translate(-1.6vw, -2vw) scale(1.04); }
+      100% { transform: translate(0, 0)         scale(1);    }
+    }
+    @keyframes drift3 {
+      0%   { transform: translate(0, 0)        scale(1);    }
+      30%  { transform: translate(2.6vw, 2vw)  scale(1.06); }
+      52%  { transform: translate(-2.4vw, -2vw) scale(1.02); }
+      77%  { transform: translate(1.5vw, -3vw) scale(0.95); }
+      100% { transform: translate(0, 0)        scale(1);    }
+    }
+    @keyframes drift4 {
+      0%   { transform: translate(0, 0)         scale(1);    }
+      23%  { transform: translate(-2.5vw, -2vw) scale(1.05); }
+      50%  { transform: translate(3vw, 1.6vw)   scale(0.98); }
+      74%  { transform: translate(-1.4vw, 2.8vw) scale(1.07); }
+      100% { transform: translate(0, 0)         scale(1);    }
+    }
+    /* hue 도 비대칭으로 흔들어 색이 천천히 불규칙하게 변함 (blur 는 항상 유지) */
+    @keyframes hue1 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 40% { filter: blur(60px) hue-rotate(-28deg); } 70% { filter: blur(60px) hue-rotate(46deg); } }
+    @keyframes hue2 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 35% { filter: blur(60px) hue-rotate(40deg); } 68% { filter: blur(60px) hue-rotate(-34deg); } }
+    @keyframes hue3 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 45% { filter: blur(60px) hue-rotate(34deg); } 75% { filter: blur(60px) hue-rotate(-40deg); } }
+    @keyframes hue4 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 38% { filter: blur(60px) hue-rotate(-44deg); } 72% { filter: blur(60px) hue-rotate(30deg); } }
+
+    /* ===== 커서를 따라다니는 부드러운 빛 (인터랙티브) ===== */
+    .cursor-glow {
+      position: fixed;
+      top: 0; left: 0;
+      width: 46vmax; height: 46vmax;
+      margin-left: -23vmax; margin-top: -23vmax;
+      border-radius: 9999px;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(199,182,255,0.3) 32%, rgba(199,182,255,0) 70%);
+      filter: blur(28px);
+      opacity: 0;
+      transform: translate3d(var(--gx), var(--gy), 0);
+      transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.6s ease; /* 커서를 천천히 따라옴 */
+      will-change: transform;
+    }
+    body.has-pointer .cursor-glow { opacity: 1; }
+
+    /* 모션 최소화 선호 시: 모든 배경 모션 정지 */
+    @media (prefers-reduced-motion: reduce) {
+      .bg-base, .cloud-blob { animation: none !important; }
+      .cloud-blob { filter: blur(60px); }
+      .bg-layer, .cursor-glow { transition: none !important; }
     }
 
     .holo-text {
@@ -134,13 +219,34 @@
   </style>
 </head>
 <body>
-  <!-- 배경 떠다니는 파스텔 구름 블롭 -->
-  <div class="cloud-blob blob-1"></div>
-  <div class="cloud-blob blob-2"></div>
-  <div class="cloud-blob blob-3"></div>
-  <div class="cloud-blob blob-4"></div>
+  <!-- 인터랙티브 배경: 기본 그라데이션 + 떠다니는 블롭 레이어 + 커서 글로우 -->
+  <div class="bg-base"></div>
+  <div class="bg-layer">
+    <div class="cloud-blob blob-1"></div>
+    <div class="cloud-blob blob-2"></div>
+    <div class="cloud-blob blob-3"></div>
+    <div class="cloud-blob blob-4"></div>
+  </div>
+  <div class="cursor-glow"></div>
 
   <div id="root" style="position: relative; z-index: 1;"></div>
+
+  <!-- 커서 추적: 글로우 위치(--gx/--gy) + 블롭 패럴랙스(--px/--py) 갱신. 이징은 CSS transition 이 담당 → 천천히 따라옴 -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      function move(x, y) {
+        document.body.classList.add('has-pointer');
+        root.style.setProperty('--gx', x + 'px');
+        root.style.setProperty('--gy', y + 'px');
+        var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        root.style.setProperty('--px', ((x - cx) * -0.02) + 'px');
+        root.style.setProperty('--py', ((y - cy) * -0.02) + 'px');
+      }
+      window.addEventListener('pointermove', function (e) { move(e.clientX, e.clientY); }, { passive: true });
+      window.addEventListener('pointerleave', function () { document.body.classList.remove('has-pointer'); });
+    })();
+  </script>
 
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
