@@ -1,0 +1,8 @@
+# 이 앱을 만들 때 입력한 명령어
+
+@"single-react-dev (agent)" 간단한 메모장 앱을 만들어줘
+ostgreSQL DB 서버를 활용해서 메모장 앱을 만들어
+- `memos` 테이블을 만들고 `id`, `title`, `content`, `created_at` 컬럼으로 시작하세요
+- `pg` (node-postgres) 라이브러리로 서버에서 DB에 연결해요
+- 개발자도구 Network 탭에서 메모 저장/조회 API 요청이 잘 나가는지 확인하세요
+메모를 수정하거나 검색하는 기능을 넣어보세요
