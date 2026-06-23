@@ -20,6 +20,7 @@ const pool = new Pool({
 });
 
 const JWT_SECRET = (process.env.JWT_SECRET || '').trim();
+const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || '').trim();
 
 // 시작 시 테이블 보장
 async function initDb() {
@@ -210,6 +211,63 @@ app.delete('/api/todos/:id', auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '할 일 삭제 실패', detail: err.message });
+  }
+});
+
+// =====================================================================
+// AI: 목표 → 할 일 자동 생성  (POST /api/ai/suggest, 인증 필요)
+// OpenAI 키는 서버에서만 사용하고 브라우저로 노출하지 않는다.
+// =====================================================================
+app.post('/api/ai/suggest', auth, async (req, res) => {
+  try {
+    if (!OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'AI 기능이 설정되지 않았습니다 (OPENAI_API_KEY 없음)' });
+    }
+    const goal = (req.body?.goal || '').trim();
+    if (!goal) return res.status(400).json({ error: '목표를 입력하세요' });
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.6,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '너는 할 일 관리 도우미다. 사용자의 목표를 실행 가능한 구체적 할 일들로 쪼갠다. ' +
+              '반드시 {"tasks": ["...", "..."]} 형태의 JSON 만 출력하라. ' +
+              '각 항목은 한국어 한 문장의 짧은 행동(동사로 끝나도록), 3~6개로 제한한다.',
+          },
+          { role: 'user', content: `목표: ${goal}` },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const detail = await resp.text();
+      console.error('OpenAI error', resp.status, detail);
+      return res.status(502).json({ error: 'AI 호출 실패', detail: `OpenAI ${resp.status}` });
+    }
+
+    const data = await resp.json();
+    let tasks = [];
+    try {
+      const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+      if (Array.isArray(parsed.tasks)) tasks = parsed.tasks;
+    } catch {
+      /* 무시하고 빈 배열 반환 */
+    }
+    tasks = tasks.map((t) => String(t).trim()).filter(Boolean).slice(0, 6);
+    res.json({ tasks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'AI 추천 실패', detail: err.message });
   }
 });
 
