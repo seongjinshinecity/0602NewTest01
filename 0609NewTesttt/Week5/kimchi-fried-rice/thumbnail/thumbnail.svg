@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd7b0"/>
+      <stop offset="1" stop-color="#ff9a6b"/>
+    </linearGradient>
+    <radialGradient id="riceG" cx="0.5" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#ffe7c2"/>
+      <stop offset="1" stop-color="#f2c98a"/>
+    </radialGradient>
+    <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3f4b"/>
+      <stop offset="1" stop-color="#23262e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="800" height="800" fill="url(#bg)"/>
+
+  <!-- steam -->
+  <g fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.5">
+    <path d="M330 250 q-30 -40 0 -80 q30 -40 0 -80"/>
+    <path d="M430 235 q-30 -40 0 -80 q30 -40 0 -80"/>
+    <path d="M520 255 q-30 -40 0 -80 q30 -40 0 -80"/>
+  </g>
+
+  <!-- bowl shadow -->
+  <ellipse cx="400" cy="640" rx="280" ry="46" fill="#000000" opacity="0.18"/>
+
+  <!-- bowl -->
+  <path d="M150 430 a250 250 0 0 0 500 0 Z" fill="url(#bowl)"/>
+  <ellipse cx="400" cy="430" rx="250" ry="78" fill="#4a505d"/>
+  <ellipse cx="400" cy="430" rx="250" ry="78" fill="none" stroke="#5c6473" stroke-width="6"/>
+
+  <!-- rice mound -->
+  <ellipse cx="400" cy="418" rx="232" ry="70" fill="url(#riceG)"/>
+  <path d="M168 418 a232 70 0 0 0 464 0 a232 40 0 0 1 -464 0 Z" fill="#e9bd7c"/>
+
+  <!-- kimchi bits -->
+  <g>
+    <ellipse cx="320" cy="392" rx="26" ry="14" fill="#d6402a" transform="rotate(-18 320 392)"/>
+    <ellipse cx="470" cy="402" rx="30" ry="15" fill="#e24a2f" transform="rotate(22 470 402)"/>
+    <ellipse cx="390" cy="432" rx="24" ry="13" fill="#c83823" transform="rotate(8 390 432)"/>
+    <ellipse cx="255" cy="420" rx="22" ry="12" fill="#e8512f" transform="rotate(-30 255 420)"/>
+    <ellipse cx="540" cy="430" rx="22" ry="12" fill="#cf3c26" transform="rotate(14 540 430)"/>
+    <circle cx="350" cy="448" r="6" fill="#2f7d3a"/>
+    <circle cx="455" cy="445" r="6" fill="#2f7d3a"/>
+    <circle cx="300" cy="450" r="5" fill="#2f7d3a"/>
+  </g>
+
+  <!-- fried egg -->
+  <ellipse cx="400" cy="392" rx="92" ry="50" fill="#fffdf5"/>
+  <ellipse cx="408" cy="384" rx="34" ry="28" fill="#ffb627"/>
+  <ellipse cx="400" cy="380" rx="30" ry="24" fill="#ffc845"/>
+
+  <!-- sesame -->
+  <g fill="#fff7e6">
+    <ellipse cx="285" cy="378" rx="4" ry="2.4" transform="rotate(20 285 378)"/>
+    <ellipse cx="510" cy="392" rx="4" ry="2.4" transform="rotate(-15 510 392)"/>
+    <ellipse cx="345" cy="412" rx="4" ry="2.4"/>
+    <ellipse cx="480" cy="418" rx="4" ry="2.4" transform="rotate(30 480 418)"/>
+  </g>
+
+  <!-- chopsticks -->
+  <g stroke="#8a4b2a" stroke-width="11" stroke-linecap="round">
+    <line x1="560" y1="210" x2="690" y2="430"/>
+    <line x1="600" y1="200" x2="710" y2="430"/>
+  </g>
+
+  <!-- title -->
+  <text x="400" y="730" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="72" font-weight="800" fill="#3a2417">김치볶음밥</text>
+</svg>
