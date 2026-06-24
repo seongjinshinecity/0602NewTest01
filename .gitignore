@@ -11,3 +11,5 @@ node_modules/
 
 # Claude Code local settings (may contain machine-specific allow-list / keys)
 .claude/settings.local.json
+
+.playwright-mcp/
