@@ -1,37 +1,25 @@
-# 월별 매출현황 (Excel)
+# 01_Cafe — 카페 프로젝트 모음
 
-document-skills의 `xlsx` 스킬로 만든 샘플 엑셀 파일.
+폴더별 정리 구조입니다.
 
-## 파일
-- `월별매출현황.xlsx` — 2026년 상반기 월별 매출 현황 시트 (차트 포함)
-- `command-input.txt` — 생성에 쓴 입력 명령
-- `screenshot-table.png` — 표 미리보기
-- `screenshot-chart.png` — 차트 렌더링
+## 📁 00_월별매출현황_원본
+처음 만든 월별 매출현황 엑셀 샘플 (document-skills `xlsx`).
+- `월별매출현황.xlsx` · `screenshot-table.png` · `screenshot-chart.png` · `command-input.txt` · `README.md`
 
-## 내용
-2026년 상반기(1~6월) 월별 매출·비용·이익 표.
+## 📁 01_브랜드키트 — QUARTER
+블랙·스테인리스 메탈 미니멀 카페 "QUARTER" 브랜드 자산.
+- `my_cafe.md` (컨셉), `quarterly_calendar.md` (분기 운영 캘린더)
+- `menu.html` / `logo.html` / `profile.html` / `render.html` + 각 스크린샷
+- `profile_1080_*.png` (인스타 프로필 1080 추출본 3종)
 
-| 항목 | 설명 |
-|------|------|
-| 매출 ($) | 입력값 (파란색) |
-| 비용 ($) | 입력값 (파란색) |
-| 이익 ($) | `=매출-비용` 수식 |
-| 전월 대비 (%) | `=(이번달-전달)/전달` 수식 |
-| 합계 | `=SUM()` |
-| 평균 | `=AVERAGE()` |
+## 📁 02_매출보고서_QUARTER
+2026 상반기(1~6월) 매출 보고서 4종 + 코멘트.
+- `QUARTER_월별매출.xlsx` (네이티브 차트)
+- `QUARTER_카페소개.docx` / `.pdf` / `.pptx`
+- `chart_sales.png` · `chart_donut.png` · `월매출_코멘트_2-5월.md`
 
-- 폰트: Arial, 통화/퍼센트 서식, 헤더 음영·테두리
-- 색상 규칙: 파란색=입력값, 검정=수식
-- 모든 수식 셀에 계산된 캐시값 주입 완료 (열기 전에도 값 표시)
-
-## 차트
-G3 위치 콤보 차트:
-- 막대 — 월별 매출·비용·이익 (왼쪽 금액 축)
-- 선 — 전월 대비 증감률 (오른쪽 % 축)
-
-![표](screenshot-table.png)
-![차트](screenshot-chart.png)
-
-## 비고
-이 환경에 LibreOffice가 없어 스킬의 자동 재계산(`recalc.py`) 대신 캐시값을 직접 주입함.
-`screenshot-chart.png`는 xlsx 내 차트를 동일 데이터로 matplotlib 재현한 것 (모양·축·색 동일).
+## 📁 03_1분기실적_하버카페
+하버 카페 2026 1분기(3~5월) 손익 분석 + 보고서.
+- `cafe_q1.csv` (거래 원본), `cafe_q1_손익리포트.xlsx` (SUMIFS·피벗·차트)
+- `cafe_report.md` (보고서 본문), `하버카페_1분기보고.pptx` (5장 PPT)
+- `chart_q1_profit.png` · `chart_q1_category.png`
