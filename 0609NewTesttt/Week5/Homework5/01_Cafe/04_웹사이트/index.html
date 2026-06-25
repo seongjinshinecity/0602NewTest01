@@ -84,6 +84,91 @@
 <body>
   <div id="root"></div>
 
+  <!-- ===== 인트로 스플래시 (2초 ASCII/글리치 → 페이드 후 홈) ===== -->
+  <style>
+    #intro{position:fixed;inset:0;z-index:9999;background:#000;cursor:crosshair;
+           transition:opacity .6s ease;}
+    #intro.hide{opacity:0;pointer-events:none;}
+    #intro canvas{position:absolute;inset:0;display:block;width:100%;height:100%;}
+    #intro .scan{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.5;
+      background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px);}
+    #intro .vig{position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.85) 100%);}
+    #intro .skip{position:absolute;bottom:24px;left:0;right:0;text-align:center;
+      color:#6b6b70;font-size:11px;letter-spacing:.3em;text-transform:uppercase;
+      font-family:"Pretendard",monospace;}
+  </style>
+  <div id="intro" aria-hidden="true">
+    <canvas id="introCv"></canvas>
+    <div class="scan"></div>
+    <div class="vig"></div>
+    <div class="skip">CLICK TO SKIP</div>
+  </div>
+  <script>
+  (() => {
+    const root = document.getElementById('intro');
+    if(!root) return;
+    const cv = document.getElementById('introCv');
+    const ctx = cv.getContext('2d',{alpha:false});
+    const WORD="QUARTER";
+    const NOISE="01<>/\\|[]{}*+=-_:.#%&$@QUARTER01".split("");
+    const DUR=2000;
+    let W,H,cell,cols,rows,mask,settle,dpr,start=performance.now(),raf=0,closing=false;
+    const rand=a=>a[(Math.random()*a.length)|0];
+
+    function build(){
+      dpr=Math.min(window.devicePixelRatio||1,2);
+      W=innerWidth;H=innerHeight;
+      cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+      cell=Math.max(9,Math.round(Math.min(W,H)/64));
+      cols=Math.ceil(W/cell);rows=Math.ceil(H/cell);
+      const off=document.createElement('canvas');off.width=cols;off.height=rows;
+      const o=off.getContext('2d');o.fillStyle='#000';o.fillRect(0,0,cols,rows);
+      o.fillStyle='#fff';o.textAlign='center';o.textBaseline='middle';
+      let fs=rows*0.42;o.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
+      fs=Math.min(fs*(cols*0.84/o.measureText(WORD).width),rows*0.6);
+      o.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;o.fillText(WORD,cols/2,rows/2);
+      const d=o.getImageData(0,0,cols,rows).data;
+      mask=new Uint8Array(cols*rows);settle=new Float32Array(cols*rows);
+      let minX=cols,maxX=0;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){if(d[(y*cols+x)*4]>110){mask[y*cols+x]=1;if(x<minX)minX=x;if(x>maxX)maxX=x;}}
+      const span=Math.max(1,maxX-minX);
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)settle[y*cols+x]=0.18+0.62*((x-minX)/span)+Math.random()*0.12;
+    }
+    function draw(now){
+      let p=(now-start)/DUR;if(p>1)p=1;
+      const ease=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+      ctx.font=`${cell}px Menlo,Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+      const glAmp=Math.sin(p*Math.PI);
+      const slices=[];const n=(Math.random()<0.5)?(1+(Math.random()*3|0)):0;
+      for(let s=0;s<n;s++)slices.push([Math.random()*rows|0,(Math.random()*8|0)-4,2+(Math.random()*4|0)]);
+      const so=y=>{for(const[yy,dx,hh]of slices)if(y>=yy&&y<yy+hh)return dx*glAmp;return 0;};
+      for(let y=0;y<rows;y++){const ox=so(y)*cell;
+        for(let x=0;x<cols;x++){const i=y*cols+x;const word=mask[i]===1;let ch,a;
+          if(word){const st=settle[i];
+            if(ease<st){ch=rand(NOISE);a=0.25+Math.random()*0.5;}
+            else{ch=(Math.random()<0.04&&p<1)?rand(NOISE):'█';a=0.85+Math.random()*0.15;}
+          }else{const base=1-ease;if(Math.random()>base*0.9)continue;ch=rand(NOISE);a=0.06+Math.random()*0.3;}
+          const px=x*cell+cell/2+ox,py=y*cell+cell/2;
+          if(glAmp>0.4&&word&&Math.random()<0.25){ctx.fillStyle=`rgba(255,255,255,${a*0.25})`;ctx.fillText(ch,px+2,py);}
+          ctx.fillStyle=`rgba(245,245,247,${a})`;ctx.fillText(ch,px,py);
+        }}
+      if(p>=1&&!closing){closing=true;setTimeout(close,260);}
+    }
+    let last=0;
+    function loop(now){raf=requestAnimationFrame(loop);if(now-last<16)return;last=now;draw(now);}
+    function close(){
+      root.classList.add('hide');
+      setTimeout(()=>{cancelAnimationFrame(raf);root.remove();},650);
+    }
+    addEventListener('resize',()=>{if(!closing)build();});
+    root.addEventListener('click',()=>{if(!closing){closing=true;close();}});
+    build();raf=requestAnimationFrame(loop);
+  })();
+  </script>
+  <!-- ===== /인트로 ===== -->
+
   <script type="text/babel" data-presets="react">
     // ========================================
     // React Hooks
