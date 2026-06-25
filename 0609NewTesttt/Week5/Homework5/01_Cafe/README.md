@@ -23,3 +23,10 @@
 - `cafe_q1.csv` (거래 원본), `cafe_q1_손익리포트.xlsx` (SUMIFS·피벗·차트)
 - `cafe_report.md` (보고서 본문), `하버카페_1분기보고.pptx` (5장 PPT)
 - `chart_q1_profit.png` · `chart_q1_category.png`
+
+## 📁 04_웹사이트 — QUARTER
+QUARTER 컨셉 기반 카페 공식 웹사이트 UI (단일 `index.html`, CDN React+Tailwind, 다크 글래시).
+- 홈 / 메뉴 / 이벤트 / 예약(localStorage 게시판) / 오시는 길(구글맵+네이버지도)
+- 네이버 지도·인스타그램·스레드 아이콘
+- 실행: `cd 04_웹사이트 && python3 -m http.server 8000` → http://localhost:8000/
+- 자세한 내용은 `04_웹사이트/README.md`
