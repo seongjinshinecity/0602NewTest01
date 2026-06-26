@@ -1,0 +1,7 @@
+자 이제 새로운 앱ui 페이지를 새로운 파일로 하나 만들어줘
+인터랙티브한 디자인이지만 2초만 나오면 돼
+디자인 스타일은
+- https://i.pinimg.com/1200x/9f/36/e8/9f36e86791e15ae979d320424e40be39.jpg (ASCII 아트, 흑백 터미널)
+- https://i.pinimg.com/1200x/6f/98/7b/6f987b4a0128e32c9238eed426a32db9.jpg (흑백 브루탈리즘 타이포 + 픽셀 글리치)
+- https://app.envato.com/video-templates/5ca4fbe8-4d67-455e-8cb5-7e05eb0e494f (영상 템플릿, 로그인 필요로 미열람)
+를 참고

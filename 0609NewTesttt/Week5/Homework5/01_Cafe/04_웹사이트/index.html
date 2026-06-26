@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QUARTER — 시즌마다 새로짓다</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // 블루 계열 채도 50% 다운 (cyan / blue 팔레트 오버라이드)
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cyan: {"50":"#F1FAFA","100":"#DBF0F2","200":"#BBE2E6","300":"#8CCCD4","400":"#55ADBB","500":"#3A91A0","600":"#327788","700":"#2F6270","800":"#2D525D","900":"#294550","950":"#172D35"},
+            blue: {"50":"#F3F6FB","100":"#E4EBF5","200":"#CFDDEE","300":"#AEC6E2","400":"#87A9D3","500":"#6A8DC7","600":"#5675BA","700":"#4C64A9","800":"#42538B","900":"#39476F","950":"#262D45"}
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- React 18 + ReactDOM 18 (UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel standalone v7 (v8은 이 환경에서 깨져 빈 화면이 됨 → v7 핀 필수) -->
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+  <!-- Pretendard 한국어 웹폰트 -->
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+  <style>
+    :root {
+      --q-black: #0A0A0B;
+      --q-ink: #14151A;
+      --q-steel: #6C7077;
+      --q-silver: #A8ACB3;
+      --q-chrome: #E8EAED;
+      --q-cyan: #4B9E9E;
+      --q-blue: #6A8DC7;
+    }
+    * { -webkit-font-smoothing: antialiased; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--q-black);
+      color: var(--q-chrome);
+    }
+    /* 다크 그라데이션 + 상단 라디얼 글로우 오브 */
+    .q-bg {
+      background:
+        radial-gradient(60% 50% at 50% -8%, rgba(34,199,199,0.16), transparent 60%),
+        radial-gradient(45% 40% at 85% 5%, rgba(59,130,246,0.14), transparent 65%),
+        linear-gradient(180deg, #0A0A0B 0%, #101116 45%, #14151A 100%);
+      background-attachment: fixed;
+    }
+    /* 메탈 그라데이션 텍스트 */
+    .q-metal {
+      background: linear-gradient(180deg, #FFFFFF 0%, #E8EAED 35%, #A8ACB3 70%, #6C7077 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .q-fade-in { animation: qFade 0.7s ease both; }
+    @keyframes qFade {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes qFloat {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+    .q-float { animation: qFloat 6s ease-in-out infinite; }
+    /* 스크롤바 */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: #0A0A0B; }
+    ::-webkit-scrollbar-thumb { background: #2a2c33; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3d45; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- ===== 인트로 스플래시 (2초 ASCII/글리치 → 페이드 후 홈) ===== -->
+  <style>
+    #intro{position:fixed;inset:0;z-index:9999;background:#000;cursor:crosshair;
+           transition:opacity .6s ease;}
+    #intro.hide{opacity:0;pointer-events:none;}
+    #intro canvas{position:absolute;inset:0;display:block;width:100%;height:100%;}
+    #intro .scan{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.5;
+      background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px);}
+    #intro .vig{position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.85) 100%);}
+    #intro .skip{position:absolute;bottom:24px;left:0;right:0;text-align:center;
+      color:#6b6b70;font-size:11px;letter-spacing:.3em;text-transform:uppercase;
+      font-family:"Pretendard",monospace;}
+  </style>
+  <div id="intro" aria-hidden="true">
+    <canvas id="introCv"></canvas>
+    <div class="scan"></div>
+    <div class="vig"></div>
+    <div class="skip">CLICK TO SKIP</div>
+  </div>
+  <script>
+  (() => {
+    const root = document.getElementById('intro');
+    if(!root) return;
+    const cv = document.getElementById('introCv');
+    const ctx = cv.getContext('2d',{alpha:false});
+    const WORD="QUARTER";
+    const NOISE="01<>/\\|[]{}*+=-_:.#%&$@QUARTER01".split("");
+    const DUR=2000;
+    let W,H,cell,cols,rows,mask,settle,dpr,start=performance.now(),raf=0,closing=false;
+    const rand=a=>a[(Math.random()*a.length)|0];
+
+    function build(){
+      dpr=Math.min(window.devicePixelRatio||1,2);
+      W=innerWidth;H=innerHeight;
+      cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+      cell=Math.max(9,Math.round(Math.min(W,H)/64));
+      cols=Math.ceil(W/cell);rows=Math.ceil(H/cell);
+      const off=document.createElement('canvas');off.width=cols;off.height=rows;
+      const o=off.getContext('2d');o.fillStyle='#000';o.fillRect(0,0,cols,rows);
+      o.fillStyle='#fff';o.textAlign='center';o.textBaseline='middle';
+      let fs=rows*0.42;o.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
+      fs=Math.min(fs*(cols*0.84/o.measureText(WORD).width),rows*0.6);
+      o.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;o.fillText(WORD,cols/2,rows/2);
+      const d=o.getImageData(0,0,cols,rows).data;
+      mask=new Uint8Array(cols*rows);settle=new Float32Array(cols*rows);
+      let minX=cols,maxX=0;
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){if(d[(y*cols+x)*4]>110){mask[y*cols+x]=1;if(x<minX)minX=x;if(x>maxX)maxX=x;}}
+      const span=Math.max(1,maxX-minX);
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)settle[y*cols+x]=0.18+0.62*((x-minX)/span)+Math.random()*0.12;
+    }
+    function draw(now){
+      let p=(now-start)/DUR;if(p>1)p=1;
+      const ease=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+      ctx.font=`${cell}px Menlo,Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+      const glAmp=Math.sin(p*Math.PI);
+      const slices=[];const n=(Math.random()<0.5)?(1+(Math.random()*3|0)):0;
+      for(let s=0;s<n;s++)slices.push([Math.random()*rows|0,(Math.random()*8|0)-4,2+(Math.random()*4|0)]);
+      const so=y=>{for(const[yy,dx,hh]of slices)if(y>=yy&&y<yy+hh)return dx*glAmp;return 0;};
+      for(let y=0;y<rows;y++){const ox=so(y)*cell;
+        for(let x=0;x<cols;x++){const i=y*cols+x;const word=mask[i]===1;let ch,a;
+          if(word){const st=settle[i];
+            if(ease<st){ch=rand(NOISE);a=0.25+Math.random()*0.5;}
+            else{ch=(Math.random()<0.04&&p<1)?rand(NOISE):'█';a=0.85+Math.random()*0.15;}
+          }else{const base=1-ease;if(Math.random()>base*0.9)continue;ch=rand(NOISE);a=0.06+Math.random()*0.3;}
+          const px=x*cell+cell/2+ox,py=y*cell+cell/2;
+          if(glAmp>0.4&&word&&Math.random()<0.25){ctx.fillStyle=`rgba(255,255,255,${a*0.25})`;ctx.fillText(ch,px+2,py);}
+          ctx.fillStyle=`rgba(245,245,247,${a})`;ctx.fillText(ch,px,py);
+        }}
+      if(p>=1&&!closing){closing=true;setTimeout(close,260);}
+    }
+    let last=0;
+    function loop(now){raf=requestAnimationFrame(loop);if(now-last<16)return;last=now;draw(now);}
+    function close(){
+      root.classList.add('hide');
+      setTimeout(()=>{cancelAnimationFrame(raf);root.remove();},650);
+    }
+    addEventListener('resize',()=>{if(!closing)build();});
+    root.addEventListener('click',()=>{if(!closing){closing=true;close();}});
+    build();raf=requestAnimationFrame(loop);
+  })();
+  </script>
+  <!-- ===== /인트로 ===== -->
+
+  <script type="text/babel" data-presets="react">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useEffect, useContext, createContext, useMemo, useCallback } = React;
+
+    // ========================================
+    // 🎨 Brand / Constants
+    // ========================================
+    const BRAND = {
+      name: "QUARTER",
+      slogan: "시즌마다 새로짓다",
+      address: "서울 성동구 성수동2가 271-22 1층",
+      mapQuery: "서울 성동구 성수동 카페거리",
+      hours: [
+        { d: "월 — 금", t: "08:00 — 22:00" },
+        { d: "토 — 일", t: "10:00 — 23:00" },
+        { d: "라스트오더", t: "마감 1시간 전" },
+      ],
+      social: {
+        instagram: "https://instagram.com/quarter.seoul",
+        threads: "https://www.threads.net/@quarter.seoul",
+        naverMap: "https://map.naver.com/p/search/" + encodeURIComponent("성수동 쿼터 카페"),
+      },
+    };
+
+    const STORAGE_KEY = "quarter_reservations_v1";
+
+    // ========================================
+    // 🎨 Inline SVG Icons
+    // ========================================
+    const QLogo = ({ size = 40, className = "" }) => (
+      <svg viewBox="0 0 100 100" width={size} height={size} className={className} aria-hidden="true">
+        <defs>
+          <linearGradient id="qRing" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#E8EAED" />
+            <stop offset="45%" stopColor="#A8ACB3" />
+            <stop offset="100%" stopColor="#6C7077" />
+          </linearGradient>
+          <linearGradient id="qAccent" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4B9E9E" />
+            <stop offset="100%" stopColor="#6A8DC7" />
+          </linearGradient>
+        </defs>
+        {/* 메탈 링 */}
+        <circle cx="50" cy="50" r="40" fill="none" stroke="url(#qRing)" strokeWidth="5" />
+        <circle cx="50" cy="50" r="40" fill="none" stroke="url(#qAccent)" strokeWidth="1.5" opacity="0.6" />
+        {/* Q 글자 */}
+        <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
+              fontFamily="Pretendard, sans-serif" fontWeight="800" fontSize="46"
+              fill="url(#qRing)">Q</text>
+        {/* Q 꼬리 (메탈 다리) */}
+        <line x1="60" y1="62" x2="74" y2="78" stroke="url(#qAccent)" strokeWidth="6" strokeLinecap="round" />
+      </svg>
+    );
+
+    const IconInstagram = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+
+    const IconThreads = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+        <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.74-1.756-.504-.582-1.279-.876-2.309-.882h-.027c-.831 0-1.973.225-2.703 1.315L7.36 7.434c.98-1.454 2.568-2.256 4.476-2.256h.045c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.32.144 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.235-11.587c-.314 0-.633.01-.962.027-1.842.104-2.987.948-2.922 2.15.062 1.143 1.243 1.667 2.305 1.612 1.232-.067 2.864-.534 3.16-3.595a8.95 8.95 0 0 0-1.581-.194Z" />
+      </svg>
+    );
+
+    const IconNaverMap = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+        <path d="M9.5 14.5v-5l5 5v-5" strokeWidth="1.6" />
+      </svg>
+    );
+
+    const IconTrash = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+
+    const IconClock = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" strokeLinecap="round" />
+      </svg>
+    );
+
+    const IconPin = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+        <circle cx="12" cy="10" r="2.5" />
+      </svg>
+    );
+
+    const IconArrow = ({ className = "" }) => (
+      <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+
+    // ========================================
+    // 🎨 Design System Components
+    // ========================================
+    const Pill = ({ children, className = "" }) => (
+      <span className={
+        "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 " +
+        "px-3 py-1 text-xs font-medium tracking-wide text-cyan-300/90 backdrop-blur " + className
+      }>
+        <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+        {children}
+      </span>
+    );
+
+    const Button = ({ variant = "primary", size = "md", className = "", as = "button", ...props }) => {
+      const base = "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 disabled:opacity-40 disabled:cursor-not-allowed";
+      const sizes = {
+        sm: "px-3.5 py-2 text-sm",
+        md: "px-5 py-2.5 text-sm",
+        lg: "px-7 py-3.5 text-base",
+      };
+      const variants = {
+        primary: "bg-gradient-to-r from-cyan-400 to-blue-500 text-[#0A0A0B] hover:shadow-[0_0_30px_-6px_rgba(34,199,199,0.6)] hover:brightness-110",
+        secondary: "border border-white/15 bg-white/5 text-chrome-100 text-white/90 hover:bg-white/10 backdrop-blur",
+        ghost: "text-white/70 hover:text-white hover:bg-white/5",
+        danger: "border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20",
+      };
+      const Tag = as;
+      return <Tag className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
+    };
+
+    const Card = ({ children, className = "", hover = false }) => (
+      <div className={
+        "rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)] " +
+        (hover ? "transition-all duration-300 hover:border-cyan-400/30 hover:bg-white/[0.07] hover:-translate-y-1 " : "") +
+        className
+      }>
+        {children}
+      </div>
+    );
+
+    const Field = ({ label, error, children, required }) => (
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-white/70">
+          {label} {required && <span className="text-cyan-400">*</span>}
+        </span>
+        {children}
+        {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
+      </label>
+    );
+
+    const inputCls =
+      "w-full rounded-xl border border-white/10 bg-[#0A0A0B]/60 px-4 py-2.5 text-sm text-white " +
+      "placeholder-white/30 outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20";
+
+    const Input = (props) => <input className={inputCls} {...props} />;
+    const Textarea = (props) => <textarea className={inputCls + " resize-none"} {...props} />;
+    const Select = ({ children, ...props }) => (
+      <select className={inputCls + " appearance-none"} {...props}>{children}</select>
+    );
+
+    const SectionTitle = ({ pill, title, desc, center = false }) => (
+      <div className={center ? "text-center" : ""}>
+        {pill && <Pill className={center ? "mx-auto" : ""}>{pill}</Pill>}
+        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl q-metal">{title}</h2>
+        {desc && <p className={"mt-3 text-white/50 " + (center ? "mx-auto max-w-2xl" : "max-w-2xl")}>{desc}</p>}
+      </div>
+    );
+
+    // ========================================
+    // 🔀 Hash Router
+    // ========================================
+    const RouterContext = createContext({ path: "/", navigate: () => {} });
+
+    const Router = ({ children }) => {
+      const getPath = () => {
+        const h = window.location.hash.replace(/^#/, "");
+        return h || "/";
+      };
+      const [path, setPath] = useState(getPath());
+      useEffect(() => {
+        const onHash = () => { setPath(getPath()); window.scrollTo(0, 0); };
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+      const navigate = useCallback((to) => { window.location.hash = to; }, []);
+      return <RouterContext.Provider value={{ path, navigate }}>{children}</RouterContext.Provider>;
+    };
+
+    const useRouter = () => useContext(RouterContext);
+
+    const Link = ({ to, className = "", activeClassName = "", children, ...props }) => {
+      const { path, navigate } = useRouter();
+      const active = path === to;
+      return (
+        <a href={"#" + to}
+           onClick={(e) => { e.preventDefault(); navigate(to); }}
+           className={className + (active ? " " + activeClassName : "")}
+           aria-current={active ? "page" : undefined}
+           {...props}>
+          {children}
+        </a>
+      );
+    };
+
+    // ========================================
+    // 📦 Data
+    // ========================================
+    const NAV = [
+      { to: "/", label: "홈" },
+      { to: "/menu", label: "메뉴" },
+      { to: "/event", label: "이벤트" },
+      { to: "/reserve", label: "예약" },
+      { to: "/location", label: "오시는 길" },
+    ];
+
+    const MENU_DATA = [
+      {
+        cat: "음료",
+        items: [
+          { name: "쿼터 아메리카노", desc: "분기 싱글 오리진 블렌드, 깔끔한 산미", price: 6500 },
+          { name: "시그니처 라떼", desc: "유기농 우유 + 메탈 로스팅 에스프레소", price: 8000 },
+          { name: "콜드브루 토닉", desc: "12시간 저온 추출, 청량한 토닉", price: 8500 },
+          { name: "흑임자 아인슈페너", desc: "고소한 흑임자 크림 토핑", price: 8800 },
+        ],
+      },
+      {
+        cat: "디저트",
+        items: [
+          { name: "바스크 치즈케이크", desc: "표면을 태운 진한 크림치즈", price: 9500 },
+          { name: "메탈 브라우니", desc: "70% 다크 카카오, 소금 캐러멜", price: 7500 },
+          { name: "크롬 마들렌 (2P)", desc: "버터 향 가득, 겉바속촉", price: 6000 },
+        ],
+      },
+      {
+        cat: "시즌 한정",
+        items: [
+          { name: "Q3 청귤 에이드", desc: "여름 분기 한정, 제주 청귤", price: 9000, season: true },
+          { name: "스틸 그레이 라떼", desc: "흑당 + 차콜, 메탈 비주얼", price: 9500, season: true },
+          { name: "여름밤 빙수", desc: "우유 빙수 + 말차 크럼블", price: 13500, season: true },
+        ],
+      },
+    ];
+
+    const EVENTS = [
+      { date: "2026.07.01", tag: "시즌 오픈", title: "Q3 「Steel Summer」 시즌 전환",
+        desc: "공간과 메뉴를 통째로 새로 짓는 분기 전환. 스테인리스 메탈 톤의 여름 한정 공간으로 리뉴얼합니다." },
+      { date: "2026.07.12", tag: "콜라보", title: "파티시에 ‘이서연’ 디저트 콜라보",
+        desc: "미슐랭 출신 파티시에와 함께하는 2주간의 한정 디저트 라인업. 사전 예약 우선." },
+      { date: "2026.07.20", tag: "신메뉴", title: "여름밤 빙수 라인 출시",
+        desc: "말차 크럼블 빙수를 포함한 여름 시그니처 빙수 3종을 정식 출시합니다." },
+      { date: "2026.08.03", tag: "원데이", title: "라이브 로스팅 클래스",
+        desc: "바리스타와 함께하는 원데이 로스팅 & 핸드드립 클래스. 정원 8명, 예약 필수." },
+    ];
+
+    const won = (n) => n.toLocaleString("ko-KR") + "원";
+
+    // ========================================
+    // 🧩 Layout — Header
+    // ========================================
+    const SocialIcons = ({ size = "h-9 w-9", icon = "h-4.5 w-4.5" }) => {
+      const link = "flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:text-cyan-300 hover:border-cyan-400/40 hover:bg-white/10";
+      return (
+        <div className="flex items-center gap-2">
+          <a href={BRAND.social.naverMap} target="_blank" rel="noreferrer" title="네이버 지도" className={`${link} ${size}`}>
+            <IconNaverMap className={icon} />
+          </a>
+          <a href={BRAND.social.instagram} target="_blank" rel="noreferrer" title="인스타그램" className={`${link} ${size}`}>
+            <IconInstagram className={icon} />
+          </a>
+          <a href={BRAND.social.threads} target="_blank" rel="noreferrer" title="스레드" className={`${link} ${size}`}>
+            <IconThreads className={icon} />
+          </a>
+        </div>
+      );
+    };
+
+    const Header = () => {
+      const [open, setOpen] = useState(false);
+      const { path } = useRouter();
+      useEffect(() => { setOpen(false); }, [path]);
+      return (
+        <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0A0A0B]/70 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5">
+            <Link to="/" className="flex items-center gap-2.5">
+              <QLogo size={36} />
+              <div className="leading-none">
+                <span className="text-lg font-extrabold tracking-[0.2em] q-metal">QUARTER</span>
+                <span className="mt-0.5 block text-[10px] tracking-wide text-white/40">시즌마다 새로짓다</span>
+              </div>
+            </Link>
+
+            <nav className="hidden items-center gap-1 md:flex">
+              {NAV.map((n) => (
+                <Link key={n.to} to={n.to}
+                  className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/60 transition hover:text-white hover:bg-white/5"
+                  activeClassName="!text-cyan-300 !bg-white/5">
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="hidden md:block"><SocialIcons /></div>
+
+            <button onClick={() => setOpen(!open)} aria-label="메뉴 열기"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white md:hidden">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                {open
+                  ? <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+                  : <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />}
+              </svg>
+            </button>
+          </div>
+
+          {open && (
+            <div className="border-t border-white/10 bg-[#0A0A0B]/95 px-5 py-4 md:hidden">
+              <nav className="flex flex-col gap-1">
+                {NAV.map((n) => (
+                  <Link key={n.to} to={n.to}
+                    className="rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 hover:bg-white/5"
+                    activeClassName="!text-cyan-300 !bg-white/5">
+                    {n.label}
+                  </Link>
+                ))}
+              </nav>
+              <div className="mt-4"><SocialIcons /></div>
+            </div>
+          )}
+        </header>
+      );
+    };
+
+    // ========================================
+    // 🧩 Layout — Footer
+    // ========================================
+    const Footer = () => (
+      <footer className="mt-24 border-t border-white/10 bg-[#0A0A0B]/60">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2.5">
+              <QLogo size={34} />
+              <span className="text-lg font-extrabold tracking-[0.2em] q-metal">QUARTER</span>
+            </div>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/40">
+              분기마다 메뉴·공간·디저트를 통째로 새로 짓는 블랙 메탈 미니멀 프리미엄 카페.
+              시즌마다 새로짓다.
+            </p>
+            <div className="mt-5"><SocialIcons /></div>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white/80">바로가기</h4>
+            <ul className="mt-3 space-y-2">
+              {NAV.map((n) => (
+                <li key={n.to}>
+                  <Link to={n.to} className="text-sm text-white/45 transition hover:text-cyan-300">{n.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white/80">방문 정보</h4>
+            <p className="mt-3 text-sm text-white/45">{BRAND.address}</p>
+            <p className="mt-2 text-sm text-white/45">월—금 08:00 — 22:00</p>
+            <p className="text-sm text-white/45">토—일 10:00 — 23:00</p>
+          </div>
+        </div>
+        <div className="border-t border-white/10 px-5 py-5 text-center text-xs text-white/30">
+          © 2026 QUARTER Coffee. All rights reserved.
+        </div>
+      </footer>
+    );
+
+    // ========================================
+    // 📄 Page — Home
+    // ========================================
+    const HomePage = () => {
+      const { navigate } = useRouter();
+      const stats = [
+        { k: "분기마다", v: "100%", s: "메뉴·공간 전면 리뉴얼" },
+        { k: "시즌 한정", v: "12+", s: "분기별 시그니처 라인" },
+        { k: "프리미엄", v: "Single Origin", s: "분기 큐레이션 원두" },
+      ];
+      return (
+        <div className="q-fade-in">
+          {/* Hero */}
+          <section className="relative overflow-hidden">
+            <div className="pointer-events-none absolute -top-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-[120px] q-float" />
+            <div className="mx-auto max-w-7xl px-5 py-20 text-center sm:py-28">
+              <div className="mx-auto mb-8 q-float"><QLogo size={92} className="mx-auto" /></div>
+              <Pill className="mx-auto">SEASONAL PREMIUM CAFE</Pill>
+              <h1 className="mt-6 text-5xl font-extrabold leading-tight tracking-tight sm:text-7xl q-metal">
+                시즌마다<br />새로짓다
+              </h1>
+              <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-white/55 sm:text-lg">
+                QUARTER는 분기마다 메뉴와 공간, 디저트를 통째로 바꿉니다.
+                블랙과 스테인리스 메탈의 미니멀한 무드 안에서, 매 시즌 새로운 경험을 짓습니다.
+              </p>
+              <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+                <Button size="lg" onClick={() => navigate("/menu")}>
+                  시즌 메뉴 보기 <IconArrow className="h-4 w-4" />
+                </Button>
+                <Button size="lg" variant="secondary" onClick={() => navigate("/reserve")}>
+                  방문 예약하기
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          {/* Stats */}
+          <section className="mx-auto max-w-7xl px-5">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {stats.map((s) => (
+                <Card key={s.k} className="p-7 text-center" hover>
+                  <p className="text-xs font-medium tracking-wide text-cyan-300/80">{s.k}</p>
+                  <p className="mt-2 text-3xl font-extrabold q-metal">{s.v}</p>
+                  <p className="mt-1 text-sm text-white/45">{s.s}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          {/* Intro */}
+          <section className="mx-auto max-w-7xl px-5 py-24">
+            <div className="grid items-center gap-10 lg:grid-cols-2">
+              <div>
+                <SectionTitle
+                  pill="THE QUARTER WAY"
+                  title="분기마다 새로워지는 카페"
+                  desc="우리는 매 분기, 메뉴·공간·디저트를 완전히 리셋합니다. 익숙함이 아니라 새로움으로 손님을 맞이하는 것이 QUARTER의 방식입니다." />
+                <ul className="mt-7 space-y-4">
+                  {[
+                    ["분기 큐레이션", "시즌마다 새로운 싱글 오리진 원두와 시그니처 라인"],
+                    ["메탈 미니멀 공간", "블랙·스테인리스 톤의 절제된 프리미엄 인테리어"],
+                    ["한정 디저트", "파티시에 콜라보로 분기마다 바뀌는 디저트 셀렉션"],
+                  ].map(([t, d]) => (
+                    <li key={t} className="flex gap-3">
+                      <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-cyan-300">
+                        <IconArrow className="h-3.5 w-3.5" />
+                      </span>
+                      <div>
+                        <p className="font-semibold text-white/90">{t}</p>
+                        <p className="text-sm text-white/45">{d}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Card className="relative overflow-hidden p-0">
+                <div className="aspect-[4/3] bg-gradient-to-br from-[#14151A] via-[#0A0A0B] to-[#101116]">
+                  <div className="flex h-full flex-col items-center justify-center gap-4">
+                    <QLogo size={120} className="q-float" />
+                    <p className="text-sm tracking-[0.3em] text-white/30">Q3 · STEEL SUMMER</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </section>
+
+          {/* CTA */}
+          <section className="mx-auto max-w-7xl px-5">
+            <Card className="relative overflow-hidden p-10 text-center sm:p-14">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-blue-500/20 blur-[100px]" />
+              <SectionTitle center pill="VISIT US" title="이번 시즌, 직접 경험하세요"
+                desc="Q3 「Steel Summer」 시즌이 진행 중입니다. 지금 방문 예약을 남겨보세요." />
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Button size="lg" onClick={() => navigate("/reserve")}>예약하기 <IconArrow className="h-4 w-4" /></Button>
+                <Button size="lg" variant="secondary" onClick={() => navigate("/location")}>오시는 길</Button>
+              </div>
+            </Card>
+          </section>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 📄 Page — Menu
+    // ========================================
+    const MenuPage = () => {
+      const [active, setActive] = useState("전체");
+      const cats = ["전체", ...MENU_DATA.map((c) => c.cat)];
+      const shown = active === "전체" ? MENU_DATA : MENU_DATA.filter((c) => c.cat === active);
+      return (
+        <div className="q-fade-in mx-auto max-w-7xl px-5 py-16">
+          <SectionTitle center pill="Q3 SEASONAL MENU" title="시즌 메뉴"
+            desc="이번 분기의 음료·디저트·시즌 한정 라인업입니다. 메뉴는 분기마다 새로 짓습니다." />
+
+          <div className="mt-9 flex flex-wrap justify-center gap-2">
+            {cats.map((c) => (
+              <button key={c} onClick={() => setActive(c)}
+                className={"rounded-full border px-4 py-2 text-sm font-medium transition " +
+                  (active === c
+                    ? "border-cyan-400/50 bg-cyan-400/15 text-cyan-200"
+                    : "border-white/10 bg-white/5 text-white/55 hover:text-white hover:bg-white/10")}>
+                {c}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-12 space-y-14">
+            {shown.map((cat) => (
+              <div key={cat.cat}>
+                <div className="mb-5 flex items-center gap-3">
+                  <h3 className="text-xl font-bold text-white/90">{cat.cat}</h3>
+                  <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {cat.items.map((it) => (
+                    <Card key={it.name} hover className="p-6">
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="text-base font-semibold text-white/95">{it.name}</h4>
+                        {it.season && <Pill>한정</Pill>}
+                      </div>
+                      <p className="mt-2 min-h-[40px] text-sm leading-relaxed text-white/45">{it.desc}</p>
+                      <p className="mt-4 text-lg font-bold q-metal">{won(it.price)}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 📄 Page — Event
+    // ========================================
+    const EventPage = () => (
+      <div className="q-fade-in mx-auto max-w-4xl px-5 py-16">
+        <SectionTitle center pill="WHAT'S ON" title="이벤트 & 소식"
+          desc="시즌 전환, 파티시에 콜라보, 신메뉴 출시 등 QUARTER의 최신 소식입니다." />
+
+        <ol className="relative mt-12 space-y-6 border-l border-white/10 pl-6 sm:pl-8">
+          {EVENTS.map((e, i) => (
+            <li key={i} className="relative">
+              <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center sm:-left-[39px]">
+                <span className="h-3 w-3 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 ring-4 ring-cyan-400/15" />
+              </span>
+              <Card hover className="p-6">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-cyan-300">{e.date}</span>
+                  <Pill>{e.tag}</Pill>
+                </div>
+                <h3 className="mt-3 text-lg font-bold text-white/95">{e.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/50">{e.desc}</p>
+              </Card>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+
+    // ========================================
+    // 📄 Page — Reserve (localStorage 게시판)
+    // ========================================
+    const TIMES = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+
+    const ReservePage = () => {
+      const [list, setList] = useState([]);
+      const [form, setForm] = useState({ name: "", phone: "", date: "", time: "", people: "2", note: "" });
+      const [errors, setErrors] = useState({});
+
+      // 로드
+      useEffect(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) setList(JSON.parse(raw));
+        } catch (e) { console.warn("load failed", e); }
+      }, []);
+
+      // 저장
+      const persist = (next) => {
+        setList(next);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+        catch (e) { console.warn("save failed", e); }
+      };
+
+      const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+      const validate = () => {
+        const err = {};
+        if (!form.name.trim()) err.name = "이름을 입력해 주세요.";
+        if (!/^[0-9\-]{8,15}$/.test(form.phone.trim())) err.phone = "올바른 연락처를 입력해 주세요.";
+        if (!form.date) err.date = "방문 날짜를 선택해 주세요.";
+        if (!form.time) err.time = "방문 시간을 선택해 주세요.";
+        setErrors(err);
+        return Object.keys(err).length === 0;
+      };
+
+      const submit = (e) => {
+        e.preventDefault();
+        if (!validate()) return;
+        const entry = {
+          id: Date.now(),
+          ...form,
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          note: form.note.trim(),
+          createdAt: new Date().toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }),
+        };
+        persist([entry, ...list]);
+        setForm({ name: "", phone: "", date: "", time: "", people: "2", note: "" });
+        setErrors({});
+      };
+
+      const remove = (id) => persist(list.filter((r) => r.id !== id));
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      return (
+        <div className="q-fade-in mx-auto max-w-6xl px-5 py-16">
+          <SectionTitle center pill="RESERVATION" title="방문 예약"
+            desc="원하시는 날짜와 시간에 방문 예약을 남겨주세요. 예약 내역은 이 브라우저에 저장되어 새로고침해도 유지됩니다." />
+
+          <div className="mt-12 grid gap-8 lg:grid-cols-5">
+            {/* 폼 */}
+            <Card className="p-7 lg:col-span-2">
+              <h3 className="text-lg font-bold text-white/95">예약 신청</h3>
+              <form onSubmit={submit} className="mt-5 space-y-4">
+                <Field label="이름" required error={errors.name}>
+                  <Input value={form.name} onChange={set("name")} placeholder="홍길동" />
+                </Field>
+                <Field label="연락처" required error={errors.phone}>
+                  <Input value={form.phone} onChange={set("phone")} placeholder="010-0000-0000" inputMode="tel" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="날짜" required error={errors.date}>
+                    <Input type="date" min={today} value={form.date} onChange={set("date")} />
+                  </Field>
+                  <Field label="시간" required error={errors.time}>
+                    <Select value={form.time} onChange={set("time")}>
+                      <option value="">선택</option>
+                      {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </Select>
+                  </Field>
+                </div>
+                <Field label="인원수">
+                  <Select value={form.people} onChange={set("people")}>
+                    {[1,2,3,4,5,6,7,8].map((n) => <option key={n} value={n}>{n}명</option>)}
+                    <option value="9+">9명 이상</option>
+                  </Select>
+                </Field>
+                <Field label="요청사항">
+                  <Textarea rows={3} value={form.note} onChange={set("note")} placeholder="창가 자리 희망, 기념일 방문 등" />
+                </Field>
+                <Button type="submit" size="lg" className="w-full">예약 신청하기</Button>
+              </form>
+            </Card>
+
+            {/* 게시판 */}
+            <div className="lg:col-span-3">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white/95">예약 현황</h3>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/50">
+                  총 {list.length}건
+                </span>
+              </div>
+
+              {list.length === 0 ? (
+                <Card className="flex flex-col items-center justify-center gap-3 p-14 text-center">
+                  <QLogo size={56} className="opacity-40" />
+                  <p className="text-white/40">아직 예약이 없습니다.</p>
+                  <p className="text-sm text-white/30">왼쪽 폼에서 첫 예약을 남겨보세요.</p>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {list.map((r) => (
+                    <Card key={r.id} hover className="flex items-start justify-between gap-4 p-5">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-white/95">{r.name}</span>
+                          <span className="rounded-md bg-cyan-400/15 px-2 py-0.5 text-xs text-cyan-200">{r.people}명</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/55">
+                          <span className="inline-flex items-center gap-1.5"><IconClock className="h-4 w-4" /> {r.date} {r.time}</span>
+                          <span className="text-white/40">{r.phone}</span>
+                        </div>
+                        {r.note && <p className="mt-2 text-sm text-white/40">“{r.note}”</p>}
+                        <p className="mt-1.5 text-xs text-white/25">신청 {r.createdAt}</p>
+                      </div>
+                      <Button variant="danger" size="sm" onClick={() => remove(r.id)} aria-label="예약 삭제">
+                        <IconTrash className="h-4 w-4" />
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 📄 Page — Location
+    // ========================================
+    const LocationPage = () => {
+      const mapEmbed = "https://www.google.com/maps?q=" + encodeURIComponent(BRAND.mapQuery) + "&output=embed";
+      const naverDir = "https://map.naver.com/p/directions/-/-/-/walk?c=" +
+                       "&query=" + encodeURIComponent("성수동 쿼터 카페");
+      return (
+        <div className="q-fade-in mx-auto max-w-7xl px-5 py-16">
+          <SectionTitle center pill="LOCATION" title="오시는 길"
+            desc="서울 성동구 성수동, 카페거리 한가운데에 QUARTER가 있습니다." />
+
+          <div className="mt-12 grid gap-8 lg:grid-cols-3">
+            {/* 지도 */}
+            <Card className="overflow-hidden p-0 lg:col-span-2">
+              <iframe
+                title="QUARTER 위치 지도"
+                src={mapEmbed}
+                className="h-[420px] w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen />
+            </Card>
+
+            {/* 정보 */}
+            <div className="space-y-5">
+              <Card className="p-6">
+                <div className="flex items-center gap-2 text-cyan-300"><IconPin className="h-5 w-5" /><span className="font-semibold">주소</span></div>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">{BRAND.address}</p>
+                <p className="mt-1 text-xs text-white/35">2호선 성수역 3번 출구 도보 6분</p>
+              </Card>
+
+              <Card className="p-6">
+                <div className="flex items-center gap-2 text-cyan-300"><IconClock className="h-5 w-5" /><span className="font-semibold">영업시간</span></div>
+                <ul className="mt-3 space-y-2">
+                  {BRAND.hours.map((h) => (
+                    <li key={h.d} className="flex justify-between text-sm">
+                      <span className="text-white/50">{h.d}</span>
+                      <span className="font-medium text-white/85">{h.t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+
+              <Card className="p-6">
+                <p className="text-sm font-semibold text-white/80">길찾기 / SNS</p>
+                <a href={BRAND.social.naverMap} target="_blank" rel="noreferrer"
+                   className="mt-3 flex items-center justify-between rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-medium text-green-300 transition hover:bg-green-500/20">
+                  <span className="inline-flex items-center gap-2"><IconNaverMap className="h-5 w-5" /> 네이버 지도로 보기</span>
+                  <IconArrow className="h-4 w-4" />
+                </a>
+                <a href={naverDir} target="_blank" rel="noreferrer"
+                   className="mt-2.5 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10">
+                  <span className="inline-flex items-center gap-2"><IconPin className="h-5 w-5" /> 네이버 길찾기</span>
+                  <IconArrow className="h-4 w-4" />
+                </a>
+                <div className="mt-4 flex gap-2">
+                  <a href={BRAND.social.instagram} target="_blank" rel="noreferrer"
+                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white/70 transition hover:text-cyan-300 hover:bg-white/10">
+                    <IconInstagram className="h-4 w-4" /> 인스타
+                  </a>
+                  <a href={BRAND.social.threads} target="_blank" rel="noreferrer"
+                     className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white/70 transition hover:text-cyan-300 hover:bg-white/10">
+                    <IconThreads className="h-4 w-4" /> 스레드
+                  </a>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 📄 404
+    // ========================================
+    const NotFound = () => {
+      const { navigate } = useRouter();
+      return (
+        <div className="q-fade-in mx-auto flex max-w-3xl flex-col items-center px-5 py-32 text-center">
+          <QLogo size={72} className="opacity-50" />
+          <h1 className="mt-6 text-4xl font-extrabold q-metal">페이지를 찾을 수 없습니다</h1>
+          <p className="mt-3 text-white/45">요청하신 페이지가 존재하지 않습니다.</p>
+          <Button className="mt-8" size="lg" onClick={() => navigate("/")}>홈으로 돌아가기</Button>
+        </div>
+      );
+    };
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    const Routes = () => {
+      const { path } = useRouter();
+      switch (path) {
+        case "/":         return <HomePage />;
+        case "/menu":     return <MenuPage />;
+        case "/event":    return <EventPage />;
+        case "/reserve":  return <ReservePage />;
+        case "/location": return <LocationPage />;
+        default:          return <NotFound />;
+      }
+    };
+
+    const App = () => (
+      <Router>
+        <div className="q-bg min-h-screen">
+          <Header />
+          <main><Routes /></main>
+          <Footer />
+        </div>
+      </Router>
+    );
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

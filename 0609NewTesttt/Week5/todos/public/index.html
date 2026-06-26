@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>구름 할 일</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <!-- ⚠️ 모든 CDN 버전 고정. @babel/standalone 은 반드시 v7 (8.x 는 text/babel 인라인 변환을 깨뜨림). -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+  <style>
+    /* ===== 몽환적 파스텔 홀로그래픽 구름 테마 (memo-app 과 동일 톤) ===== */
+    :root {
+      font-family: 'Quicksand', 'Gowun Dodum', system-ui, sans-serif;
+      /* 커서 인터랙션 (JS 가 갱신) */
+      --gx: 50vw;  --gy: 50vh;   /* 커서 글로우 위치 */
+      --px: 0px;   --py: 0px;     /* 블롭 레이어 패럴랙스 오프셋 */
+    }
+    body {
+      font-family: 'Quicksand', 'Gowun Dodum', system-ui, sans-serif;
+      min-height: 100vh;
+      background: #dfeaff; /* 폴백 */
+      overflow-x: hidden;
+    }
+
+    /* ===== 기본 그라데이션 배경 — hue 가 천천히/불규칙하게 돌며 컬러가 변함 ===== */
+    .bg-base {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(60% 50% at 12% 18%, rgba(255, 209, 232, 0.75) 0%, rgba(255, 209, 232, 0) 60%),
+        radial-gradient(55% 45% at 88% 12%, rgba(214, 200, 255, 0.75) 0%, rgba(214, 200, 255, 0) 60%),
+        radial-gradient(50% 50% at 78% 82%, rgba(255, 226, 196, 0.7) 0%, rgba(255, 226, 196, 0) 60%),
+        radial-gradient(55% 55% at 18% 88%, rgba(196, 245, 223, 0.7) 0%, rgba(196, 245, 223, 0) 62%),
+        radial-gradient(45% 40% at 50% 45%, rgba(255, 248, 204, 0.55) 0%, rgba(255, 248, 204, 0) 60%),
+        linear-gradient(180deg, #cfeaff 0%, #e3e8ff 45%, #ffe6f3 100%);
+      animation: hueDrift 53s ease-in-out infinite;
+      will-change: filter;
+    }
+    /* 비대칭 keyframe → 색이 앞뒤로 천천히, 같은 자리로 안 돌아오게 */
+    @keyframes hueDrift {
+      0%   { filter: hue-rotate(0deg)   saturate(1);    }
+      22%  { filter: hue-rotate(14deg)  saturate(1.08); }
+      48%  { filter: hue-rotate(-12deg) saturate(0.95); }
+      71%  { filter: hue-rotate(22deg)  saturate(1.06); }
+      100% { filter: hue-rotate(0deg)   saturate(1);    }
+    }
+
+    /* ===== 떠다니는 블롭 레이어 (커서 패럴랙스 적용) ===== */
+    .bg-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      transform: translate3d(var(--px), var(--py), 0);
+      transition: transform 0.8s cubic-bezier(0.22, 0.61, 0.36, 1); /* 커서를 천천히 따라옴 */
+      will-change: transform;
+    }
+    .cloud-blob {
+      position: absolute;
+      border-radius: 9999px;
+      opacity: 0.55;
+      pointer-events: none;
+      will-change: transform, filter;
+    }
+    /* 각 블롭: 이동(drift)·색상(hue) 애니메이션을 서로소(coprime) 주기로 → 절대 동기화되지 않아 불규칙해 보임 */
+    .blob-1 { width: 42vw; height: 42vw; top: -8vw;   left: -6vw;  background: #ffc8e4; animation: drift1 41s ease-in-out infinite, hue1 29s ease-in-out infinite; }
+    .blob-2 { width: 38vw; height: 38vw; top: 5vw;    right: -8vw; background: #cdbcff; animation: drift2 53s ease-in-out infinite, hue2 37s ease-in-out infinite; }
+    .blob-3 { width: 34vw; height: 34vw; bottom: -10vw; left: 12vw; background: #bdf3da; animation: drift3 47s ease-in-out infinite, hue3 31s ease-in-out infinite; }
+    .blob-4 { width: 30vw; height: 30vw; bottom: 2vw;  right: 6vw;  background: #ffe2b8; animation: drift4 59s ease-in-out infinite, hue4 43s ease-in-out infinite; }
+
+    /* 비대칭·다단계 경로 → 같은 자리로 곧장 안 돌아오는 불규칙한 흐름 */
+    @keyframes drift1 {
+      0%   { transform: translate(0, 0)        scale(1);    }
+      20%  { transform: translate(3vw, -2vw)   scale(1.05); }
+      45%  { transform: translate(-2vw, 2.5vw) scale(0.97); }
+      70%  { transform: translate(2.4vw, 3vw)  scale(1.08); }
+      100% { transform: translate(0, 0)        scale(1);    }
+    }
+    @keyframes drift2 {
+      0%   { transform: translate(0, 0)         scale(1);    }
+      25%  { transform: translate(-3vw, 2vw)    scale(1.07); }
+      55%  { transform: translate(2vw, -2.6vw)  scale(0.96); }
+      80%  { transform: translate(-1.6vw, -2vw) scale(1.04); }
+      100% { transform: translate(0, 0)         scale(1);    }
+    }
+    @keyframes drift3 {
+      0%   { transform: translate(0, 0)        scale(1);    }
+      30%  { transform: translate(2.6vw, 2vw)  scale(1.06); }
+      52%  { transform: translate(-2.4vw, -2vw) scale(1.02); }
+      77%  { transform: translate(1.5vw, -3vw) scale(0.95); }
+      100% { transform: translate(0, 0)        scale(1);    }
+    }
+    @keyframes drift4 {
+      0%   { transform: translate(0, 0)         scale(1);    }
+      23%  { transform: translate(-2.5vw, -2vw) scale(1.05); }
+      50%  { transform: translate(3vw, 1.6vw)   scale(0.98); }
+      74%  { transform: translate(-1.4vw, 2.8vw) scale(1.07); }
+      100% { transform: translate(0, 0)         scale(1);    }
+    }
+    /* hue 도 비대칭으로 흔들어 색이 천천히 불규칙하게 변함 (blur 는 항상 유지) */
+    @keyframes hue1 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 40% { filter: blur(60px) hue-rotate(-28deg); } 70% { filter: blur(60px) hue-rotate(46deg); } }
+    @keyframes hue2 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 35% { filter: blur(60px) hue-rotate(40deg); } 68% { filter: blur(60px) hue-rotate(-34deg); } }
+    @keyframes hue3 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 45% { filter: blur(60px) hue-rotate(34deg); } 75% { filter: blur(60px) hue-rotate(-40deg); } }
+    @keyframes hue4 { 0%,100% { filter: blur(60px) hue-rotate(0deg); } 38% { filter: blur(60px) hue-rotate(-44deg); } 72% { filter: blur(60px) hue-rotate(30deg); } }
+
+    /* ===== 커서를 따라다니는 부드러운 빛 (인터랙티브) ===== */
+    .cursor-glow {
+      position: fixed;
+      top: 0; left: 0;
+      width: 46vmax; height: 46vmax;
+      margin-left: -23vmax; margin-top: -23vmax;
+      border-radius: 9999px;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(199,182,255,0.3) 32%, rgba(199,182,255,0) 70%);
+      filter: blur(28px);
+      opacity: 0;
+      transform: translate3d(var(--gx), var(--gy), 0);
+      transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.6s ease; /* 커서를 천천히 따라옴 */
+      will-change: transform;
+    }
+    body.has-pointer .cursor-glow { opacity: 1; }
+
+    /* 모션 최소화 선호 시: 모든 배경 모션 정지 */
+    @media (prefers-reduced-motion: reduce) {
+      .bg-base, .cloud-blob { animation: none !important; }
+      .cloud-blob { filter: blur(60px); }
+      .bg-layer, .cursor-glow { transition: none !important; }
+    }
+
+    .holo-text {
+      background: linear-gradient(110deg, #ff9ecd, #b79bff 35%, #7fc7ff 65%, #9af0c8);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: holoshift 8s ease-in-out infinite;
+    }
+    @keyframes holoshift {
+      0%, 100% { background-position: 0% center; }
+      50%      { background-position: 100% center; }
+    }
+
+    .holo-btn {
+      background: linear-gradient(120deg, #ffb3d9, #c8b6ff 50%, #a7d8ff);
+      background-size: 180% auto;
+      color: #5b4b7a;
+      box-shadow: 0 8px 22px -8px rgba(180, 150, 230, 0.65);
+      transition: background-position .5s ease, transform .25s ease, box-shadow .25s ease;
+    }
+    .holo-btn:hover:not(:disabled) {
+      background-position: right center;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px -8px rgba(160, 130, 240, 0.8), 0 0 18px rgba(200, 182, 255, 0.5);
+    }
+    .holo-btn-danger {
+      background: linear-gradient(120deg, #ffc0cb, #ffb0c6 50%, #ffd6c2);
+      background-size: 180% auto;
+      color: #9a4a5a;
+      box-shadow: 0 8px 20px -8px rgba(255, 160, 180, 0.6);
+      transition: background-position .5s ease, transform .25s ease, box-shadow .25s ease;
+    }
+    .holo-btn-danger:hover:not(:disabled) {
+      background-position: right center;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px -8px rgba(255, 140, 170, 0.75), 0 0 16px rgba(255, 190, 205, 0.5);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 16px 40px -16px rgba(150, 140, 200, 0.45), inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+    .glass-soft {
+      background: rgba(255, 255, 255, 0.42);
+      backdrop-filter: blur(14px) saturate(150%);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+    }
+    .card-float { transition: transform .25s ease, box-shadow .25s ease; }
+    .card-float:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 44px -18px rgba(150, 140, 200, 0.5), inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .glass-input {
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      transition: box-shadow .25s ease, background .25s ease, border-color .25s ease;
+    }
+    .glass-input::placeholder { color: #9c93b8; }
+    .glass-input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.72);
+      border-color: rgba(199, 182, 255, 0.9);
+      box-shadow: 0 0 0 4px rgba(199, 182, 255, 0.35), 0 0 16px rgba(199, 182, 255, 0.3);
+    }
+    .glass-input.has-error { border-color: rgba(255, 150, 175, 0.9); }
+    .glass-input.has-error:focus { box-shadow: 0 0 0 4px rgba(255, 170, 190, 0.4); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.7s linear infinite; }
+
+    @keyframes softpulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+    .soft-pulse { animation: softpulse 2s ease-in-out infinite; }
+
+    /* 체크 토글 애니메이션용 */
+    .check-pop { transition: transform .18s ease, background .2s ease, border-color .2s ease; }
+    .check-pop:active { transform: scale(0.88); }
+  </style>
+</head>
+<body>
+  <!-- 인터랙티브 배경: 기본 그라데이션 + 떠다니는 블롭 레이어 + 커서 글로우 -->
+  <div class="bg-base"></div>
+  <div class="bg-layer">
+    <div class="cloud-blob blob-1"></div>
+    <div class="cloud-blob blob-2"></div>
+    <div class="cloud-blob blob-3"></div>
+    <div class="cloud-blob blob-4"></div>
+  </div>
+  <div class="cursor-glow"></div>
+
+  <div id="root" style="position: relative; z-index: 1;"></div>
+
+  <!-- 커서 추적: 글로우 위치(--gx/--gy) + 블롭 패럴랙스(--px/--py) 갱신. 이징은 CSS transition 이 담당 → 천천히 따라옴 -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      function move(x, y) {
+        document.body.classList.add('has-pointer');
+        root.style.setProperty('--gx', x + 'px');
+        root.style.setProperty('--gy', y + 'px');
+        var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        root.style.setProperty('--px', ((x - cx) * -0.02) + 'px');
+        root.style.setProperty('--py', ((y - cy) * -0.02) + 'px');
+      }
+      window.addEventListener('pointermove', function (e) { move(e.clientX, e.clientY); }, { passive: true });
+      window.addEventListener('pointerleave', function () { document.body.classList.remove('has-pointer'); });
+    })();
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ========================================
+    // ⚙️ 설정 & 인증 토큰 저장소
+    // ========================================
+    const API_BASE_URL = '/api';
+    const TOKEN_KEY = 'todos_token';
+    const USER_KEY = 'todos_user'; // 새로고침 후 username 복원용 (/me 엔드포인트가 없음)
+
+    function loadToken() {
+      try { return localStorage.getItem(TOKEN_KEY) || null; } catch { return null; }
+    }
+    function loadUser() {
+      try {
+        const raw = localStorage.getItem(USER_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    }
+    function saveAuth(token, user) {
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(USER_KEY, JSON.stringify(user || null));
+      } catch {}
+    }
+    function clearAuth() {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      } catch {}
+    }
+
+    // 401 → 토큰 만료/무효: 강제 로그아웃 신호
+    class UnauthorizedError extends Error {
+      constructor() { super('세션이 만료되었어요. 다시 로그인해 주세요.'); this.name = 'UnauthorizedError'; }
+    }
+
+    // created_at(ISO) → "2026년 6월 23일 14:30"
+    function formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ` +
+             `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트 (memo-app 톤 유지)
+    // ========================================
+    function Button({ variant = 'primary', size = 'md', disabled, onClick, type = 'button', className = '', children, ...rest }) {
+      const base = 'inline-flex items-center justify-center font-semibold rounded-full focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-white/70 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'holo-btn',
+        secondary: 'glass-soft text-violet-700/80 hover:bg-white/70 transition-colors',
+        danger: 'holo-btn-danger',
+        ghost: 'bg-transparent text-violet-600/80 hover:bg-white/50 transition-colors',
+      };
+      const sizes = {
+        sm: 'px-3 py-1 text-sm',
+        md: 'px-5 py-2 text-sm',
+        lg: 'px-6 py-2.5 text-base',
+      };
+      return (
+        <button
+          type={type}
+          disabled={disabled}
+          onClick={onClick}
+          className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+          {...rest}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Input({ label, value, onChange, placeholder, error, disabled, type = 'text', className = '', ...rest }) {
+      return (
+        <div className={className}>
+          {label && <label className="block text-sm font-semibold text-violet-700/80 mb-1.5 ml-1">{label}</label>}
+          <input
+            type={type}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            disabled={disabled}
+            className={`glass-input w-full rounded-2xl px-4 py-2.5 text-sm text-slate-700 disabled:opacity-60 ${
+              error ? 'has-error' : ''
+            }`}
+            {...rest}
+          />
+          {error && <p className="mt-1.5 ml-1 text-xs text-rose-500/90">{error}</p>}
+        </div>
+      );
+    }
+
+    function Card({ className = '', children }) {
+      return <div className={`glass rounded-3xl ${className}`}>{children}</div>;
+    }
+
+    function Spinner({ className = 'h-5 w-5' }) {
+      return (
+        <span
+          className={`spinner inline-block rounded-full border-2 border-violet-200/70 border-t-violet-400 ${className}`}
+          aria-hidden="true"
+        />
+      );
+    }
+
+    // ========================================
+    // 🧩 상태/안내 컴포넌트
+    // ========================================
+    function LoadingState() {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-violet-500/80 soft-pulse" role="status">
+          <Spinner className="h-9 w-9" />
+          <p className="mt-4 text-sm font-medium">구름 사이에서 할 일을 불러오는 중...</p>
+        </div>
+      );
+    }
+
+    function ErrorState({ message, onRetry }) {
+      return (
+        <Card className="p-8 text-center">
+          <div className="text-4xl mb-2">🌧️</div>
+          <p className="text-violet-800/90 font-semibold">잠시 구름이 끼었어요</p>
+          <p className="text-sm text-slate-500 mt-1">{message}</p>
+          {onRetry && (
+            <Button variant="secondary" className="mt-4" onClick={onRetry}>다시 시도</Button>
+          )}
+        </Card>
+      );
+    }
+
+    function EmptyState({ filter }) {
+      const msg = {
+        all: { icon: '☁️', title: '아직 할 일이 없어요', sub: '구름 위에 첫 할 일을 살포시 올려보세요.' },
+        active: { icon: '🎉', title: '진행 중인 할 일이 없어요', sub: '모두 끝냈거나, 새로 추가해 보세요.' },
+        done: { icon: '🌙', title: '완료한 할 일이 없어요', sub: '하나씩 체크해서 채워보세요.' },
+      }[filter] || { icon: '☁️', title: '할 일이 없어요', sub: '' };
+      return (
+        <Card className="p-12 text-center">
+          <div className="text-5xl mb-3">{msg.icon}</div>
+          <p className="text-violet-800/90 font-semibold">{msg.title}</p>
+          <p className="text-sm text-slate-500 mt-1.5">{msg.sub}</p>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🔐 인증 화면 (로그인 / 회원가입 토글)
+    // ========================================
+    function AuthScreen({ onAuthed }) {
+      const [mode, setMode] = useState('login'); // 'login' | 'register'
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [fieldErr, setFieldErr] = useState({});
+      const [apiErr, setApiErr] = useState('');
+      const [submitting, setSubmitting] = useState(false);
+
+      const isRegister = mode === 'register';
+
+      const switchMode = () => {
+        setMode(isRegister ? 'login' : 'register');
+        setFieldErr({});
+        setApiErr('');
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        const errs = {};
+        if (!username.trim()) errs.username = '아이디를 입력해 주세요.';
+        if (!password) errs.password = '비밀번호를 입력해 주세요.';
+        setFieldErr(errs);
+        setApiErr('');
+        if (Object.keys(errs).length > 0) return;
+
+        setSubmitting(true);
+        try {
+          const endpoint = isRegister ? '/auth/register' : '/auth/login';
+          const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username.trim(), password }),
+          });
+          let data = {};
+          try { data = await res.json(); } catch {}
+          if (!res.ok) {
+            throw new Error(
+              data.error ||
+              (isRegister ? '회원가입에 실패했어요.' : '아이디 또는 비밀번호가 틀렸습니다.')
+            );
+          }
+          if (!data.token) throw new Error('토큰을 받지 못했어요. 잠시 후 다시 시도해 주세요.');
+          saveAuth(data.token, data.user);
+          onAuthed(data.token, data.user);
+        } catch (err) {
+          setApiErr(err.message || '요청에 실패했어요.');
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <div className="text-center mb-7">
+              <h1 className="text-3xl font-extrabold holo-text tracking-tight">☁️ 구름 할 일</h1>
+              <p className="mt-2 text-sm text-violet-500/80">
+                {isRegister ? '계정을 만들고 할 일을 구름 위에 올려보세요.' : '로그인하고 오늘의 할 일을 확인하세요.'}
+              </p>
+            </div>
+
+            <Card className="p-7">
+              {/* 모드 토글 */}
+              <div className="glass-soft rounded-full p-1 flex mb-6">
+                <button
+                  type="button"
+                  onClick={() => mode !== 'login' && switchMode()}
+                  className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                    !isRegister ? 'holo-btn' : 'text-violet-500/70 hover:text-violet-600'
+                  }`}
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mode !== 'register' && switchMode()}
+                  className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                    isRegister ? 'holo-btn' : 'text-violet-500/70 hover:text-violet-600'
+                  }`}
+                >
+                  회원가입
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Input
+                  label="아이디"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="아이디를 입력하세요"
+                  error={fieldErr.username}
+                  disabled={submitting}
+                  autoComplete="username"
+                />
+                <Input
+                  label="비밀번호"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  error={fieldErr.password}
+                  disabled={submitting}
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                />
+
+                {apiErr && (
+                  <div className="rounded-2xl bg-rose-100/60 border border-rose-200/70 px-4 py-2.5 text-sm text-rose-600/90 font-medium">
+                    {apiErr}
+                  </div>
+                )}
+
+                <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+                  {submitting
+                    ? (<><Spinner className="h-4 w-4 mr-2" /> {isRegister ? '가입 중...' : '로그인 중...'}</>)
+                    : (isRegister ? '회원가입' : '로그인')}
+                </Button>
+              </form>
+
+              <p className="mt-5 text-center text-xs text-violet-400/80">
+                {isRegister ? '이미 계정이 있으신가요?' : '아직 계정이 없으신가요?'}{' '}
+                <button type="button" onClick={switchMode} className="font-bold text-violet-500/90 hover:underline">
+                  {isRegister ? '로그인' : '회원가입'}
+                </button>
+              </p>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 할 일 추가 폼
+    // ========================================
+    function TodoForm({ onCreate }) {
+      const [text, setText] = useState('');
+      const [error, setError] = useState('');
+      const [saving, setSaving] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!text.trim()) {
+          setError('할 일을 입력해 주세요.');
+          return;
+        }
+        setError('');
+        setSaving(true);
+        try {
+          await onCreate(text.trim());
+          setText('');
+        } catch (err) {
+          setError(err.message || '추가에 실패했어요.');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <form onSubmit={handleSubmit} className="mb-6">
+          <div className="flex gap-2 items-start">
+            <div className="flex-1">
+              <Input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="새 할 일을 입력하세요..."
+                error={error}
+                disabled={saving}
+                aria-label="새 할 일"
+              />
+            </div>
+            <Button type="submit" size="lg" disabled={saving} className="shrink-0">
+              {saving ? <Spinner className="h-4 w-4" /> : '추가'}
+            </Button>
+          </div>
+        </form>
+      );
+    }
+
+    // ========================================
+    // 🧩 할 일 한 줄
+    // ========================================
+    function TodoItem({ todo, onToggle, onDelete }) {
+      const [busy, setBusy] = useState(false);
+
+      const handleToggle = async () => {
+        setBusy(true);
+        try {
+          await onToggle(todo);
+        } catch (err) {
+          window.alert(err.message || '변경에 실패했어요.');
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const handleDelete = async () => {
+        setBusy(true);
+        try {
+          await onDelete(todo.id);
+        } catch (err) {
+          window.alert(err.message || '삭제에 실패했어요.');
+          setBusy(false);
+        }
+      };
+
+      return (
+        <Card className="p-4 flex items-center gap-3 card-float">
+          <button
+            type="button"
+            onClick={handleToggle}
+            disabled={busy}
+            role="checkbox"
+            aria-checked={todo.done}
+            aria-label={todo.done ? '완료 취소' : '완료로 표시'}
+            className={`check-pop shrink-0 h-6 w-6 rounded-full border-2 flex items-center justify-center disabled:opacity-50 ${
+              todo.done
+                ? 'bg-gradient-to-br from-violet-300 to-sky-300 border-transparent text-white'
+                : 'border-violet-300/70 bg-white/40 text-transparent hover:border-violet-400'
+            }`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+              <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 111.4-1.4l2.8 2.8 6.8-6.8a1 1 0 011.4 0z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          <span
+            className={`flex-1 text-sm break-words leading-relaxed ${
+              todo.done ? 'line-through text-slate-400/80' : 'text-violet-900/90 font-medium'
+            }`}
+          >
+            {todo.text}
+          </span>
+
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={handleDelete}
+            disabled={busy}
+            aria-label="할 일 삭제"
+            className="shrink-0"
+          >
+            삭제
+          </Button>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 🧩 필터 탭
+    // ========================================
+    function FilterTabs({ filter, onChange, counts }) {
+      const tabs = [
+        { key: 'all', label: '전체', n: counts.all },
+        { key: 'active', label: '진행중', n: counts.active },
+        { key: 'done', label: '완료', n: counts.done },
+      ];
+      return (
+        <div className="glass-soft rounded-full p-1 inline-flex">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onChange(t.key)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                filter === t.key ? 'holo-btn' : 'text-violet-500/70 hover:text-violet-600'
+              }`}
+            >
+              {t.label}
+              <span className="ml-1.5 text-xs opacity-80">{t.n}</span>
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 할 일 메인 화면 (인증된 상태)
+    // ========================================
+    function TodoApp({ token, user, onLogout }) {
+      const [todos, setTodos] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [filter, setFilter] = useState('all');
+
+      // 모든 인증 요청은 이 헬퍼를 통과한다. 401 → 강제 로그아웃, 에러바디의 .error 노출.
+      const authedFetch = useCallback(async (path, options = {}) => {
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+          ...options,
+          headers: {
+            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+            Authorization: `Bearer ${token}`,
+            ...(options.headers || {}),
+          },
+        });
+        if (res.status === 401) {
+          onLogout();
+          throw new UnauthorizedError();
+        }
+        let data = null;
+        try { data = await res.json(); } catch {}
+        if (!res.ok) {
+          throw new Error((data && data.error) || `요청에 실패했어요 (${res.status})`);
+        }
+        return data;
+      }, [token, onLogout]);
+
+      const fetchTodos = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const data = await authedFetch('/todos');
+          setTodos(Array.isArray(data) ? data : []);
+        } catch (err) {
+          if (err.name === 'UnauthorizedError') return; // 로그인 화면으로 빠짐
+          setError(err.message || '할 일을 불러오지 못했어요.');
+        } finally {
+          setLoading(false);
+        }
+      }, [authedFetch]);
+
+      useEffect(() => { fetchTodos(); }, [fetchTodos]);
+
+      const handleCreate = async (text) => {
+        const created = await authedFetch('/todos', {
+          method: 'POST',
+          body: JSON.stringify({ text }),
+        });
+        setTodos((prev) => [created, ...prev]);
+      };
+
+      const handleToggle = async (todo) => {
+        const updated = await authedFetch(`/todos/${todo.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ done: !todo.done }),
+        });
+        setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, ...updated } : t)));
+      };
+
+      const handleDelete = async (id) => {
+        await authedFetch(`/todos/${id}`, { method: 'DELETE' });
+        setTodos((prev) => prev.filter((t) => t.id !== id));
+      };
+
+      const counts = {
+        all: todos.length,
+        active: todos.filter((t) => !t.done).length,
+        done: todos.filter((t) => t.done).length,
+      };
+
+      const visible = todos.filter((t) =>
+        filter === 'active' ? !t.done : filter === 'done' ? t.done : true
+      );
+
+      return (
+        <div className="min-h-screen">
+          <header className="glass-soft sticky top-0 z-20 border-b border-white/40">
+            <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+              <h1 className="text-xl sm:text-2xl font-extrabold holo-text tracking-tight">☁️ 구름 할 일</h1>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-violet-600/80 font-semibold hidden sm:inline">
+                  {user && user.username ? `${user.username} 님` : '환영합니다'}
+                </span>
+                <Button variant="secondary" size="sm" onClick={onLogout}>로그아웃</Button>
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-2xl mx-auto px-4 py-8">
+            <TodoForm onCreate={handleCreate} />
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+              <FilterTabs filter={filter} onChange={setFilter} counts={counts} />
+              <span className="text-sm font-semibold text-violet-500/80 ml-1">
+                {counts.active > 0 ? `남은 할 일 ${counts.active}개` : '모두 완료했어요! 🎉'}
+              </span>
+            </div>
+
+            {loading ? (
+              <LoadingState />
+            ) : error ? (
+              <ErrorState message={error} onRetry={fetchTodos} />
+            ) : visible.length === 0 ? (
+              <EmptyState filter={filter} />
+            ) : (
+              <div className="space-y-3">
+                {visible.map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onToggle={handleToggle}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App — 인증 게이트 (상태 머신, 라우터 불필요)
+    // ========================================
+    function App() {
+      const [token, setToken] = useState(loadToken);
+      const [user, setUser] = useState(loadUser);
+
+      const handleAuthed = useCallback((newToken, newUser) => {
+        setToken(newToken);
+        setUser(newUser || null);
+      }, []);
+
+      const handleLogout = useCallback(() => {
+        clearAuth();
+        setToken(null);
+        setUser(null);
+      }, []);
+
+      if (!token) {
+        return <AuthScreen onAuthed={handleAuthed} />;
+      }
+      // token 을 key 로 주어 로그인 계정이 바뀌면 TodoApp 상태를 초기화
+      return <TodoApp key={token} token={token} user={user} onLogout={handleLogout} />;
+    }
+
+    // ========================================
+    // Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

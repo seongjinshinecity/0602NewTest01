@@ -1,0 +1,34 @@
+[입력 명령어 — 2026-06-25]
+
+단일 index.html 하나로 카페 브랜드 "QUARTER" 공식 웹사이트 UI를 만들어줘.
+CDN 기반 React 18 + ReactDOM 18 + Babel + Tailwind CSS만 사용, 빌드 도구 없이 브라우저에서 바로 열리게.
+
+저장 위치:
+/Users/hwangseongjin/Downloads/0602NewTest01/0609NewTesttt/Week5/Homework5/01_Cafe/04_웹사이트/index.html
+
+기술 요건:
+- React 18 + ReactDOM 18 UMD CDN
+- @babel/standalone는 반드시 v7로 핀 (Babel 8은 깨져서 빈 화면)
+- Tailwind: https://cdn.tailwindcss.com
+- 한국어 웹폰트(Pretendard/Noto Sans KR) CDN
+- <script type="text/babel"> 안에 React, 단일 파일
+- 해시 라우팅: #/, #/menu, #/event, #/reserve, #/location
+- 기본 UI 언어 한국어
+
+브랜드 QUARTER:
+- 컨셉: 분기마다 메뉴·공간·디저트를 통째로 바꾸는 블랙·스테인리스 메탈 미니멀 프리미엄 카페
+- 슬로건: "시즌마다, 새로 짓다"
+- 로고: 알파벳 Q를 메탈 링 안에 넣은 형태 (CSS/인라인 SVG)
+- 컬러: Black #0A0A0B, Ink #14151A, Steel #6C7077, Silver #A8ACB3, Chrome #E8EAED, Cyan #22C7C7, Blue #3B82F6
+
+디자인: 다크 글래시 프리미엄 (라디얼 글로우 오브, 글래스모피즘 카드, 시안/블루 액센트, 알약 라벨, 반응형)
+
+페이지:
+1. 홈 — 히어로/슬로건/CTA/소개
+2. 메뉴 — 음료/디저트/시즌 한정 카드 그리드, 가격
+3. 이벤트 — 시즌/콜라보/신메뉴 타임라인 카드
+4. 예약 — 신청 폼 + localStorage 게시판(추가/삭제/새로고침 유지)
+5. 오시는 길 — 구글맵 embed + 주소/영업시간 + 네이버 지도 버튼
+
+소셜 아이콘(인라인 SVG, 호버): 네이버 지도 / 인스타그램 / 스레드 — 헤더+푸터.
+네비: 상단 고정 헤더(로고+메뉴+소셜), 푸터(브랜드+소셜+저작권).

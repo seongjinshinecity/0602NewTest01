@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUARTER — Instagram Profile</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap');
+  :root{--bg:#0a0a0b;--line:#26272b;--steel-1:#e8eaed;--steel-2:#a8acb3;--steel-3:#6c7077}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--steel-1);font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:28px}
+  .head{width:100%;max-width:760px;display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:1px solid var(--line);padding-bottom:16px}
+  .head h1{font-weight:300;font-size:13px;letter-spacing:.4em;color:var(--steel-2);text-transform:uppercase}
+  .head .sub{font-size:10px;letter-spacing:.25em;color:var(--steel-3);text-transform:uppercase}
+
+  .row{display:flex;gap:30px;flex-wrap:wrap;justify-content:center}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .cap{font-size:10px;letter-spacing:.2em;color:var(--steel-3);text-transform:uppercase}
+
+  /* square 1080 -> shown at 300 */
+  .sq{width:300px;height:300px;border-radius:6px;position:relative;overflow:hidden;
+    display:flex;align-items:center;justify-content:center}
+  /* circular safe-crop guide */
+  .crop::after{content:"";position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 0 9999px transparent;border:1px dashed rgba(168,172,179,.45);pointer-events:none}
+
+  .steel{background:linear-gradient(180deg,#ffffff 0%,#9a9ea5 55%,#e3e6ea 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .steel-dark{background:linear-gradient(180deg,#3a3d42 0%,#0e0f12 60%,#2b2e33 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+
+  .dark{background:radial-gradient(420px 280px at 50% 30%,#1a1b1f 0%,#0a0a0b 70%)}
+  .dark::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(120deg,transparent 38%,rgba(255,255,255,.06) 50%,transparent 64%)}
+  .light{background:linear-gradient(180deg,#f2f3f5,#dde0e4)}
+
+  /* monogram only */
+  .qbig{font-weight:700;font-size:150px;letter-spacing:0;z-index:1}
+
+  /* ringed monogram */
+  .qring{width:180px;height:180px;border-radius:50%;border:3px solid var(--steel-2);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:96px;z-index:1}
+  .light .qring{border-color:#5a5e65}
+
+  /* mono + micro wordmark */
+  .stack{display:flex;flex-direction:column;align-items:center;gap:8px;z-index:1}
+  .stack .qm{font-weight:700;font-size:120px;line-height:.9}
+  .stack .wm{font-weight:600;font-size:15px;letter-spacing:.55em;padding-left:.55em;color:var(--steel-2)}
+  .light .stack .wm{color:#5a5e65}
+
+  .note{max-width:760px;font-size:11px;line-height:1.7;color:var(--steel-3);letter-spacing:.02em;text-align:center}
+  .note b{color:var(--steel-2);font-weight:600}
+  .footer{font-size:10px;letter-spacing:.25em;color:var(--steel-3);text-transform:uppercase}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>QUARTER — Instagram Profile</h1>
+    <div class="sub">1080 × 1080 · Circular Safe</div>
+  </div>
+
+  <div class="row">
+    <div class="cell">
+      <div class="sq dark crop"><div class="qbig steel">Q</div></div>
+      <div class="cap">A · Monogram</div>
+    </div>
+    <div class="cell">
+      <div class="sq dark crop"><div class="qring steel">Q</div></div>
+      <div class="cap">B · Ringed</div>
+    </div>
+    <div class="cell">
+      <div class="sq dark crop"><div class="stack"><div class="qm steel">Q</div><div class="wm">QUARTER</div></div></div>
+      <div class="cap">C · Mono + Wordmark</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="cell">
+      <div class="sq light crop"><div class="qbig steel-dark">Q</div></div>
+      <div class="cap">D · Light variant</div>
+    </div>
+    <div class="cell">
+      <div class="sq light crop"><div class="qring steel-dark">Q</div></div>
+      <div class="cap">E · Light ringed</div>
+    </div>
+  </div>
+
+  <div class="note">
+    점선 원 = 인스타에서 <b>실제로 보이는 영역</b>. 핵심 요소(Q)는 모두 원 안 중앙에 배치됨.<br>
+    프로필엔 <b>B(Ringed)</b> 추천 — 작은 원형에서도 Q가 또렷하고 메탈 테두리가 브랜드감을 줌.
+  </div>
+  <div class="footer">QUARTER · Profile Asset · 1080×1080</div>
+</body>
+</html>

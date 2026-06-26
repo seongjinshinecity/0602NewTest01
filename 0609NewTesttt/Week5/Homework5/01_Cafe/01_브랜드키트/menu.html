@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUARTER — Menu</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+  :root{
+    --bg:#0a0a0b;
+    --panel:#111114;
+    --steel-1:#e8eaed;
+    --steel-2:#a8acb3;
+    --steel-3:#6c7077;
+    --line:#26272b;
+    --accent:#cdd2d8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #18191d 0%, transparent 60%),
+      var(--bg);
+    color:var(--steel-1);
+    font-family:'Noto Sans KR','Inter',sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:48px 20px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .board{
+    width:100%;
+    max-width:680px;
+    background:linear-gradient(180deg,#121316 0%,#0d0d10 100%);
+    border:1px solid var(--line);
+    border-radius:4px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04);
+    padding:56px 52px 48px;
+    position:relative;
+    overflow:hidden;
+  }
+  /* brushed steel sheen */
+  .board::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.035) 48%,rgba(255,255,255,.06) 50%,transparent 70%);
+  }
+
+  /* header */
+  .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+  .logo{
+    font-family:'Inter',sans-serif;font-weight:800;font-size:42px;letter-spacing:.18em;
+    background:linear-gradient(180deg,#fff 0%,#9a9ea5 55%,#dfe2e6 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .logo .q{
+    display:inline-block;border:2px solid var(--steel-2);border-radius:50%;
+    width:46px;height:46px;line-height:42px;text-align:center;font-size:26px;
+    margin-right:10px;vertical-align:middle;color:var(--steel-1);
+    -webkit-text-fill-color:var(--steel-1);
+  }
+  .season{
+    text-align:right;font-family:'Inter',sans-serif;
+  }
+  .season .tag{
+    font-size:11px;letter-spacing:.35em;color:var(--steel-3);text-transform:uppercase;
+  }
+  .season .name{
+    font-size:15px;letter-spacing:.3em;color:var(--steel-2);margin-top:4px;font-weight:600;
+  }
+  .slogan{
+    font-size:12px;color:var(--steel-3);letter-spacing:.04em;margin-top:6px;
+    font-weight:300;
+  }
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line) 12%,var(--line) 88%,transparent);margin:30px 0 28px}
+
+  /* section */
+  .section{margin-bottom:30px;position:relative}
+  .sec-head{
+    display:flex;align-items:center;gap:14px;margin-bottom:18px;
+  }
+  .sec-head h2{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;
+    letter-spacing:.35em;color:var(--steel-2);text-transform:uppercase;white-space:nowrap;
+  }
+  .sec-head .kr{font-size:11px;color:var(--steel-3);font-weight:400;letter-spacing:.1em}
+  .sec-head::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .item{
+    display:flex;align-items:baseline;gap:12px;padding:9px 0;
+  }
+  .item .nm{font-weight:500;font-size:15px;color:var(--steel-1)}
+  .item .nm small{display:block;font-size:11px;color:var(--steel-3);font-weight:300;letter-spacing:.05em;margin-top:3px}
+  .item .dots{flex:1;border-bottom:1px dotted var(--line);transform:translateY(-4px)}
+  .item .pr{font-family:'Inter',sans-serif;font-weight:400;font-size:15px;color:var(--steel-2);white-space:nowrap}
+
+  .badge{
+    display:inline-block;font-family:'Inter',sans-serif;font-size:9px;font-weight:600;
+    letter-spacing:.15em;padding:2px 7px;border:1px solid var(--steel-3);border-radius:2px;
+    color:var(--steel-2);margin-left:8px;vertical-align:middle;text-transform:uppercase;
+  }
+
+  /* signature highlight */
+  .signature{
+    background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);
+    border:1px solid var(--line);border-radius:3px;padding:20px 22px;margin-bottom:30px;
+  }
+  .signature .sig-label{
+    font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--steel-3);
+    text-transform:uppercase;margin-bottom:14px;
+  }
+
+  .foot{
+    margin-top:36px;text-align:center;font-family:'Inter',sans-serif;
+    font-size:10px;letter-spacing:.25em;color:var(--steel-3);text-transform:uppercase;
+  }
+  .foot span{color:var(--steel-2)}
+</style>
+</head>
+<body>
+  <div class="board">
+    <div class="top">
+      <div class="logo"><span class="q">Q</span>UARTER</div>
+      <div class="season">
+        <div class="tag">Season 02</div>
+        <div class="name">F R E S H</div>
+        <div class="slogan">시즌마다, 새로 짓다</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- SIGNATURE -->
+    <div class="signature">
+      <div class="sig-label">This Season's Signature</div>
+      <div class="item">
+        <div class="nm">시트러스 콜드브루 토닉<small>콜드브루 · 자몽 · 토닉 · 로즈마리</small></div>
+        <div class="dots"></div>
+        <div class="pr">7,500</div>
+      </div>
+      <div class="item">
+        <div class="nm">바질 레몬 케이크<span class="badge">Collab</span><small>분기 한정 · 파티시에 콜라보 디저트</small></div>
+        <div class="dots"></div>
+        <div class="pr">9,000</div>
+      </div>
+    </div>
+
+    <!-- COFFEE -->
+    <div class="section">
+      <div class="sec-head"><h2>Coffee</h2><span class="kr">커피</span></div>
+      <div class="item"><div class="nm">에스프레소</div><div class="dots"></div><div class="pr">5,500</div></div>
+      <div class="item"><div class="nm">아메리카노 <small>Hot / Ice</small></div><div class="dots"></div><div class="pr">6,500</div></div>
+      <div class="item"><div class="nm">콜드브루</div><div class="dots"></div><div class="pr">7,000</div></div>
+      <div class="item"><div class="nm">플랫 화이트</div><div class="dots"></div><div class="pr">7,000</div></div>
+      <div class="item"><div class="nm">QUARTER 라떼 <small>시그니처 블렌드 · 메탈 텀블러 제공</small></div><div class="dots"></div><div class="pr">8,000</div></div>
+    </div>
+
+    <!-- SEASONAL -->
+    <div class="section">
+      <div class="sec-head"><h2>Seasonal</h2><span class="kr">시즌 한정</span></div>
+      <div class="item"><div class="nm">자몽 에이드</div><div class="dots"></div><div class="pr">7,500</div></div>
+      <div class="item"><div class="nm">바질 레모네이드</div><div class="dots"></div><div class="pr">7,500</div></div>
+      <div class="item"><div class="nm">청포도 콜드브루 토닉</div><div class="dots"></div><div class="pr">8,000</div></div>
+    </div>
+
+    <!-- DESSERT -->
+    <div class="section">
+      <div class="sec-head"><h2>Dessert</h2><span class="kr">디저트</span></div>
+      <div class="item"><div class="nm">바스크 치즈케이크</div><div class="dots"></div><div class="pr">8,500</div></div>
+      <div class="item"><div class="nm">레몬 마들렌 <small>2pcs</small></div><div class="dots"></div><div class="pr">6,000</div></div>
+      <div class="item"><div class="nm">바질 레몬 케이크 <span class="badge">Collab</span></div><div class="dots"></div><div class="pr">9,000</div></div>
+    </div>
+
+    <div class="foot">SEASON 02 · <span>FRESH</span> · APR – JUN</div>
+  </div>
+</body>
+</html>

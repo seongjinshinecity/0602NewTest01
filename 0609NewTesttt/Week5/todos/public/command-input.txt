@@ -1,0 +1,6 @@
+# 이 앱을 만들 때 입력한 명령어
+
+Week5/todos 에 간단한 할일 관리 앱 만들어줘
+@"single-react-dev (agent)" 
+@../single-server-specialist.md 
+JWT 인증 방식을 이용해줘

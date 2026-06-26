@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QUARTER — Intro</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#000; overflow:hidden; }
+  body { cursor:crosshair; }
+  #stage { position:fixed; inset:0; display:block; background:#000; }
+
+  /* settle overlay (slogan + hint) */
+  .overlay {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px;
+    pointer-events:none; opacity:0; transition:opacity .6s ease;
+    font-family:"Pretendard",-apple-system,system-ui,sans-serif;
+  }
+  .overlay.show { opacity:1; }
+  .slogan {
+    color:#f4f4f5; font-size:clamp(13px,2.4vw,20px); letter-spacing:.55em;
+    padding-left:.55em; font-weight:500; text-shadow:0 0 18px rgba(255,255,255,.25);
+  }
+  .rule { width:0; height:1px; background:#fff; opacity:.5;
+          transition:width 1s ease .2s; }
+  .overlay.show .rule { width:min(360px,60vw); }
+  .hint {
+    position:fixed; bottom:26px; left:0; right:0; text-align:center;
+    color:#6b6b70; font-size:11px; letter-spacing:.3em; text-transform:uppercase;
+    font-family:"Pretendard",monospace; opacity:0; transition:opacity .6s ease;
+  }
+  .hint.show { opacity:1; }
+  .scan { position:fixed; inset:0; pointer-events:none; mix-blend-mode:overlay; opacity:.5;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px); }
+  .vig { position:fixed; inset:0; pointer-events:none;
+    background:radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.85) 100%); }
+</style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <div class="scan"></div>
+  <div class="vig"></div>
+  <div class="overlay" id="ov">
+    <div class="slogan">시즌마다 새로짓다</div>
+    <div class="rule"></div>
+  </div>
+  <div class="hint" id="hint">CLICK TO REPLAY · 마우스로 글리치</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('stage');
+  const ctx = cv.getContext('2d', { alpha:false });
+  const ov = document.getElementById('ov');
+  const hint = document.getElementById('hint');
+
+  const WORD = "QUARTER";
+  const RAMP = "@#W$98760?!abc;:+=-,._ ";          // dark→light density ramp
+  const NOISE = "01<>/\\|[]{}*+=-_:.#%&$@QUARTER01".split("");
+  const DUR = 2000;                                  // 2s intro
+
+  let W,H, cell, cols, rows, mask, settle, cx, cy, dpr;
+  let start = performance.now();
+  let mouse = { x:-999, y:-999, on:false };
+  let done = false;
+
+  function rand(a){ return a[(Math.random()*a.length)|0]; }
+
+  function build() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W*dpr; cv.height = H*dpr;
+    cv.style.width = W+'px'; cv.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    cell = Math.max(9, Math.round(Math.min(W,H)/64));  // glyph cell size
+    cols = Math.ceil(W/cell);
+    rows = Math.ceil(H/cell);
+
+    // render WORD into an offscreen grid to get the target mask
+    const off = document.createElement('canvas');
+    off.width = cols; off.height = rows;
+    const o = off.getContext('2d');
+    o.fillStyle = '#000'; o.fillRect(0,0,cols,rows);
+    o.fillStyle = '#fff';
+    o.textAlign = 'center'; o.textBaseline = 'middle';
+    // fit font to width
+    let fs = rows*0.42;
+    o.font = `900 ${fs}px "Arial Black",Arial,sans-serif`;
+    // shrink to fit ~82% width
+    let w = o.measureText(WORD).width;
+    const target = cols*0.84;
+    fs = fs * (target/w);
+    fs = Math.min(fs, rows*0.6);
+    o.font = `900 ${fs}px "Arial Black",Arial,sans-serif`;
+    o.fillText(WORD, cols/2, rows/2);
+    const data = o.getImageData(0,0,cols,rows).data;
+
+    mask = new Uint8Array(cols*rows);
+    settle = new Float32Array(cols*rows);
+    let minX=cols, maxX=0;
+    for (let y=0;y<rows;y++){
+      for (let x=0;x<cols;x++){
+        const a = data[(y*cols+x)*4]; // red channel
+        if (a>110){ mask[y*cols+x]=1; if(x<minX)minX=x; if(x>maxX)maxX=x; }
+      }
+    }
+    // per-cell settle time: left→right sweep + small jitter
+    const span = Math.max(1,(maxX-minX));
+    for (let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+      const i=y*rows? y*cols+x : y*cols+x;
+      settle[i] = 0.18 + 0.62*((x-minX)/span) + Math.random()*0.12;
+    }
+    cx = cols/2; cy = rows/2;
+  }
+
+  function draw(now){
+    const t = now - start;
+    let p = t/DUR; if(p>1)p=1;
+    const ease = p<0.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+    ctx.font = `${cell}px "SFMono-Regular",Menlo,Consolas,monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+
+    // global glitch slices: bursts mid-intro and tiny ones after
+    const glAmp = (p<1 ? Math.sin(p*Math.PI)*1 : 0.06) ;
+    const slices = [];
+    const nSlice = (Math.random()<(p<1?0.5:0.12)) ? (1+ (Math.random()*3|0)) : 0;
+    for(let s=0;s<nSlice;s++){
+      const yy = Math.random()*rows|0;
+      slices.push([yy, (Math.random()*8|0)-4, 2+(Math.random()*4|0)]);
+    }
+    const sliceOff = (y) => {
+      for(const [yy,dx,hh] of slices){ if(y>=yy && y<yy+hh) return dx*glAmp; }
+      return 0;
+    };
+
+    const mcx = mouse.x/cell, mcy = mouse.y/cell;
+
+    for(let y=0;y<rows;y++){
+      const offx = sliceOff(y)*cell;
+      for(let x=0;x<cols;x++){
+        const i=y*cols+x;
+        const isWord = mask[i]===1;
+        let ch, alpha;
+
+        if(isWord){
+          const st = settle[i];
+          if(ease < st){
+            // not settled yet → churning noise where the letter will appear
+            ch = rand(NOISE);
+            alpha = 0.25 + Math.random()*0.5;
+          } else {
+            // settled glyph: bright, faint flicker
+            const f = (ease-st)/(1-st+0.0001);
+            ch = (Math.random()<0.04 && p<1)? rand(NOISE) : '█';
+            alpha = 0.85 + Math.random()*0.15*(1-f*0.5);
+          }
+        } else {
+          // background ascii field: dense early, fades out as intro completes
+          const base = (1-ease);
+          if(Math.random() > base*0.9 + (p>=1?0.012:0)) { continue; }
+          ch = rand(NOISE);
+          alpha = (0.06 + Math.random()*0.30) * (p<1?1:0.5);
+        }
+
+        // mouse interaction → local glitch ripple
+        if(mouse.on){
+          const dx=x-mcx, dy=y-mcy, d=Math.sqrt(dx*dx+dy*dy);
+          if(d<7){ ch = rand(NOISE); alpha = Math.min(1, alpha + (7-d)/7*0.7); }
+        }
+
+        const px = x*cell + cell/2 + offx;
+        const py = y*cell + cell/2;
+        // chromatic-ish glitch ghost during bursts
+        if(glAmp>0.4 && isWord && Math.random()<0.25){
+          ctx.fillStyle = `rgba(255,255,255,${alpha*0.25})`;
+          ctx.fillText(ch, px+2, py);
+        }
+        ctx.fillStyle = `rgba(245,245,247,${alpha})`;
+        ctx.fillText(ch, px, py);
+      }
+    }
+
+    // reveal overlay near the end
+    if(p>=0.72 && !done){ done=true; ov.classList.add('show'); hint.classList.add('show'); }
+    if(p<0.72 && done){ done=false; ov.classList.remove('show'); hint.classList.remove('show'); }
+  }
+
+  // throttled loop: full speed during the 2s intro, low fps when idle (saves CPU)
+  let last = 0;
+  function loop(now){
+    requestAnimationFrame(loop);
+    const intro = (now - start) < DUR;
+    const iv = intro ? 16 : (mouse.on ? 33 : 90);  // ~60fps intro, ~30fps hover, ~11fps idle
+    if(now - last < iv) return;
+    last = now;
+    draw(now);
+  }
+
+  function replay(){ start = performance.now(); done=false; ov.classList.remove('show'); hint.classList.remove('show'); }
+
+  // events
+  addEventListener('resize', build);
+  addEventListener('mousemove', e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.on=true; });
+  addEventListener('mouseleave', ()=> mouse.on=false );
+  addEventListener('click', replay);
+  addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter') replay(); });
+  addEventListener('touchstart', e=>{ const t=e.touches[0]; mouse.x=t.clientX; mouse.y=t.clientY; mouse.on=true; }, {passive:true});
+  addEventListener('touchend', ()=>{ mouse.on=false; replay(); });
+
+  build();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

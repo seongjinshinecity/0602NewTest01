@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>QUARTER — Render 1080</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1080px;height:1080px;overflow:hidden}
+  .tile{width:1080px;height:1080px;position:relative;display:flex;align-items:center;justify-content:center;
+    font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+  .steel{background:linear-gradient(180deg,#ffffff 0%,#9a9ea5 55%,#e3e6ea 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .steel-dark{background:linear-gradient(180deg,#3a3d42 0%,#0e0f12 60%,#2b2e33 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .dark{background:radial-gradient(1400px 950px at 50% 32%,#1a1b1f 0%,#0a0a0b 72%)}
+  .dark::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(120deg,transparent 38%,rgba(255,255,255,.06) 50%,transparent 64%)}
+  .light{background:linear-gradient(180deg,#f2f3f5,#dde0e4)}
+
+  /* B · ringed (default) */
+  .qring{width:620px;height:620px;border-radius:50%;border:10px solid #a8acb3;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:340px;z-index:1}
+  .light .qring{border-color:#5a5e65}
+  /* A · monogram */
+  .qbig{font-weight:700;font-size:560px;z-index:1}
+
+  /* hide all by default, JS shows one */
+  .variant{display:none}
+  .variant.on{display:flex}
+</style>
+</head>
+<body>
+  <div class="tile dark variant" data-v="b"><div class="qring steel">Q</div></div>
+  <div class="tile dark variant" data-v="a"><div class="qbig steel">Q</div></div>
+  <div class="tile light variant" data-v="d"><div class="qbig steel-dark">Q</div></div>
+  <div class="tile light variant" data-v="e"><div class="qring steel-dark">Q</div></div>
+<script>
+  var v=(location.hash||'#b').slice(1);
+  var el=document.querySelector('.variant[data-v="'+v+'"]')||document.querySelector('.variant[data-v="b"]');
+  el.classList.add('on');
+</script>
+</body>
+</html>

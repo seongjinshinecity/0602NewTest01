@@ -1,0 +1,104 @@
+============================================================
+ 명령어 실행 장면 모음 (Command Execution Scenes)
+ 작성일: 2026-06-22
+ 대상: 지난 7일간(2026-06-15 ~ 06-22) 만든 skill / agent / 앱
+============================================================
+
+
+------------------------------------------------------------
+ 1) /recipe 실행 장면
+------------------------------------------------------------
+┌─ Claude Code ──────────────────────────────────────────────┐
+
+ > /recipe Week4/Homework4/01_refrigerator/ingredients_json
+
+ ● 재료 폴더를 탐색합니다…
+   Bash  find . -type d -name "ingredients_json"
+   └─ ./Week4/Homework4/01_refrigerator/ingredients_json  ✓
+
+ ● JSON 재료 파일을 전부 읽는 중…
+   Bash  jq -s '[.[] | {name, category, usage}]' .../*.json
+   └─ 읽은 재료 12개:  대파 · 달걀 · 두부 · 김치 · 양파 · 당근
+                      돼지고기 · 마늘 · 고추장 · 굴소스 · 밥 · 쪽파
+
+ ● 레시피 3개 생성 완료
+   1. 🍳 김치두부볶음        (약 12분 · ★★☆☆☆)
+   2. 🥢 돼지고기 대파볶음    (약 15분 · ★★★☆☆)
+   3. 🍚 김치볶음밥          (약 10분 · ★☆☆☆☆)
+
+ ● 썸네일 생성 — 나노바나나(Gemini 2.5 Flash Image)
+   Bash  GEMINI_PROMPT="..." python3 - <<'PY' ...
+   ✅ 썸네일 저장: recipes/thumbnails/kimchi-tofu-stirfry.png
+   ✅ 썸네일 저장: recipes/thumbnails/pork-scallion-stirfry.png
+   ✅ 썸네일 저장: recipes/thumbnails/kimchi-fried-rice.png
+
+ ● 마크다운 저장
+   Write  Week4/Homework4/01_refrigerator/recipes/recipe_2026-06-22.md
+
+ ✔ 완료했어요, shinecity!
+   • 저장: 01_refrigerator/recipes/recipe_2026-06-22.md
+   • 레시피 3개 · 썸네일 3개 · 사용 재료 12개 · 건너뛴 파일 0개
+└────────────────────────────────────────────────────────────┘
+
+
+------------------------------------------------------------
+ 2) single-react-dev / react-app 실행 장면 (단일 index.html 앱 생성)
+------------------------------------------------------------
+┌─ Claude Code ──────────────────────────────────────────────┐
+
+ > 밸런스 게임 앱 만들어줘
+
+ ● single-react-dev 에이전트를 실행합니다…
+   ⎿ CDN: react@18.3.1 · react-dom@18.3.1 · tailwind · babel  (버전 고정)
+
+   Write  Week4/Homework4/05-1 NewbalanceGm/index.html  (+324)
+     <div id="root"></div>
+     <script type="text/babel">
+       function App() {
+         const [vote, setVote] = React.useState(null);
+         ...
+       }
+     </script>
+
+ ● 브라우저로 렌더 확인 + 스크린샷
+   📸 screenshot.png · screenshot-result.png
+
+ ✔ 단일 index.html 웹앱 완성 — 빌드 도구 없이 바로 열려요.
+└────────────────────────────────────────────────────────────┘
+
+
+------------------------------------------------------------
+ 3) Server + DB 앱 실행 장면 (밸런스게임 / 연봉비교 / kindboard)
+------------------------------------------------------------
+┌─ Terminal ─────────────────────────────────────────────────┐
+
+ $ cd Week4/Homework4/06_salary_compare
+ $ npm install
+   added 142 packages in 3s
+
+ $ node server.js
+   🔌 Connecting to PostgreSQL (Supabase)…
+   ✅ DB connected — table "salary_entries" ready
+   🚀 Server running at http://localhost:3000
+
+   [POST /api/submit]  연봉 4200만 · 지출 180만  → 저장 ✓
+   [GET  /api/stats ]  평균 연봉 3950만 · 내 위치 상위 38%
+└────────────────────────────────────────────────────────────┘
+
+브라우저 화면:
+╔══════════════════════════════════════════╗
+║      💰 익명 연봉·지출 비교              ║
+╟──────────────────────────────────────────╢
+║   내 연봉: [ 4200 ] 만원                  ║
+║   내 지출: [  180 ] 만원/월              ║
+║            [   비교하기   ]              ║
+╟──────────────────────────────────────────╢
+║   📊 결과                                ║
+║   당신은 상위 38% 입니다                  ║
+║   ▓▓▓▓▓▓▓░░░░░░░░░░  평균보다 +250만     ║
+╚══════════════════════════════════════════╝
+
+
+============================================================
+ 끝
+============================================================
