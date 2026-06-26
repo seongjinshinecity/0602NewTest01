@@ -1,0 +1,4 @@
+# Playwright 검색 스냅샷/로그 (작업 임시 산출물)
+.playwright-mcp/
+# Excel/Office 임시 잠금파일
+~$*
