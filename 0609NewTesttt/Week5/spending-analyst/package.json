@@ -1,0 +1,17 @@
+{
+  "name": "spending-analyst",
+  "version": "1.0.0",
+  "description": "말로 물어보는 소비 분석가 — Supabase 가계부 DB에 접속하는 Claude 에이전트 (Express + pg + @anthropic-ai/sdk)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
