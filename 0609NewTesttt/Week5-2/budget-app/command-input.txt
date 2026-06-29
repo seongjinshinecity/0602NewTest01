@@ -1,0 +1,19 @@
+[2026-06-29] Week5-2 배치1 — 가계부 앱
+
+원본 지시:
+"Week5-2폴더를 만들고 배치1번을 모두 만들어 줘"
+
+이 앱 적용:
+- [Server+DB] 가계부: 수입/지출 등록·조회, 카테고리별·월별 합계(SQL GROUP BY), Supabase 저장
+- Week5 budget-app 을 Week5-2 모노레포로 이식(공용 ../shared/db.js 사용, 루트 .env 공유)
+
+실행:
+  cd Week5-2 && npm install && npm run budget   # http://localhost:3000
+
+---
+(원본 퀘스트 프롬프트)
+Server + DB (Supabase)를 조합해서 나만의 가계부 앱을 만들어줘
+1. 사용자가 수입/지출 내역을 등록 (날짜, 금액, 카테고리, 메모)
+2. 등록된 내역을 목록으로 조회
+3. 카테고리별 합계 (식비, 교통, 주거, 구독료, 경조사 등)
+4. 모든 데이터는 DB(Supabase)에 저장 · 카테고리별 합계는 SQL GROUP BY

@@ -1,0 +1,19 @@
+{
+  "name": "week5-2-batch1",
+  "version": "1.0.0",
+  "description": "AI 공장장 부트캠프 5주차 배치1 (가계부·커뮤니티·쇼핑몰·카페 대시보드) — Express + pg(Supabase) + 바닐라 SPA 모노레포",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "budget": "node budget-app/server.js",
+    "community": "node community-app/server.js",
+    "shop": "node shopping-mall/server.js",
+    "cafe": "node cafe-dashboard/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

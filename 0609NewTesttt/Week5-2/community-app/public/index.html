@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>모여라 — 커뮤니티</title>
+<style>
+  :root { --bg:#0f1115; --card:#191c23; --line:#2a2e38; --fg:#e8eaed; --mut:#9aa0aa; --pri:#6c8cff; --danger:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); }
+  h1 { font-size:18px; margin:0; letter-spacing:-.5px; }
+  .wrap { max-width:760px; margin:0 auto; padding:20px; }
+  button { font:inherit; cursor:pointer; border:none; border-radius:8px; padding:9px 14px; background:var(--pri); color:#fff; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); }
+  button.sm { padding:5px 10px; font-size:13px; }
+  button.danger { background:transparent; border:1px solid var(--danger); color:var(--danger); }
+  input, textarea { width:100%; font:inherit; background:#0f1115; border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:10px; margin-top:6px; }
+  textarea { min-height:90px; resize:vertical; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .muted { color:var(--mut); font-size:13px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .post-title { font-size:16px; font-weight:600; margin:0 0 4px; cursor:pointer; }
+  .post-body { white-space:pre-wrap; margin:8px 0 0; color:#cfd3da; }
+  .err { color:var(--danger); font-size:13px; min-height:18px; }
+  .tag { font-size:11px; background:#23262f; border-radius:999px; padding:2px 8px; color:var(--mut); }
+  label { font-size:13px; color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗣️ 모여라 <span class="muted" style="font-weight:400">— 자유 커뮤니티</span></h1>
+  <div id="authBar" class="row"></div>
+</header>
+<div class="wrap">
+  <div id="authBox"></div>
+  <div id="writeBox"></div>
+  <div id="list"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const fmt = (d) => new Date(d).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+
+let me = null;
+let editingId = null;
+
+async function refresh() {
+  const { user } = await api('/api/auth/me');
+  me = user;
+  renderAuth();
+  renderWrite();
+  await renderList();
+}
+
+function renderAuth() {
+  if (me) {
+    $('#authBar').innerHTML = `<span class="muted">${esc(me.name)} 님</span> <button class="ghost sm" onclick="logout()">로그아웃</button>`;
+    $('#authBox').innerHTML = '';
+  } else {
+    $('#authBar').innerHTML = '';
+    $('#authBox').innerHTML = `
+      <div class="card">
+        <div class="row" style="gap:16px; margin-bottom:10px;">
+          <strong>로그인 / 회원가입</strong>
+          <span class="muted">글을 쓰려면 로그인하세요</span>
+        </div>
+        <label>이메일</label><input id="email" type="email" placeholder="you@example.com" />
+        <label>비밀번호 (6자 이상)</label><input id="pw" type="password" />
+        <label>닉네임 (가입 시)</label><input id="name" placeholder="선택 입력" />
+        <div class="err" id="authErr"></div>
+        <div class="row" style="gap:8px;">
+          <button onclick="login()">로그인</button>
+          <button class="ghost" onclick="register()">회원가입</button>
+        </div>
+      </div>`;
+  }
+}
+
+function renderWrite() {
+  if (!me) { $('#writeBox').innerHTML = ''; return; }
+  $('#writeBox').innerHTML = `
+    <div class="card">
+      <strong id="writeTitle">새 글 작성</strong>
+      <label>제목</label><input id="title" />
+      <label>내용</label><textarea id="content"></textarea>
+      <div class="err" id="writeErr"></div>
+      <div class="row" style="gap:8px;">
+        <button onclick="submitPost()" id="submitBtn">등록</button>
+        <button class="ghost" id="cancelBtn" style="display:none" onclick="cancelEdit()">취소</button>
+      </div>
+    </div>`;
+}
+
+async function renderList() {
+  const posts = await api('/api/posts');
+  if (!posts.length) { $('#list').innerHTML = `<p class="muted">아직 글이 없어요. 첫 글을 남겨보세요.</p>`; return; }
+  $('#list').innerHTML = posts.map((p) => {
+    const mine = me && me.id === p.user_id;
+    return `<div class="card">
+      <p class="post-title" onclick="toggle(${p.id})">${esc(p.title)}</p>
+      <div class="row" style="justify-content:space-between;">
+        <span class="muted">✍️ ${esc(p.author)} · ${fmt(p.created_at)}</span>
+        ${mine ? `<span class="row" style="gap:6px;">
+          <button class="ghost sm" onclick="startEdit(${p.id})">수정</button>
+          <button class="danger sm" onclick="del(${p.id})">삭제</button></span>` : `<span class="tag">${mine?'내 글':''}</span>`}
+      </div>
+      <p class="post-body" id="body-${p.id}" style="display:none">${esc(p.content) || '<span class="muted">(내용 없음)</span>'}</p>
+    </div>`;
+  }).join('');
+}
+
+window.toggle = (id) => { const el = $('#body-' + id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
+
+window.register = async () => {
+  try {
+    await api('/api/auth/register', { method:'POST', body: JSON.stringify({ email: $('#email').value, password: $('#pw').value, name: $('#name').value }) });
+    await refresh();
+  } catch (e) { $('#authErr').textContent = e.message; }
+};
+window.login = async () => {
+  try {
+    await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email: $('#email').value, password: $('#pw').value }) });
+    await refresh();
+  } catch (e) { $('#authErr').textContent = e.message; }
+};
+window.logout = async () => { await api('/api/auth/logout', { method:'POST' }); editingId = null; await refresh(); };
+
+window.submitPost = async () => {
+  const body = JSON.stringify({ title: $('#title').value, content: $('#content').value });
+  try {
+    if (editingId) await api('/api/posts/' + editingId, { method:'PUT', body });
+    else await api('/api/posts', { method:'POST', body });
+    cancelEdit();
+    await renderList();
+  } catch (e) { $('#writeErr').textContent = e.message; }
+};
+window.startEdit = async (id) => {
+  const p = await api('/api/posts/' + id);
+  editingId = id;
+  $('#writeTitle').textContent = '글 수정';
+  $('#title').value = p.title; $('#content').value = p.content;
+  $('#submitBtn').textContent = '수정 저장'; $('#cancelBtn').style.display = 'inline-block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+window.cancelEdit = () => {
+  editingId = null;
+  $('#writeTitle') && ($('#writeTitle').textContent = '새 글 작성');
+  $('#title') && ($('#title').value = ''); $('#content') && ($('#content').value = '');
+  $('#submitBtn') && ($('#submitBtn').textContent = '등록'); $('#cancelBtn') && ($('#cancelBtn').style.display = 'none');
+  $('#writeErr') && ($('#writeErr').textContent = '');
+};
+window.del = async (id) => {
+  try { await api('/api/posts/' + id, { method:'DELETE' }); await renderList(); }
+  catch (e) { alert(e.message); }
+};
+
+refresh();
+</script>
+</body>
+</html>

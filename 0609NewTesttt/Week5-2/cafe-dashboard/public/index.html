@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QUARTER 사장님 대시보드</title>
+<style>
+  :root { --bg:#0c0d10; --card:#15171c; --line:#262a32; --fg:#eef0f3; --mut:#8b919c; --pri:#7c9cff; --good:#5fd08a; --bad:#ff7a7a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid var(--line); }
+  h1 { font-size:17px; margin:0; letter-spacing:1px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:22px; }
+  button { font:inherit; cursor:pointer; border:none; border-radius:8px; padding:9px 14px; background:var(--pri); color:#fff; font-weight:600; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); font-weight:500; }
+  input { width:100%; font:inherit; background:#0c0d10; border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:10px; margin-top:6px; }
+  .muted { color:var(--mut); font-size:13px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card h3 { margin:0 0 12px; font-size:13px; color:var(--mut); font-weight:600; letter-spacing:.3px; }
+  .big { font-size:26px; font-weight:700; }
+  .delta.up { color:var(--good); } .delta.down { color:var(--bad); }
+  .briefing { white-space:pre-wrap; line-height:1.7; font-size:15px; }
+  .toplist li { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); }
+  .toplist { list-style:none; padding:0; margin:0; }
+  .bars { display:flex; align-items:flex-end; gap:4px; height:80px; margin-top:6px; }
+  .bars div { flex:1; background:linear-gradient(var(--pri),#3a4a8a); border-radius:3px 3px 0 0; min-height:3px; }
+  .err { color:var(--bad); font-size:13px; min-height:18px; }
+  .center { min-height:70vh; display:flex; align-items:center; justify-content:center; }
+  .login { width:340px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:26px; }
+  label { font-size:13px; color:var(--mut); }
+  .weather { font-size:34px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>☕ QUARTER · 사장님 대시보드</h1>
+  <div class="row" id="authBar"></div>
+</header>
+<div class="wrap" id="app"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Math.round(n).toLocaleString('ko-KR');
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+let me = null;
+
+async function boot() {
+  const { user } = await api('/api/auth/me');
+  me = user;
+  if (me) {
+    $('#authBar').innerHTML = `<span class="muted">${me.name} 사장님</span> <button class="ghost" onclick="logout()">로그아웃</button>`;
+    await dashboard();
+  } else {
+    $('#authBar').innerHTML = '';
+    loginView();
+  }
+}
+
+function loginView() {
+  $('#app').innerHTML = `
+    <div class="center"><div class="login">
+      <strong>사장님 로그인</strong>
+      <p class="muted" style="margin:6px 0 14px;">우리 카페 데이터는 사장님만 볼 수 있어요</p>
+      <label>이메일</label><input id="email" type="email" />
+      <label>비밀번호 (6자 이상)</label><input id="pw" type="password" />
+      <label>이름 (가입 시)</label><input id="name" placeholder="예: 하버" />
+      <div class="err" id="err"></div>
+      <div class="row" style="gap:8px;">
+        <button onclick="login()">로그인</button>
+        <button class="ghost" onclick="register()">회원가입</button>
+      </div>
+    </div></div>`;
+}
+
+async function dashboard() {
+  $('#app').innerHTML = `<p class="muted">데이터를 모으는 중…</p>`;
+  const [s, b, w] = await Promise.all([
+    api('/api/cafe/summary'),
+    api('/api/cafe/briefing'),
+    api('/api/cafe/weather').catch(() => null),
+  ]);
+  const diff = s.yesterday ? ((s.today - s.yesterday) / s.yesterday) * 100 : 0;
+  const maxTrend = Math.max(...s.trend.map((t) => t.amount), 1);
+  $('#app').innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <h3>🤖 오늘의 AI 브리핑</h3>
+      <div class="briefing">${b.briefing}</div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>오늘 매출</h3>
+        <div class="big">${won(s.today)}</div>
+        <div class="delta ${diff>=0?'up':'down'}">${diff>=0?'▲':'▼'} 어제 대비 ${Math.abs(diff).toFixed(0)}%</div>
+        <div class="muted" style="margin-top:4px;">어제 ${won(s.yesterday)} · 최근 7일 ${won(s.last7)}</div>
+      </div>
+      <div class="card">
+        <h3>🌤️ 오늘 날씨 (서울)</h3>
+        ${w ? `<div class="weather">${Math.round(w.temp)}°C</div>
+          <div class="muted">${w.desc} · 최고 ${Math.round(w.max)}° / 최저 ${Math.round(w.min)}°</div>
+          <div class="muted" style="margin-top:6px;">출처: Open-Meteo API</div>`
+          : `<div class="muted">날씨 정보를 불러오지 못했어요</div>`}
+      </div>
+      <div class="card">
+        <h3>🏆 이번 주 인기 메뉴</h3>
+        <ul class="toplist">${s.top.map((t,i)=>`<li><span>${i+1}. ${t.item}</span><span class="muted">${t.cups}잔 · ${won(t.revenue)}</span></li>`).join('')}</ul>
+      </div>
+      <div class="card" style="grid-column:1/-1;">
+        <h3>📊 최근 14일 매출 추이</h3>
+        <div class="bars">${s.trend.map((t)=>`<div title="${t.d}: ${won(t.amount)}" style="height:${Math.max(3,(t.amount/maxTrend)*80)}px"></div>`).join('')}</div>
+        <div class="row" style="justify-content:space-between; margin-top:6px;"><span class="muted">${s.trend[0]?.d||''}</span><span class="muted">${s.trend.at(-1)?.d||''}</span></div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:16px;">연결 소스: ① 카페 매출 DB (Supabase) · ② 날씨 (Open-Meteo 외부 API) → AI 종합 브리핑</p>`;
+}
+
+window.register = async () => {
+  try { await api('/api/auth/register',{method:'POST',body:JSON.stringify({email:$('#email').value,password:$('#pw').value,name:$('#name').value})}); await boot(); }
+  catch (e) { $('#err').textContent = e.message; }
+};
+window.login = async () => {
+  try { await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:$('#email').value,password:$('#pw').value})}); await boot(); }
+  catch (e) { $('#err').textContent = e.message; }
+};
+window.logout = async () => { await api('/api/auth/logout',{method:'POST'}); await boot(); };
+
+boot();
+</script>
+</body>
+</html>

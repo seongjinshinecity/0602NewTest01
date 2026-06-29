@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QUARTER STORE</title>
+<style>
+  :root { --bg:#0e0f12; --card:#16181d; --line:#262a32; --fg:#f2f3f5; --mut:#8b919c; --pri:#e7e9ee; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:16px 22px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(14,15,18,.92); backdrop-filter:blur(8px); z-index:10; }
+  h1 { font-size:18px; margin:0; letter-spacing:2px; font-weight:700; }
+  .wrap { max-width:1080px; margin:0 auto; padding:22px; }
+  button { font:inherit; cursor:pointer; border:none; border-radius:8px; padding:9px 14px; background:var(--pri); color:#111; font-weight:600; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); font-weight:500; }
+  button.sm { padding:4px 9px; font-size:13px; }
+  input { width:100%; font:inherit; background:#0e0f12; border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:10px; margin-top:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }
+  .product { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+  .product img { width:100%; height:160px; object-fit:cover; background:#222; }
+  .product .p { padding:14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .name { font-weight:600; font-size:15px; }
+  .desc { color:var(--mut); font-size:12px; flex:1; }
+  .price { font-weight:700; font-size:16px; }
+  .muted { color:var(--mut); font-size:13px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  /* drawer */
+  #cartBtn { position:relative; }
+  .badge { position:absolute; top:-7px; right:-7px; background:#ff5d5d; color:#fff; font-size:11px; border-radius:999px; padding:1px 6px; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:380px; max-width:92vw; background:var(--card); border-left:1px solid var(--line); transform:translateX(100%); transition:.25s; z-index:20; display:flex; flex-direction:column; }
+  .drawer.open { transform:none; }
+  .drawer h2 { font-size:16px; padding:18px; margin:0; border-bottom:1px solid var(--line); }
+  .citems { flex:1; overflow:auto; padding:12px; }
+  .citem { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .citem img { width:54px; height:54px; border-radius:8px; object-fit:cover; }
+  .cfoot { padding:18px; border-top:1px solid var(--line); }
+  .qty { display:inline-flex; align-items:center; gap:8px; }
+  .qty button { width:26px; height:26px; padding:0; border-radius:6px; background:#23262f; color:var(--fg); }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:15; display:none; }
+  .overlay.open { display:block; }
+  .err { color:#ff6b6b; font-size:13px; min-height:18px; }
+  dialog { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:14px; padding:20px; width:330px; }
+  dialog::backdrop { background:rgba(0,0,0,.55); }
+  label { font-size:13px; color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>QUARTER&nbsp;STORE</h1>
+  <div class="row" id="authBar"></div>
+</header>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between; margin-bottom:16px;">
+    <span class="muted">미니멀 홈·리빙 편집샵 — 카페 굿즈 셀렉션</span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeCart()"></div>
+<aside class="drawer" id="drawer">
+  <h2>🛒 장바구니</h2>
+  <div class="citems" id="citems"></div>
+  <div class="cfoot">
+    <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+      <span class="muted">총 금액</span><strong id="total" style="font-size:18px;">₩0</strong>
+    </div>
+    <button style="width:100%" onclick="alert('결제 기능은 준비 중입니다 🙏')">주문하기 (준비 중)</button>
+  </div>
+</aside>
+
+<dialog id="authDlg">
+  <strong>로그인 / 회원가입</strong>
+  <p class="muted" style="margin:6px 0 0;">장바구니를 쓰려면 로그인하세요</p>
+  <label>이메일</label><input id="email" type="email" />
+  <label>비밀번호 (6자 이상)</label><input id="pw" type="password" />
+  <label>닉네임 (가입 시)</label><input id="name" />
+  <div class="err" id="authErr"></div>
+  <div class="row" style="gap:8px; margin-top:6px;">
+    <button onclick="login()">로그인</button>
+    <button class="ghost" onclick="register()">회원가입</button>
+    <button class="ghost" onclick="authDlg.close()" style="margin-left:auto;">닫기</button>
+  </div>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+const esc = (s) => String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+let me = null;
+
+async function boot() {
+  const { user } = await api('/api/auth/me');
+  me = user;
+  renderAuthBar();
+  await renderProducts();
+  if (me) await renderCart();
+}
+
+function renderAuthBar() {
+  if (me) {
+    $('#authBar').innerHTML = `<span class="muted">${esc(me.name)} 님</span>
+      <button class="ghost sm" id="cartBtn" onclick="openCart()">🛒<span class="badge" id="badge">0</span></button>
+      <button class="ghost sm" onclick="logout()">로그아웃</button>`;
+  } else {
+    $('#authBar').innerHTML = `<button class="ghost sm" onclick="authDlg.showModal()">로그인</button>`;
+  }
+}
+
+async function renderProducts() {
+  const items = await api('/api/products');
+  $('#grid').innerHTML = items.map((p) => `
+    <div class="product">
+      <img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.opacity=.3" />
+      <div class="p">
+        <div class="name">${esc(p.name)}</div>
+        <div class="desc">${esc(p.description)}</div>
+        <div class="row" style="justify-content:space-between; margin-top:6px;">
+          <span class="price">${won(p.price)}</span>
+          <button class="sm" onclick="add(${p.id})">담기</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+window.add = async (id) => {
+  if (!me) { authDlg.showModal(); return; }
+  try { const c = await api('/api/cart', { method:'POST', body: JSON.stringify({ product_id: id, quantity: 1 }) }); paint(c); openCart(); }
+  catch (e) { alert(e.message); }
+};
+
+async function renderCart() { paint(await api('/api/cart')); }
+function paint(c) {
+  const badge = $('#badge'); if (badge) badge.textContent = c.count;
+  $('#total').textContent = won(c.total);
+  $('#citems').innerHTML = c.items.length ? c.items.map((i) => `
+    <div class="citem">
+      <img src="${i.image_url}" />
+      <div style="flex:1;">
+        <div style="font-size:14px;">${esc(i.name)}</div>
+        <div class="muted">${won(i.price)} · 합계 ${won(i.line_total)}</div>
+        <div class="qty" style="margin-top:6px;">
+          <button onclick="chg(${i.product_id},-1)">−</button>
+          <span>${i.quantity}</span>
+          <button onclick="chg(${i.product_id},1)">+</button>
+          <button class="ghost sm" style="margin-left:8px;" onclick="rm(${i.product_id})">삭제</button>
+        </div>
+      </div>
+    </div>`).join('') : '<p class="muted" style="padding:20px;text-align:center;">장바구니가 비었습니다</p>';
+}
+window.chg = async (pid, d) => { paint(await api('/api/cart/' + pid, { method:'PATCH', body: JSON.stringify({ delta: d }) })); };
+window.rm = async (pid) => { paint(await api('/api/cart/' + pid, { method:'DELETE' })); };
+
+window.openCart = () => { $('#drawer').classList.add('open'); $('#overlay').classList.add('open'); };
+window.closeCart = () => { $('#drawer').classList.remove('open'); $('#overlay').classList.remove('open'); };
+
+window.register = async () => {
+  try { await api('/api/auth/register', { method:'POST', body: JSON.stringify({ email:$('#email').value, password:$('#pw').value, name:$('#name').value }) }); authDlg.close(); await boot(); }
+  catch (e) { $('#authErr').textContent = e.message; }
+};
+window.login = async () => {
+  try { await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email:$('#email').value, password:$('#pw').value }) }); authDlg.close(); await boot(); }
+  catch (e) { $('#authErr').textContent = e.message; }
+};
+window.logout = async () => { await api('/api/auth/logout', { method:'POST' }); closeCart(); await boot(); };
+
+boot();
+</script>
+</body>
+</html>
