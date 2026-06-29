@@ -1,0 +1,11 @@
+[2026-06-29] Week5-2 배치3 — 리뷰·경쟁사 → 엑셀/PPT 보고서
+
+원본 지시:
+"같은 폴더에 배치2와 3도 차례대로 해줘"
+
+이 퀘스트 적용 ([조사] VoC→엑셀 / 경쟁사→PPT, 20점 루브릭):
+- 경로 A: cafe_reviews.csv → make_voc_xlsx.py → voc_analysis.xlsx (별점 차트+테마 피벗+부정 Top3)
+- 경로 B: competitors.md → make_competitor_pptx.py → competitor_analysis.pptx (표지~추천 5장)
+- 실제 수식/차트/슬라이드가 데이터 기반(박제 X)
+
+검증: 두 스크립트 실제 실행해 산출물 재생성 → Numbers/렌더로 열어 스크린샷 3장

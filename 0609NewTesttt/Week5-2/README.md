@@ -1,14 +1,33 @@
-# Week5-2 — 5주차 배치1 (풀스택 웹앱 4종)
+# Week5-2 — 5주차 배치1·2·3 전체
 
-AI 공장장 부트캠프 5주차 **배치1**(Auth · DB · CRUD)을 한 모노레포로 구현. 공용 인증·DB 모듈을 4개 앱이 공유한다.
+AI 공장장 부트캠프 5주차 **배치1(풀스택 웹앱) + 배치2(데이터 분석 에이전트) + 배치3(자동화·문서 산출)** 를 한 폴더에 모았다.
 
-## 앱 목록
+## 배치1 — 풀스택 웹앱 (Auth · DB · CRUD) — 모노레포
+공용 인증·DB 모듈(`shared/`)을 4개 앱이 공유한다.
+
 | 앱 | 퀘스트 | 포트 | 실행 |
 |---|---|---|---|
 | [budget-app](budget-app/) | [Server+DB] 가계부 | 3000 | `npm run budget` |
 | [community-app](community-app/) | [Auth] 커뮤니티 (본인 글만 수정/삭제) | 3001 | `npm run community` |
 | [shopping-mall](shopping-mall/) | [Auth+DB] 쇼핑몰 (장바구니, 결제 제외) | 3002 | `npm run shop` |
 | [cafe-dashboard](cafe-dashboard/) | [보스] 카페 대시보드 (DB+날씨 API+AI 브리핑) | 3003 | `npm run cafe` |
+
+## 배치2 — 데이터 분석 에이전트 (Agent · DB · Context)
+실제 라이브 Supabase 데이터로 에이전트를 띄워 데모를 생성·검증했다(`DEMO.md`).
+
+| 폴더 | 퀘스트 | 핵심 |
+|---|---|---|
+| [gyebu-agent](gyebu-agent/) | [Agent+DB] 가계부 분석가 | `transactions`(204행) 실쿼리 — 조회/패턴/절약조언 |
+| [my-cafe-agent](my-cafe-agent/) | [Context+Agent+DB] 내 카페 AI | `my_cafe.md` + `cafe_sales`(63행) Before/After |
+
+## 배치3 — 자동화·문서 산출 (Skill · Documents · Browser)
+| 폴더 | 퀘스트 | 핵심 |
+|---|---|---|
+| [research-skill](research-skill/) | [My Agent] 자동 리서치 스킬 | SKILL.md + 실제 WebSearch/WebFetch 리서치 1건 |
+| [review-report](review-report/) | [조사] 리뷰·경쟁사 → 엑셀/PPT (20pt) | xlsx(차트·피벗)+pptx(5장) 재생성·캡처 |
+| [instagram-influencer](instagram-influencer/) | [홍보] 인스타 인플루언서 (20pt) | 점수화 방법론+engagement.py+가상 예시 (라이브는 사용자 세션 필요) |
+
+> 배치2·3 자산은 Week5-1 참고본에서 이식하고, **데모/리서치/문서 산출물은 이번 세션에 실제 실행해 재생성·검증**했다. 카페 브랜딩은 배치1이 "QUARTER" 데모, 배치2·3은 `my_cafe.md`의 "데일리브루"(라이브 데이터와 일치)로 각 배치 내에서 일관된다.
 
 ## 공통 스택
 - **Express + `pg`** → Supabase Postgres (`shared/db.js`)

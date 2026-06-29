@@ -1,0 +1,11 @@
+[2026-06-29] Week5-2 배치2 — 내 카페를 아는 AI 에이전트
+
+원본 지시:
+"같은 폴더에 배치2와 3도 차례대로 해줘"
+
+이 퀘스트 적용 ([Context+Agent+DB] 내 카페 AI 에이전트):
+- my_cafe.md(데일리브루 컨텍스트, 제약 포함) + cafe_sales DB 결합 에이전트(cafe-partner.md)
+- 모든 답은 컨텍스트 제약 + 실데이터 둘 다 반영, 제약 위반 제안 금지
+- DEMO.md = 실제 에이전트를 띄워 my_cafe.md Read + cafe_sales 쿼리한 Before/After transcript
+
+검증: 에이전트 실행 → 3개 운영질문 Before/After + 인사이트(평일 단가/주말 물량) 실데이터 근거
