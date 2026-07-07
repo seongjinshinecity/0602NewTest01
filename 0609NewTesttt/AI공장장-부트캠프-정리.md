@@ -64,7 +64,7 @@
 ## 📚 기초반 상세 커리큘럼 (3기 기초반·평일 기준)
 
 > 출처: 강사(루움) [노션 커리큘럼](https://ruucm.notion.site/a6e7eb4baa8c8345bfe4818510177884?v=3bc7eb4baa8c8311b0e608eb02b57a40) 기준. **기초반은 1~6주차**로 구성됩니다. (노션 DB 전체 180개 항목 기준)
-> 🔄 최종 갱신: 2026-07-07 — 노션 라이브 DB 기준 **6주차(개인 프로젝트 킥오프·이미지 업로드·결제) 신규 추가**, **5주차 퀘스트 개편**(카페 시나리오 퀘스트 4종 제거, '내 카페 컨셉 정하기'가 튜토리얼→퀘스트로 이동). **1~5주차 퀘스트·고블린 36종 전체의 노션 페이지 본문(미션·제출물·포인트·팁)을 상세 반영.**
+> 🔄 최종 갱신: 2026-07-07 — 노션 라이브 DB 기준 **6주차(개인 프로젝트 킥오프·이미지 업로드·결제) 신규 추가**, **5주차 퀘스트 개편**(카페 시나리오 퀘스트 4종 제거, '내 카페 컨셉 정하기'가 튜토리얼→퀘스트로 이동). **노션 DB 180개 항목 전체의 페이지 본문을 확인해 상세 반영 완료** — 퀘스트·고블린 36종(미션·제출물·포인트·팁) + 개념·튜토리얼·에이전트 중 본문 있는 항목 전부. 복습·퀘스트 리뷰 페이지는 전부 본문 없음(참조 전용), 본문 없는 개념·튜토리얼은 *(본문 미작성)* 또는 요약 없이 제목만 유지.
 
 ### 🏷️ 항목 구분 표기
 
@@ -84,26 +84,26 @@
 ### 🟢 1주차 — 킥오프 & 에이전트 입문
 
 **오리엔테이션**
-- 킥오프
+- **킥오프** — "누구나 AI 개발자가 될 수 있다": 나만의 개발 에이전트를 만들어 AI 개발팀 리더가 되는 과정. 진행 화 19:40, 포인트 제도 + 고블린(즉석 실습)·퀘스트(앱 구현)·보너스 퀘스트 구성. 제출은 GitHub 저장소 **하나**에 폴더별로 (포인트는 harbor.school 프로필에서 확인)
 - 수강생 본인소개
-- 필수 프로그램 설치
-- 수강생 퀘스트 제출 가이드
+- **필수 프로그램 설치** — ChatGPT/Gemini, Claude Code, Cursor, GitHub CLI, Vercel CLI, (선택) Olly Molly. 팁: Cursor는 텍스트·코드·이미지·DB까지 보는 만능 뷰어
+- **수강생 퀘스트 제출 가이드** — harbor.school 포인트 대시보드에서 본인 카드 확인 + 상단에 GitHub 저장소 URL 등록(언제든 수정 가능)
 
 **개념 — AI와 Context의 이해**
-- 🚩개념 `AI`
-- 🚩개념 `Context`
+- 🚩개념 **`AI`** — AI는 신이 아니라 "Context 연산기계". Transformer 학습=귀납법, Thinking(추론) 모드=연역법 비유
+- 🚩개념 **`Context`** — Context 만들기 3가지(직접 주입/AI가 스스로 찾기/Rules 고정) + Text·Image Context, MCP, CLI. 팁: AI는 GUI보다 텍스트 기반 CLI를 훨씬 잘 다룸
 
 **개념 — 채팅 vs 에디터 vs 에이전트** (같은 결과물을 3가지 방식으로)
-- 🚩개념 채팅 vs 에디터 vs 에이전트
+- 🚩개념 **채팅 vs 에디터 vs 에이전트** — 채팅(지식 Q&A, ChatGPT류)/에디터(작업 보조, Cursor류)/에이전트(스스로 계획·실행, 터미널·브라우저·파일시스템 직접 제어, Claude Code류)를 4개 축 비교표로
 - 🚩개념 채팅으로 본인소개 웹사이트 만들기
 - 🚩개념 에디터로 본인소개 웹사이트 만들기 (Cursor)
 - 🚩개념 에이전트로 본인소개 웹사이트 만들기 (클로드 코드)
 
 **도구 셋업 & 에이전트 실습**
-- 🚩튜토리얼 클로드 코드 둘러보기 / + 커서 셋업
+- 🚩튜토리얼 **클로드 코드 둘러보기 / + 커서 셋업** — Cursor 초기 설정: settings.json으로 .md 마크다운 프리뷰 기본화, Cmd+K 터미널 에디터 단축키
 - 🚩개념 클로드 코드 에이전트 & 스킬
-- 🚩에이전트 레시피 에이전트
-- 🚩에이전트 K-Drama 일기 에이전트
+- 🚩에이전트 **레시피 에이전트** — 냉장고 재료/요청 → 15분 이내 초간단 레시피를 `recipes/`에 md 저장 + 나노바나나(Gemini 이미지 API) 직접 호출로 썸네일 PNG 생성. `GEMINI_API_KEY` 없어도 레시피 md는 생성
+- 🚩에이전트 **K-Drama 일기 에이전트** — 일기를 K-드라마 장면으로 변환해 `diary/diary-kdrama-{날짜}.md`로 저장(원본 인용→드라마 제목→장면→BGM/연출). 존재하지 않는 작품·배우 지어내기 금지 규칙
 
 **퀘스트(과제)** *(공통: 기본 10pt~올클리어 25pt · 기한 월 23:59 · 에이전트 대화 스크린샷 필수)*
 - 🚩퀘스트 **나만의 레시피 북 만들기** — 레시피 에이전트에게 좋아하는 요리 3가지 이상을 요청, 나만의 스타일로 수정해 마크다운 레시피 북으로 정리. 팁: "집 재료 버전"·"자취생 버전" 등 여러 번 대화하며 다듬기
@@ -117,18 +117,18 @@
 - 🚩복습 채팅 vs 에이전트
 - 🚩복습 Text Context
 - 🚩복습 클로드 코드 에이전트 & 스킬
-- 🚩튜토리얼 파일 시스템도 모두 텍스트입니다
+- 🚩튜토리얼 **파일 시스템도 모두 텍스트입니다** — 파일 시스템도 텍스트: 클로드 코드로 내 컴퓨터 파일·폴더 정리 실습
 
 **웹앱의 구조 (프론트엔드 기초)**
-- 🚩개념 앱의 구조 (Web Application)
-- 🚩개념 Browser: HTML, CSS, JS
-- 🚩에이전트 React Agent (SPA: index.html)
-- 🚩튜토리얼 개발자도구(Elements/Console/Network)로 디버깅
+- 🚩개념 앱의 구조 (Web Application) *(임베드 다이어그램)*
+- 🚩개념 **Browser: HTML, CSS, JS** — HTML=구조(뼈대)/CSS=꾸미기/JS=변화(상태·움직임). 버튼 클릭으로 이모지 박스가 춤추는 예제를 Cursor로 직접 작성
+- 🚩에이전트 **React Agent (SPA: index.html)** — CDN React 18+Tailwind+Babel standalone으로 빌드 도구 없이 단일 index.html 웹앱을 만드는 single-react-dev 에이전트. 컴포넌트→라우터→레이아웃→페이지→App 순 구성, API URL 하드코딩 금지. 팁: CDN 버전 고정 필수, @babel/standalone은 8.x가 깨져서 7.25.9 핀
+- 🚩튜토리얼 **개발자도구(Elements/Console/Network)로 디버깅** — 화면 문제=Elements, JS 에러=Console, 데이터 문제=Network. "재현→해당 탭 확인→정상/이상 비교→원인 소거" 루틴. 팁: Disable cache·Preserve log·Throttling
 
 **앱의 유형 이해**
-- 🚩개념 앱의 10가지 유형
-- 🚩개념 앱의 유형: 계산기 (Calculation)
-- 🚩개념 앱의 유형: 변환기 (Transform)
+- 🚩개념 **앱의 10가지 유형** — 핵심 기능 6종(계산기·저장소·중계기·감지/제어기·변환기·AI) + 인프라 4종(자동화기·연결기·문지기·거래기). 실제 앱은 "핵심 1~2개 + 인프라 조합"
+- 🚩개념 **앱의 유형: 계산기 (Calculation)** — 입력을 공식에 넣어 **없던 새 정보**를 만드는 결정론적 앱 (BMI·D-day·운세). 저장·외부 API 없이 바로 답이 나오면 계산기
+- 🚩개념 **앱의 유형: 변환기 (Transform)** — 같은 정보를 다른 형태로 (QR·마크다운 미리보기·단위 변환). 구분법: "원본 복원 가능하면 변환, 새 값이 나오면 계산"
 
 **도전 과제 (고블린)**
 - 🚩고블린 **[Calculation] 나이 계산기** — 생년월일 입력 → 만 나이 출력 (input·button·이벤트 첫 체험)
@@ -136,7 +136,7 @@
 - 🚩고블린 **[Transform] 색상 팔레트 생성기** — HEX 코드(컬러피커) 입력으로 밝은/어두운 변형 5색 생성, "같은 정보 다른 형태" 체험
 
 **버전 관리 (Git)**
-- 🚩개념 Git & GitHub
+- 🚩개념 **Git & GitHub** — `git --version` 설치 확인 + `gh auth login` GitHub CLI 인증
 - 🚩튜토리얼 Git 으로 Commit 하기 (SavePoint)
 - 🚩튜토리얼 GitHub 에 Push 하기
 
@@ -157,20 +157,20 @@
 
 **남의 서버 쓰기 — API 사용 (Network)**
 - 🚩개념 만들어진 백엔드 서버 사용하기 (API 사용하기)
-- 🚩튜토리얼 [Network] 포켓몬 도감 (PokeAPI)
+- 🚩튜토리얼 **[Network] 포켓몬 도감 (PokeAPI)** — 검색창에 포켓몬 이름/번호 입력 → 공식 이미지·속성·능력치 카드 표시. 팁: PokeAPI는 무료·키 불필요, `pokeapi.co/api/v2/pokemon/pikachu`를 브라우저로 직접 열어 데이터 구조 파악, Network 탭으로 디버깅
 - 🚩고블린 **[Network] 날씨앱 (OpenWeatherMap API)** — 도시 이름 입력 → 현재 날씨·온도·습도·아이콘 표시. 기본 15pt + 위치정보 자동 감지 보너스 5pt. 팁: API Key 활성화에 최대 2시간, `units=metric`으로 섭씨
 - 🚩고블린 **[Network] NASA 오늘의 우주 사진 (APOD API)** — 오늘의 천문학 사진+설명을 잡지 같은 뷰어로. 15pt. 팁: DEMO_KEY는 시간당 30회 제한, 본인 Key 발급 추천
 
 **내 서버 만들기 — 백엔드 제작**
-- 🚩개념 내 서버 직접 만들기 (백엔드 만들기)
+- 🚩개념 **내 서버 직접 만들기 (백엔드 만들기)** — 서버 앞에 보안용 Wrapper(apache/nginx → node server)가 필요하다는 구조 개념
 - 🚩튜토리얼 package.json
-- 🚩튜토리얼 node server / express
-- 🚩에이전트 Single Server Specialist
+- 🚩튜토리얼 **node server / express** — 순수 Node.js `http` 모듈로 3파일(server.js/index.html/client.js) 구성: 정적 서빙 + `/api/hello` JSON 엔드포인트, 버튼 클릭→fetch→응답 표시 흐름. Express vs 순수 Node 비교 포함
+- 🚩에이전트 **Single Server Specialist** — `server.js` 하나만 전담하는 백엔드 서브에이전트. 3파일 구조 제약 안에서 서버 세팅·정적 서빙·JSON CRUD API·인메모리 데이터 담당, index.html/client.js는 절대 수정 안 함. `{success, data, message}` 응답 형식 + 로컬/Vercel 듀얼 모드 등 배포 체크리스트 강제
 - 🚩튜토리얼 나만의 API 만들기 (Hello World)
 - 🚩튜토리얼 나만의 API 만들기 (나에 대해 알려주는)
 
 **Context 만들기**
-- 🚩개념 내 AI Context 만들기
+- 🚩개념 **내 AI Context 만들기** — "내 데이터 = 내 에이전트들의 자산": 내가 가진 거의 모든 Text Context를 AI에 연결할 수 있다는 관점
 - 🚩튜토리얼 텍스트 컨텍스트: 개인 Todo 관리
 - 🚩튜토리얼 코드 컨텍스트: GitHub 프로젝트 분석
 
@@ -196,20 +196,20 @@
 - 🚩복습 내 서버 직접 만들기 (백엔드 만들기 / Single Server Specialist)
 
 **데이터베이스 개념 & 셋업**
-- 🚩개념 데이터베이스
+- 🚩개념 **데이터베이스** — 두 기준으로 분류: 저장 장소(로컬 LocalStorage/SQLite vs DB 서버 MySQL·PostgreSQL) × 데이터 구조(테이블 기반 RDB vs 유연한 NoSQL)
 - 🚩튜토리얼 DB 서버 (Supabase)
 
 **데이터 다루기 (Todo 시리즈로 단계별 학습)**
 - 🚩튜토리얼 To-Do 앱 (UI + LocalStorage)
 - 🚩튜토리얼 To-Do 앱 (Database)
-- 🚩튜토리얼 내 데이터를 앱으로 조작하기 (Todo)
-- 🚩튜토리얼 내 데이터를 에이전트로 조작하기 (Todo)
+- 🚩튜토리얼 **내 데이터를 앱으로 조작하기 (Todo)** — "저장된 정보 → API 서버(권한 보유) → Client" 구조
+- 🚩튜토리얼 **내 데이터를 에이전트로 조작하기 (Todo)** — "저장된 정보 → AI 에이전트" 직접 조작 구조
 
 **환경변수 & 배포**
-- 🚩개념 환경변수 — 비밀 키 안전하게 다루기
-- 🚩튜토리얼 만든 앱 배포하기
-- 🚩튜토리얼 Vercel 배포 실습 — DB 키를 환경변수로 두고 배포하기
-- 🚩에이전트 Vercel Agent
+- 🚩개념 **환경변수 — 비밀 키 안전하게 다루기** — 비밀은 코드가 아닌 `.env`(커밋 금지)에, `process.env`로 읽기. `.env`/`.gitignore`/`.env.example` 3파일 역할 + 키 노출 시 요금 폭탄·DB 유출 위험. 팁: 커밋 전 `git status`에 .env가 안 보이면 안전
+- 🚩튜토리얼 **만든 앱 배포하기** — 정적 index.html을 GitHub push → Vercel Import → Deploy 버튼 (환경변수 불필요, 5분 완성). 팁: 터미널 `vercel` 한 줄로도 가능
+- 🚩튜토리얼 **Vercel 배포 실습 — DB 키를 환경변수로 두고 배포하기** — `.env` 제외하고 push → Vercel Settings→Environment Variables에 키 등록 → 재배포 → DB 연결 확인. 팁: DB 연결 실패는 거의 환경변수 문제(오타·공백·줄바꿈·재배포 누락), 키 값은 본인이 직접 입력
+- 🚩에이전트 **Vercel Agent** — vercel-deploy-optimizer: "Vercel에 배포해줘"로 트리거, 프로젝트 분석→vercel.json→환경변수 설정·검증→`vercel --prod`→검증→README까지 8단계 체크리스트 실행. 규칙: Express는 기존 파일만 수정, 환경변수 값에 개행/공백 금지, 배포 URL은 실제 출력에서만 추출
 
 **도전 과제 (고블린)**
 - 🚩고블린 **[DB] 메모장 앱** — PostgreSQL에 저장되는 메모 CRUD, 껐다 켜도 데이터 유지. 기본 15pt + 수정·검색 보너스 5pt. 팁: memos 테이블 + pg 라이브러리, DB 세팅부터 에이전트와 같이
@@ -233,10 +233,10 @@
 - 🚩퀘스트 리뷰 [Server+DB+AI] 냉장고 재료 기반 AI 레시피 제작앱
 
 **인증(Auth) — 로그인 / 회원가입**
-- 🚩개념 Auth
+- 🚩개념 **Auth** — JWT 기반 인증: 회원가입(중복확인→bcrypt 해싱→JWT 발급)·로그인(bcrypt.compare→JWT)·인증 요청(Bearer 토큰→jwt.verify 미들웨어) 흐름 + JWT 구조(Header/Payload/Signature). 재로그인 vs Refresh Token 비교(커리큘럼은 JWT 7일 만료·localStorage, Refresh 미구현)
 - 🚩튜토리얼 Sign In & Sign Up & Profile
-- 🚩튜토리얼 Todo App (+ Login & DB)
-- 🚩에이전트 로그인 / 회원가입 / 인증 Agent
+- 🚩튜토리얼 Todo App (+ Login & DB) *(완성 화면 갤러리)*
+- 🚩에이전트 **로그인 / 회원가입 / 인증 Agent** — 'Auth Specialist': Express+SQLite/PostgreSQL+bcrypt+JWT로 register/login/logout/me 4개 API를 `api/auth/`에 파일별 분리 구축. 보안 요구(해싱, JWT_SECRET 환경변수, 입력 검증, 파라미터화 쿼리, CORS) + README API 문서화 강제
 - 🚩튜토리얼 관리자 대시보드 만들기 (Todo App)
 
 **나만의 에이전트 스킬 (My Agent / Skill)**
@@ -246,15 +246,15 @@
 - 🚩튜토리얼 유튜브 영상 다운로드 & 번역 스킬
 
 **CLI · MCP · 실무 문서 (document-skills)**
-- 🚩개념 CLI / MCP (Plugins / Connector)
-- 🚩개념 CLI
-- 🚩개념 document-skills (xlsx·pptx·docx·pdf)
-- 🚩개념 클로드로 실무 문서 만들기 (엑셀·PPT·워드·PDF)
+- 🚩개념 **CLI / MCP (Plugins / Connector)** — MCP는 AI가 Notion·브라우저·DB 같은 외부 도구와 대화하는 공통 규약. "AI용 USB 포트" 비유 — 규격만 맞추면 어떤 도구든 꽂아 씀
+- 🚩개념 CLI *(GitHub CLI·Vercel CLI·Gmail CLI 목록)*
+- 🚩개념 **document-skills (xlsx·pptx·docx·pdf)** — 공식 문서 스킬: `/plugin marketplace add anthropics/skills` → `/plugin install document-skills@anthropic-agent-skills` 설치 후 "이 표 엑셀로 만들어줘"처럼 호출 (openpyxl·python-pptx 기반)
+- 🚩개념 **클로드로 실무 문서 만들기 (엑셀·PPT·워드·PDF)** — 에이전트 결과물을 .md가 아닌 실무 포맷으로: 실무 에이전트의 마지막 단계 '산출물' 완성. 산출물 먼저, 데이터 수집(MCP)은 나중 순서
 - 🚩고블린 **🅿️ 카페 월 손익 엑셀 + 1분기 PPT 보고서** — `cafe_q1.csv`(3~5월)로 SUMIFS·피벗·차트 든 월별 손익 엑셀 + 그 숫자로 5장 PPT(표지/배경/분석/추천/다음 액션). 검증: 영업이익 7,420,000 일치. 팁: document-skills 플러그인 설치 전제, `my_cafe.md` 있으면 내 카페 데이터로 실습
 - 🚩튜토리얼 [MCP] Notion
-- 🚩튜토리얼 [MCP] 크롬 브라우저
+- 🚩튜토리얼 [MCP] 크롬 브라우저 *(claude-in-chrome·Playwright 링크)*
 - 🚩튜토리얼 만든 웹사이트 기능 테스트 & 스크린샷
-- 🚩튜토리얼 🅿️ 카페 오픈 사입 견적 — 쿠팡 리서치 → 노션 공유
+- 🚩튜토리얼 **🅿️ 카페 오픈 사입 견적 — 쿠팡 리서치 → 노션 공유** — 카페 오픈 D-7 시나리오: `shopping_list.md` 8개 품목을 Playwright MCP로 쿠팡에서 실제 검색해 단가 수집 → `cafe_quote.md` 견적서(품목/규격/수량/단가/금액/합계) → Notion MCP로 공유. 핵심: 쿠팡엔 API가 없어 진짜 브라우저가 필요. 팁: 캡차/로그인은 사람이 직접, 가격은 수집 시점 기준
 
 **퀘스트(과제) — Auth · Agent · 카페 컨셉** *(공통: 기본 10pt~올클리어 25pt · 기한 토 23:59)*
 - 🚩퀘스트 **[Server+DB] 가계부 앱** — 수입/지출 등록(날짜·금액·카테고리·메모) + 목록 조회 + 카테고리별 합계. 팁: type·category·amount·memo·date 컬럼 + `GROUP BY` 합계, 여유 되면 월별 차트·예산 알림
