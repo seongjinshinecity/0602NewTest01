@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SINGLE ORIGIN — 싱글오리진 원두 스토어</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <!-- Babel standalone: v7 핀 (v8은 text/babel 실행이 깨져 빈 화면이 됨) -->
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bean: {
+              50: '#faf6f1', 100: '#f2e9dd', 200: '#e4d1b8',
+              300: '#d3b68e', 400: '#bd9463', 500: '#a97a47',
+              600: '#8f6238', 700: '#72492e', 800: '#573828',
+              900: '#3d2820', 950: '#241511',
+            },
+          },
+          fontFamily: {
+            sans: ['"Pretendard"', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #faf6f1; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @keyframes steam { 0% { opacity: 0; transform: translateY(0) scaleX(1); } 50% { opacity: .6; } 100% { opacity: 0; transform: translateY(-18px) scaleX(1.4); } }
+    .animate-fade { animation: fadeIn .4s ease both; }
+    .animate-slide { animation: slideIn .28s cubic-bezier(.2,.8,.2,1) both; }
+    .steam { animation: steam 2.4s ease-in-out infinite; }
+    .steam:nth-child(2) { animation-delay: .8s; }
+    .steam:nth-child(3) { animation-delay: 1.4s; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #d3b68e; border-radius: 8px; }
+    ::-webkit-scrollbar-track { background: #f2e9dd; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState, useReducer, useEffect, useMemo, useContext, createContext, useCallback } = React;
+
+    // ========================================
+    // 유틸
+    // ========================================
+    const won = (n) => n.toLocaleString('ko-KR') + '원';
+
+    const ROAST_META = {
+      light:  { label: '라이트', color: 'bg-amber-100 text-amber-800 border-amber-200', dot: '#c99a52' },
+      medium: { label: '미디엄', color: 'bg-orange-100 text-orange-800 border-orange-200', dot: '#8f6238' },
+      dark:   { label: '다크',   color: 'bg-stone-200 text-stone-800 border-stone-300', dot: '#3d2820' },
+    };
+    const ROAST_ORDER = ['light', 'medium', 'dark'];
+
+    // 무게 옵션별 가격 배수
+    const WEIGHTS = [
+      { g: 200, label: '200g', mult: 1 },
+      { g: 500, label: '500g', mult: 2.3 },
+      { g: 1000, label: '1kg', mult: 4.2 },
+    ];
+    const priceFor = (base, mult) => Math.round((base * mult) / 100) * 100;
+
+    // ========================================
+    // 데이터 (샘플 싱글오리진 원두 10종)
+    // ========================================
+    const BEANS = [
+      {
+        id: 'yirgacheffe', name: '예가체프 코체레', country: '에티오피아', flag: '🇪🇹',
+        roast: 'light', basePrice: 14000, notes: ['자스민', '베르가못', '레몬'],
+        altitude: '1,900~2,200m', process: '워시드', variety: 'Heirloom', brew: '핸드드립 · 에어로프레스',
+        grad: 'linear-gradient(135deg,#f6d365,#c99a52)',
+        story: '예가체프의 서늘한 고지대에서 자란 헤어룸 품종. 화사한 꽃향과 홍차 같은 여운이 특징인 클래식 아프리카 커피입니다.',
+        bestseller: true,
+      },
+      {
+        id: 'huila', name: '우일라 슈프리모', country: '콜롬비아', flag: '🇨🇴',
+        roast: 'medium', basePrice: 12500, notes: ['밀크초콜릿', '캐러멜', '오렌지'],
+        altitude: '1,700~1,900m', process: '워시드', variety: 'Caturra', brew: '핸드드립 · 모카포트',
+        grad: 'linear-gradient(135deg,#b98b4e,#72492e)',
+        story: '안데스 산맥 우일라 지역의 균형 잡힌 커피. 부드러운 단맛과 밸런스가 좋아 데일리 커피로 사랑받습니다.',
+      },
+      {
+        id: 'kenya-aa', name: '케냐 AA 니에리', country: '케냐', flag: '🇰🇪',
+        roast: 'medium', basePrice: 15500, notes: ['블랙커런트', '자몽', '흑설탕'],
+        altitude: '1,800~2,000m', process: '워시드', variety: 'SL28 · SL34', brew: '핸드드립 · 콜드브루',
+        grad: 'linear-gradient(135deg,#e0554b,#8f2f28)',
+        story: '강렬한 산미와 베리류의 풍성함으로 유명한 케냐 AA 등급. 니에리 지역 특유의 묵직한 바디감이 인상적입니다.',
+        bestseller: true,
+      },
+      {
+        id: 'antigua', name: '안티구아 라 폴라', country: '과테말라', flag: '🇬🇹',
+        roast: 'medium', basePrice: 13000, notes: ['다크초콜릿', '헤이즐넛', '체리'],
+        altitude: '1,500~1,700m', process: '워시드', variety: 'Bourbon', brew: '핸드드립 · 에스프레소',
+        grad: 'linear-gradient(135deg,#a7743f,#57381f)',
+        story: '화산토 위에서 자란 안티구아 커피. 스모키한 뉘앙스와 진한 초콜릿 단맛이 조화를 이룹니다.',
+      },
+      {
+        id: 'tarrazu', name: '따라주 라 미넬라', country: '코스타리카', flag: '🇨🇷',
+        roast: 'light', basePrice: 13800, notes: ['사과', '허니', '아몬드'],
+        altitude: '1,600~1,900m', process: '허니', variety: 'Caturra · Catuai', brew: '핸드드립 · 에어로프레스',
+        grad: 'linear-gradient(135deg,#f0b64f,#b17a34)',
+        story: '허니 프로세스로 가공해 은은한 단맛이 돋보입니다. 깔끔한 산미와 실키한 마우스필의 대표적인 코스타리카 커피.',
+      },
+      {
+        id: 'cerrado', name: '세하도 옐로우버번', country: '브라질', flag: '🇧🇷',
+        roast: 'dark', basePrice: 11000, notes: ['견과류', '다크초콜릿', '몰트'],
+        altitude: '1,000~1,200m', process: '내추럴', variety: 'Yellow Bourbon', brew: '에스프레소 · 모카포트',
+        grad: 'linear-gradient(135deg,#6d4a2b,#2c1a12)',
+        story: '진한 바디와 낮은 산미로 에스프레소 베이스에 최적. 고소한 너티함과 초콜릿 여운이 오래 남습니다.',
+      },
+      {
+        id: 'sidamo', name: '시다모 구지', country: '에티오피아', flag: '🇪🇹',
+        roast: 'light', basePrice: 14500, notes: ['블루베리', '와인', '플로럴'],
+        altitude: '1,850~2,100m', process: '내추럴', variety: 'Heirloom', brew: '핸드드립 · 콜드브루',
+        grad: 'linear-gradient(135deg,#a05bb0,#5c2f6e)',
+        story: '내추럴 가공 특유의 잘 익은 베리와 레드와인 같은 화려함. 구지 지역의 개성이 폭발하는 한 잔입니다.',
+        bestseller: true,
+      },
+      {
+        id: 'geisha', name: '보케테 게이샤', country: '파나마', flag: '🇵🇦',
+        roast: 'light', basePrice: 28000, notes: ['자스민', '복숭아', '베르가못'],
+        altitude: '1,600~1,800m', process: '워시드', variety: 'Geisha', brew: '핸드드립',
+        grad: 'linear-gradient(135deg,#ffd98a,#d99a4e)',
+        story: '스페셜티의 정점, 파나마 게이샤. 향수를 뿌린 듯한 플로럴 아로마와 티 같은 섬세함으로 압도합니다.',
+        premium: true,
+      },
+      {
+        id: 'nueva-segovia', name: '누에바 세고비아', country: '니카라과', flag: '🇳🇮',
+        roast: 'medium', basePrice: 12000, notes: ['카카오', '레드애플', '브라운슈거'],
+        altitude: '1,300~1,500m', process: '워시드', variety: 'Caturra', brew: '핸드드립 · 프렌치프레스',
+        grad: 'linear-gradient(135deg,#c08a4c,#6b432a)',
+        story: '부드러운 바디와 은은한 사과 산미. 초심자도 편하게 즐길 수 있는 균형 잡힌 중미 커피입니다.',
+      },
+      {
+        id: 'sumatra', name: '만델링 링통', country: '인도네시아', flag: '🇮🇩',
+        roast: 'dark', basePrice: 12800, notes: ['허브', '흙내음', '다크초콜릿'],
+        altitude: '1,200~1,500m', process: '길링바사(웻헐드)', variety: 'Ateng', brew: '에스프레소 · 프렌치프레스',
+        grad: 'linear-gradient(135deg,#4b3826,#1f130c)',
+        story: '웻헐드 가공 특유의 묵직하고 흙내음 나는 바디. 낮은 산미와 스파이시한 여운의 인도네시아 대표 커피.',
+      },
+    ];
+
+    // ========================================
+    // 장바구니 Context + Reducer
+    // ========================================
+    const CartContext = createContext(null);
+
+    function cartReducer(state, action) {
+      switch (action.type) {
+        case 'ADD': {
+          const key = action.item.key;
+          const exist = state.find((l) => l.key === key);
+          if (exist) {
+            return state.map((l) => l.key === key ? { ...l, qty: l.qty + action.item.qty } : l);
+          }
+          return [...state, action.item];
+        }
+        case 'QTY': {
+          return state
+            .map((l) => l.key === action.key ? { ...l, qty: Math.max(1, l.qty + action.delta) } : l);
+        }
+        case 'SET_QTY': {
+          const q = parseInt(action.value, 10);
+          if (!q || q < 1) return state;
+          return state.map((l) => l.key === action.key ? { ...l, qty: q } : l);
+        }
+        case 'REMOVE':
+          return state.filter((l) => l.key !== action.key);
+        case 'CLEAR':
+          return [];
+        default:
+          return state;
+      }
+    }
+
+    function CartProvider({ children }) {
+      const [items, dispatch] = useReducer(cartReducer, [], () => {
+        try { return JSON.parse(localStorage.getItem('bean_cart') || '[]'); }
+        catch (e) { return []; }
+      });
+      const [drawerOpen, setDrawerOpen] = useState(false);
+
+      useEffect(() => {
+        try { localStorage.setItem('bean_cart', JSON.stringify(items)); } catch (e) {}
+      }, [items]);
+
+      const totalQty = useMemo(() => items.reduce((s, l) => s + l.qty, 0), [items]);
+      const totalPrice = useMemo(() => items.reduce((s, l) => s + l.price * l.qty, 0), [items]);
+
+      const addItem = useCallback((bean, weight, qty = 1) => {
+        const key = bean.id + '-' + weight.g;
+        dispatch({ type: 'ADD', item: {
+          key, id: bean.id, name: bean.name, country: bean.country, flag: bean.flag,
+          roast: bean.roast, grad: bean.grad, weightLabel: weight.label,
+          price: priceFor(bean.basePrice, weight.mult), qty,
+        }});
+      }, []);
+
+      const value = { items, dispatch, totalQty, totalPrice, addItem, drawerOpen, setDrawerOpen };
+      return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+    }
+    const useCart = () => useContext(CartContext);
+
+    // ========================================
+    // 🔀 해시 라우터 (경량)
+    // ========================================
+    const RouterContext = createContext({ path: '/', navigate: () => {} });
+
+    function Router({ children }) {
+      const [path, setPath] = useState(() => window.location.hash.slice(1) || '/');
+      useEffect(() => {
+        const onHash = () => setPath(window.location.hash.slice(1) || '/');
+        window.addEventListener('hashchange', onHash);
+        return () => window.removeEventListener('hashchange', onHash);
+      }, []);
+      const navigate = useCallback((to) => {
+        window.location.hash = to;
+        window.scrollTo({ top: 0 });
+      }, []);
+      return <RouterContext.Provider value={{ path, navigate }}>{children}</RouterContext.Provider>;
+    }
+    const useRouter = () => useContext(RouterContext);
+
+    function Link({ to, className, children, onClick }) {
+      const { navigate } = useRouter();
+      return (
+        <a href={'#' + to} className={className}
+           onClick={(e) => { e.preventDefault(); onClick && onClick(); navigate(to); }}>
+          {children}
+        </a>
+      );
+    }
+
+    // ========================================
+    // 🎨 디자인 시스템 컴포넌트
+    // ========================================
+    function Button({ variant = 'primary', size = 'md', className = '', disabled, children, ...rest }) {
+      const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-bean-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+      const variants = {
+        primary: 'bg-bean-800 text-bean-50 hover:bg-bean-900 shadow-sm hover:shadow-md active:scale-[.98]',
+        secondary: 'bg-bean-100 text-bean-800 hover:bg-bean-200 border border-bean-200',
+        danger: 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200',
+        ghost: 'bg-transparent text-bean-700 hover:bg-bean-100',
+        outline: 'bg-transparent text-bean-800 border border-bean-300 hover:border-bean-500 hover:bg-bean-50',
+      };
+      const sizes = { sm: 'text-sm px-3 py-1.5', md: 'text-sm px-5 py-2.5', lg: 'text-base px-7 py-3.5' };
+      return (
+        <button disabled={disabled} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...rest}>
+          {children}
+        </button>
+      );
+    }
+
+    function Badge({ children, className = '' }) {
+      return <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${className}`}>{children}</span>;
+    }
+
+    function RoastBadge({ roast }) {
+      const m = ROAST_META[roast];
+      return (
+        <Badge className={m.color}>
+          <span className="w-2 h-2 rounded-full" style={{ background: m.dot }}></span>
+          {m.label} 로스팅
+        </Badge>
+      );
+    }
+
+    function Card({ className = '', children, ...rest }) {
+      return <div className={`bg-white rounded-2xl border border-bean-100 shadow-sm ${className}`} {...rest}>{children}</div>;
+    }
+
+    function Modal({ isOpen, onClose, children, size = 'lg' }) {
+      useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e) => e.key === 'Escape' && onClose();
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+      }, [isOpen, onClose]);
+      if (!isOpen) return null;
+      const widths = { md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-4xl' };
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-bean-950/50 backdrop-blur-sm animate-fade" onClick={onClose}></div>
+          <div className={`relative w-full ${widths[size]} max-h-[90vh] overflow-y-auto bg-bean-50 rounded-3xl shadow-2xl animate-fade`}>
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    // 원두 비주얼 (CSS 그라디언트 + SVG 원두알)
+    function BeanVisual({ grad, size = 'h-44', label }) {
+      return (
+        <div className={`relative w-full ${size} rounded-xl overflow-hidden flex items-center justify-center`}
+             style={{ background: grad }} aria-label={label} role="img">
+          <div className="absolute inset-0 opacity-30"
+               style={{ background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,.5), transparent 45%)' }}></div>
+          <svg viewBox="0 0 120 120" className="w-24 h-24 drop-shadow-lg" aria-hidden="true">
+            <g>
+              <ellipse cx="45" cy="62" rx="26" ry="34" fill="#3d2820" transform="rotate(-18 45 62)"/>
+              <path d="M45 30 Q38 62 45 94" stroke="#241511" strokeWidth="3" fill="none" transform="rotate(-18 45 62)"/>
+              <ellipse cx="74" cy="58" rx="24" ry="32" fill="#57381f" transform="rotate(14 74 58)"/>
+              <path d="M74 28 Q68 58 74 88" stroke="#241511" strokeWidth="3" fill="none" transform="rotate(14 74 58)"/>
+            </g>
+          </svg>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 헤더 / 네비게이션
+    // ========================================
+    function Header() {
+      const { totalQty, setDrawerOpen } = useCart();
+      const { path } = useRouter();
+      const [mobileOpen, setMobileOpen] = useState(false);
+      const nav = [
+        { to: '/beans', label: '원두' },
+        { to: '/subscribe', label: '구독' },
+        { to: '/story', label: '스토리' },
+      ];
+      const isActive = (to) => path === to || (to === '/beans' && path === '/');
+      return (
+        <header className="sticky top-0 z-40 bg-bean-50/85 backdrop-blur border-b border-bean-100">
+          <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <Link to="/" className="flex items-center gap-2 shrink-0" onClick={() => setMobileOpen(false)}>
+              <span className="text-2xl">☕</span>
+              <div className="leading-none">
+                <div className="font-extrabold tracking-tight text-bean-900 text-lg">SINGLE ORIGIN</div>
+                <div className="text-[10px] tracking-[0.25em] text-bean-500">FRESH ROASTERY</div>
+              </div>
+            </Link>
+
+            <nav className="hidden md:flex items-center gap-1" aria-label="주요 메뉴">
+              {nav.map((n) => (
+                <Link key={n.to} to={n.to}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition ${isActive(n.to) ? 'bg-bean-800 text-bean-50' : 'text-bean-700 hover:bg-bean-100'}`}>
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <button onClick={() => setDrawerOpen(true)}
+                className="relative p-2.5 rounded-full hover:bg-bean-100 transition" aria-label={`장바구니 (${totalQty}개)`}>
+                <svg className="w-6 h-6 text-bean-800" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-.014 2.078-.842 2.246-1.95l.808-5.298a.75.75 0 0 0-.741-.87H5.106M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                </svg>
+                {totalQty > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center">
+                    {totalQty}
+                  </span>
+                )}
+              </button>
+              <button className="md:hidden p-2.5 rounded-full hover:bg-bean-100" aria-label="메뉴 열기"
+                onClick={() => setMobileOpen((v) => !v)}>
+                <svg className="w-6 h-6 text-bean-800" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {mobileOpen && (
+            <nav className="md:hidden border-t border-bean-100 bg-bean-50 px-4 py-2 animate-fade" aria-label="모바일 메뉴">
+              {nav.map((n) => (
+                <Link key={n.to} to={n.to} onClick={() => setMobileOpen(false)}
+                  className={`block px-4 py-3 rounded-xl text-sm font-medium ${isActive(n.to) ? 'bg-bean-800 text-bean-50' : 'text-bean-700 hover:bg-bean-100'}`}>
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </header>
+      );
+    }
+
+    function Footer() {
+      return (
+        <footer className="mt-20 bg-bean-900 text-bean-200">
+          <div className="max-w-6xl mx-auto px-4 py-12 grid gap-8 md:grid-cols-3">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-2xl">☕</span>
+                <span className="font-extrabold text-bean-50 text-lg">SINGLE ORIGIN</span>
+              </div>
+              <p className="text-sm text-bean-300 leading-relaxed">산지의 개성을 그대로. 주문 후 로스팅하는<br/>싱글오리진 스페셜티 원두 스토어.</p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-bean-50 mb-3 text-sm">고객센터</h4>
+              <p className="text-sm text-bean-300 leading-relaxed">평일 10:00–18:00 (점심 12–13시)<br/>1600-0000 · hello@singleorigin.kr</p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-bean-50 mb-3 text-sm">배송 안내</h4>
+              <p className="text-sm text-bean-300 leading-relaxed">오후 2시 이전 주문 시 당일 로스팅·발송<br/>3만원 이상 무료배송</p>
+            </div>
+          </div>
+          <div className="border-t border-bean-800 text-center py-4 text-xs text-bean-400">
+            © 2026 SINGLE ORIGIN Roastery — 데모 UI · Powered by CDN React + Tailwind
+          </div>
+        </footer>
+      );
+    }
+
+    // ========================================
+    // 📄 상품 카드
+    // ========================================
+    function BeanCard({ bean, onOpen }) {
+      const { addItem } = useCart();
+      const [weight, setWeight] = useState(WEIGHTS[0]);
+      const price = priceFor(bean.basePrice, weight.mult);
+      return (
+        <Card className="overflow-hidden flex flex-col hover:shadow-lg hover:-translate-y-0.5 transition duration-200 animate-fade">
+          <button onClick={() => onOpen(bean)} className="text-left group" aria-label={`${bean.name} 상세보기`}>
+            <div className="p-3 pb-0">
+              <BeanVisual grad={bean.grad} label={`${bean.country} ${bean.name} 원두`} />
+            </div>
+          </button>
+          <div className="p-4 flex flex-col flex-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-bean-500 font-medium">{bean.flag} {bean.country}</span>
+              <div className="flex gap-1">
+                {bean.bestseller && <Badge className="bg-red-50 text-red-600 border-red-100">BEST</Badge>}
+                {bean.premium && <Badge className="bg-bean-800 text-bean-50 border-bean-800">PREMIUM</Badge>}
+              </div>
+            </div>
+            <button onClick={() => onOpen(bean)} className="text-left">
+              <h3 className="font-bold text-bean-900 leading-snug hover:text-bean-600 transition">{bean.name}</h3>
+            </button>
+            <div className="mt-2"><RoastBadge roast={bean.roast} /></div>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {bean.notes.map((n) => (
+                <span key={n} className="text-[11px] text-bean-600 bg-bean-50 border border-bean-100 rounded-md px-2 py-0.5">{n}</span>
+              ))}
+            </div>
+
+            <div className="mt-4 flex gap-1.5" role="group" aria-label="무게 선택">
+              {WEIGHTS.map((w) => (
+                <button key={w.g} onClick={() => setWeight(w)}
+                  className={`flex-1 text-xs py-1.5 rounded-lg border transition font-medium ${weight.g === w.g ? 'bg-bean-800 text-bean-50 border-bean-800' : 'border-bean-200 text-bean-600 hover:border-bean-400'}`}>
+                  {w.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div className="font-extrabold text-bean-900 text-lg">{won(price)}</div>
+            </div>
+            <Button className="mt-3 w-full" onClick={() => addItem(bean, weight)}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+              장바구니 담기
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // 📄 상품 상세 모달
+    // ========================================
+    function BeanDetailModal({ bean, isOpen, onClose }) {
+      const { addItem, setDrawerOpen } = useCart();
+      const [weight, setWeight] = useState(WEIGHTS[0]);
+      const [qty, setQty] = useState(1);
+      useEffect(() => { if (isOpen) { setWeight(WEIGHTS[0]); setQty(1); } }, [isOpen, bean]);
+      if (!bean) return null;
+      const price = priceFor(bean.basePrice, weight.mult);
+      const specs = [
+        { k: '원산지', v: `${bean.flag} ${bean.country}` },
+        { k: '재배 고도', v: bean.altitude },
+        { k: '가공 방식', v: bean.process },
+        { k: '품종', v: bean.variety },
+        { k: '추천 추출', v: bean.brew },
+      ];
+      return (
+        <Modal isOpen={isOpen} onClose={onClose} size="xl">
+          <div className="relative">
+            <button onClick={onClose} aria-label="닫기"
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow">
+              <svg className="w-5 h-5 text-bean-800" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
+            <div className="grid md:grid-cols-2 gap-0">
+              <div className="p-6 md:p-8">
+                <BeanVisual grad={bean.grad} size="h-64 md:h-80" label={`${bean.name} 원두`} />
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {bean.notes.map((n) => (
+                    <div key={n} className="text-sm text-bean-700 bg-white border border-bean-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                      <span className="text-base">🫐</span>{n}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 md:pl-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm text-bean-500 font-medium">{bean.flag} {bean.country}</span>
+                  {bean.bestseller && <Badge className="bg-red-50 text-red-600 border-red-100">BEST</Badge>}
+                  {bean.premium && <Badge className="bg-bean-800 text-bean-50 border-bean-800">PREMIUM</Badge>}
+                </div>
+                <h2 className="text-2xl font-extrabold text-bean-900">{bean.name}</h2>
+                <div className="mt-3"><RoastBadge roast={bean.roast} /></div>
+
+                <p className="mt-4 text-sm text-bean-700 leading-relaxed">{bean.story}</p>
+
+                <dl className="mt-5 grid grid-cols-1 gap-2">
+                  {specs.map((s) => (
+                    <div key={s.k} className="flex justify-between text-sm border-b border-bean-100 py-2">
+                      <dt className="text-bean-500">{s.k}</dt>
+                      <dd className="font-medium text-bean-900 text-right">{s.v}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="mt-5">
+                  <div className="text-xs font-semibold text-bean-500 mb-1.5">무게 옵션</div>
+                  <div className="flex gap-2">
+                    {WEIGHTS.map((w) => (
+                      <button key={w.g} onClick={() => setWeight(w)}
+                        className={`flex-1 py-2 rounded-xl border text-sm font-medium transition ${weight.g === w.g ? 'bg-bean-800 text-bean-50 border-bean-800' : 'border-bean-200 text-bean-600 hover:border-bean-400'}`}>
+                        {w.label}<div className="text-[11px] font-normal opacity-80">{won(priceFor(bean.basePrice, w.mult))}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between">
+                  <div className="inline-flex items-center border border-bean-200 rounded-full overflow-hidden">
+                    <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="w-9 h-9 hover:bg-bean-100 text-bean-800" aria-label="수량 감소">−</button>
+                    <span className="w-10 text-center font-semibold text-bean-900">{qty}</span>
+                    <button onClick={() => setQty((q) => q + 1)} className="w-9 h-9 hover:bg-bean-100 text-bean-800" aria-label="수량 증가">+</button>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-bean-500">합계</div>
+                    <div className="text-2xl font-extrabold text-bean-900">{won(price * qty)}</div>
+                  </div>
+                </div>
+
+                <Button size="lg" className="mt-4 w-full"
+                  onClick={() => { addItem(bean, weight, qty); onClose(); setDrawerOpen(true); }}>
+                  장바구니에 담기
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    // ========================================
+    // 📄 장바구니 드로어
+    // ========================================
+    function CartDrawer() {
+      const { items, dispatch, totalPrice, drawerOpen, setDrawerOpen } = useCart();
+      useEffect(() => {
+        if (!drawerOpen) return;
+        const onKey = (e) => e.key === 'Escape' && setDrawerOpen(false);
+        window.addEventListener('keydown', onKey);
+        document.body.style.overflow = 'hidden';
+        return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+      }, [drawerOpen]);
+      if (!drawerOpen) return null;
+      const shipping = totalPrice >= 30000 || totalPrice === 0 ? 0 : 3000;
+      return (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="장바구니">
+          <div className="absolute inset-0 bg-bean-950/50 backdrop-blur-sm animate-fade" onClick={() => setDrawerOpen(false)}></div>
+          <aside className="absolute right-0 top-0 h-full w-full max-w-md bg-bean-50 shadow-2xl flex flex-col animate-slide">
+            <div className="flex items-center justify-between px-5 h-16 border-b border-bean-100 shrink-0">
+              <h2 className="font-bold text-bean-900 text-lg">장바구니</h2>
+              <button onClick={() => setDrawerOpen(false)} aria-label="닫기" className="p-2 rounded-full hover:bg-bean-100">
+                <svg className="w-5 h-5 text-bean-800" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            {items.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+                <div className="text-6xl mb-4">🛒</div>
+                <p className="text-bean-700 font-medium">장바구니가 비어있어요</p>
+                <p className="text-sm text-bean-500 mt-1">마음에 드는 싱글오리진 원두를 담아보세요.</p>
+                <Button className="mt-5" onClick={() => setDrawerOpen(false)}>원두 보러가기</Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                  {items.map((l) => (
+                    <div key={l.key} className="flex gap-3 bg-white rounded-2xl border border-bean-100 p-3">
+                      <div className="w-16 h-16 rounded-xl shrink-0" style={{ background: l.grad }}></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-bean-900 text-sm truncate">{l.name}</div>
+                            <div className="text-xs text-bean-500">{l.flag} {l.country} · {l.weightLabel} · {ROAST_META[l.roast].label}</div>
+                          </div>
+                          <button onClick={() => dispatch({ type: 'REMOVE', key: l.key })} aria-label="삭제"
+                            className="text-bean-400 hover:text-red-600 shrink-0">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                          </button>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="inline-flex items-center border border-bean-200 rounded-full overflow-hidden">
+                            <button onClick={() => dispatch({ type: 'QTY', key: l.key, delta: -1 })} className="w-7 h-7 hover:bg-bean-100 text-bean-800 text-sm" aria-label="수량 감소">−</button>
+                            <span className="w-8 text-center text-sm font-semibold">{l.qty}</span>
+                            <button onClick={() => dispatch({ type: 'QTY', key: l.key, delta: 1 })} className="w-7 h-7 hover:bg-bean-100 text-bean-800 text-sm" aria-label="수량 증가">+</button>
+                          </div>
+                          <div className="font-bold text-bean-900 text-sm">{won(l.price * l.qty)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => dispatch({ type: 'CLEAR' })} className="text-xs text-bean-400 hover:text-red-600 underline">전체 비우기</button>
+                </div>
+
+                <div className="border-t border-bean-100 p-5 shrink-0 bg-bean-50">
+                  <div className="flex justify-between text-sm text-bean-600 mb-1"><span>상품 금액</span><span>{won(totalPrice)}</span></div>
+                  <div className="flex justify-between text-sm text-bean-600 mb-2">
+                    <span>배송비</span><span>{shipping === 0 ? '무료' : won(shipping)}</span>
+                  </div>
+                  {shipping > 0 && (
+                    <div className="text-[11px] text-bean-500 mb-2">{won(30000 - totalPrice)} 더 담으면 무료배송!</div>
+                  )}
+                  <div className="flex justify-between font-extrabold text-bean-900 text-lg pt-2 border-t border-bean-100">
+                    <span>결제 예정</span><span>{won(totalPrice + shipping)}</span>
+                  </div>
+                  <Button size="lg" className="w-full mt-4" onClick={() => alert('데모 UI입니다 — 결제 기능은 연결되어 있지 않아요 ☕')}>
+                    주문하기
+                  </Button>
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 📄 히어로
+    // ========================================
+    function Hero() {
+      const { navigate } = useRouter();
+      return (
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 90% at 80% -10%, #e4d1b8 0%, #faf6f1 55%)' }}></div>
+          <div className="relative max-w-6xl mx-auto px-4 py-16 md:py-24 grid md:grid-cols-2 gap-10 items-center">
+            <div className="animate-fade">
+              <Badge className="bg-white text-bean-700 border-bean-200 mb-4">🔥 주문 후 로스팅 · 당일 발송</Badge>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-bean-900 leading-tight tracking-tight">
+                한 잔에 담긴<br/><span className="text-bean-600">산지의 언어</span>를<br/>그대로 전합니다
+              </h1>
+              <p className="mt-5 text-bean-700 leading-relaxed max-w-md">
+                에티오피아부터 파나마 게이샤까지. 각 지역의 고도와 가공방식이 만든 고유한 컵노트를,
+                가장 신선한 상태로 만나보세요.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Button size="lg" onClick={() => navigate('/beans')}>원두 둘러보기</Button>
+                <Button size="lg" variant="outline" onClick={() => navigate('/subscribe')}>구독 알아보기</Button>
+              </div>
+              <div className="mt-8 flex gap-8">
+                {[['10종', '싱글오리진'], ['5개국', '직수입 산지'], ['당일', '로스팅 발송']].map(([a, b]) => (
+                  <div key={b}><div className="text-2xl font-extrabold text-bean-900">{a}</div><div className="text-xs text-bean-500">{b}</div></div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative flex justify-center animate-fade">
+              <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full flex items-center justify-center shadow-2xl"
+                   style={{ background: 'linear-gradient(145deg,#8f6238,#3d2820)' }}>
+                <div className="absolute -top-4 flex gap-3">
+                  <span className="steam block w-1.5 h-10 rounded-full bg-white/40"></span>
+                  <span className="steam block w-1.5 h-12 rounded-full bg-white/40"></span>
+                  <span className="steam block w-1.5 h-10 rounded-full bg-white/40"></span>
+                </div>
+                <span className="text-8xl md:text-9xl drop-shadow-lg">☕</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 원두 목록 페이지 (필터 + 정렬)
+    // ========================================
+    function BeansPage({ onOpen }) {
+      const [roastFilter, setRoastFilter] = useState('all');
+      const [sort, setSort] = useState('recommend');
+
+      const list = useMemo(() => {
+        let r = roastFilter === 'all' ? [...BEANS] : BEANS.filter((b) => b.roast === roastFilter);
+        if (sort === 'price-asc') r.sort((a, b) => a.basePrice - b.basePrice);
+        else if (sort === 'price-desc') r.sort((a, b) => b.basePrice - a.basePrice);
+        else if (sort === 'roast') r.sort((a, b) => ROAST_ORDER.indexOf(a.roast) - ROAST_ORDER.indexOf(b.roast));
+        return r;
+      }, [roastFilter, sort]);
+
+      const filters = [
+        { v: 'all', label: '전체' },
+        { v: 'light', label: '라이트' },
+        { v: 'medium', label: '미디엄' },
+        { v: 'dark', label: '다크' },
+      ];
+
+      return (
+        <section className="max-w-6xl mx-auto px-4 py-10">
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-bean-900">싱글오리진 원두</h2>
+              <p className="text-bean-500 text-sm mt-1">산지별 개성이 살아있는 스페셜티 라인업</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="sort" className="text-sm text-bean-500">정렬</label>
+              <select id="sort" value={sort} onChange={(e) => setSort(e.target.value)}
+                className="text-sm border border-bean-200 rounded-full px-4 py-2 bg-white text-bean-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-bean-400">
+                <option value="recommend">추천순</option>
+                <option value="price-asc">가격 낮은순</option>
+                <option value="price-desc">가격 높은순</option>
+                <option value="roast">로스팅 밝은순</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-8" role="group" aria-label="로스팅 필터">
+            {filters.map((f) => (
+              <button key={f.v} onClick={() => setRoastFilter(f.v)}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition ${roastFilter === f.v ? 'bg-bean-800 text-bean-50 border-bean-800' : 'bg-white text-bean-700 border-bean-200 hover:border-bean-400'}`}>
+                {f.label}
+              </button>
+            ))}
+            <span className="ml-auto self-center text-sm text-bean-400">{list.length}개 상품</span>
+          </div>
+
+          {list.length === 0 ? (
+            <div className="text-center py-20 text-bean-500">해당 조건의 원두가 없어요.</div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {list.map((b) => <BeanCard key={b.id} bean={b} onOpen={onOpen} />)}
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 구독 페이지
+    // ========================================
+    function SubscribePage() {
+      const { navigate } = useRouter();
+      const plans = [
+        { name: '위클리', price: 19000, cycle: '매주', desc: '매주 새로운 싱글오리진 200g', pop: false },
+        { name: '바이위클리', price: 32000, cycle: '격주', desc: '2주마다 엄선한 원두 500g', pop: true },
+        { name: '먼슬리', price: 48000, cycle: '매월', desc: '한 달에 한 번, 프리미엄 1kg', pop: false },
+      ];
+      return (
+        <section className="max-w-6xl mx-auto px-4 py-12">
+          <div className="text-center mb-10">
+            <Badge className="bg-white text-bean-700 border-bean-200 mb-3">☕ 정기구독</Badge>
+            <h2 className="text-3xl font-extrabold text-bean-900">매번 고르지 않아도, 늘 신선하게</h2>
+            <p className="text-bean-600 mt-2">로스터가 큐레이션한 싱글오리진을 원하는 주기로 받아보세요. 언제든 해지 가능.</p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {plans.map((p) => (
+              <Card key={p.name} className={`p-6 flex flex-col ${p.pop ? 'ring-2 ring-bean-600 relative' : ''}`}>
+                {p.pop && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-bean-800 text-bean-50 text-xs font-semibold px-3 py-1 rounded-full">가장 인기</span>}
+                <h3 className="font-bold text-bean-900 text-lg">{p.name}</h3>
+                <p className="text-sm text-bean-500 mt-1">{p.cycle} 배송</p>
+                <div className="mt-4 text-3xl font-extrabold text-bean-900">{won(p.price)}<span className="text-sm font-medium text-bean-500">/회</span></div>
+                <p className="text-sm text-bean-600 mt-3 flex-1">{p.desc}</p>
+                <ul className="mt-4 space-y-1.5 text-sm text-bean-700">
+                  {['무료 배송', '주문 후 로스팅', '언제든 해지·건너뛰기'].map((t) => (
+                    <li key={t} className="flex items-center gap-2"><span className="text-bean-500">✓</span>{t}</li>
+                  ))}
+                </ul>
+                <Button className="mt-5 w-full" variant={p.pop ? 'primary' : 'outline'}
+                  onClick={() => alert(`${p.name} 구독 — 데모 UI입니다 ☕`)}>구독 시작하기</Button>
+              </Card>
+            ))}
+          </div>
+          <div className="text-center mt-10">
+            <Button variant="ghost" onClick={() => navigate('/beans')}>← 단품 원두 보러가기</Button>
+          </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 스토리 페이지
+    // ========================================
+    function StoryPage() {
+      const steps = [
+        { icon: '🌱', t: '산지 직거래', d: '농장과 직접 관계를 맺고 공정한 가격으로 생두를 수급합니다.' },
+        { icon: '🔥', t: '주문 후 로스팅', d: '주문이 들어오면 그날 로스팅해 가장 신선한 상태로 보냅니다.' },
+        { icon: '🧪', t: '커핑 & 컵노트', d: '모든 배치를 커핑으로 검증하고 정직한 테이스팅 노트를 기록합니다.' },
+        { icon: '📦', t: '당일 발송', d: '오후 2시 이전 주문은 당일 발송해 향의 손실을 최소화합니다.' },
+      ];
+      return (
+        <section className="max-w-4xl mx-auto px-4 py-14">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-bean-900">우리가 커피를 다루는 방식</h2>
+            <p className="text-bean-600 mt-3 leading-relaxed max-w-2xl mx-auto">
+              SINGLE ORIGIN은 블렌딩으로 개성을 지우지 않습니다.
+              한 산지, 한 농장의 목소리를 온전히 담아내는 것 — 그것이 우리가 싱글오리진만 고집하는 이유입니다.
+            </p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {steps.map((s, i) => (
+              <Card key={s.t} className="p-6 animate-fade">
+                <div className="text-4xl mb-3">{s.icon}</div>
+                <div className="text-xs font-semibold text-bean-400 mb-1">STEP {i + 1}</div>
+                <h3 className="font-bold text-bean-900 text-lg">{s.t}</h3>
+                <p className="text-sm text-bean-600 mt-2 leading-relaxed">{s.d}</p>
+              </Card>
+            ))}
+          </div>
+          <blockquote className="mt-12 text-center text-xl font-medium text-bean-800 italic">
+            “좋은 커피는 설명이 필요 없습니다.<br/>산지가 이미 모든 것을 말하고 있으니까요.”
+          </blockquote>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 라우팅 뷰
+    // ========================================
+    function Routes({ onOpen }) {
+      const { path } = useRouter();
+      if (path === '/' ) {
+        return <><Hero /><BeansPage onOpen={onOpen} /></>;
+      }
+      if (path === '/beans') return <BeansPage onOpen={onOpen} />;
+      if (path === '/subscribe') return <SubscribePage />;
+      if (path === '/story') return <StoryPage />;
+      return (
+        <div className="max-w-6xl mx-auto px-4 py-24 text-center">
+          <div className="text-6xl mb-4">🫙</div>
+          <h2 className="text-xl font-bold text-bean-900">페이지를 찾을 수 없어요</h2>
+          <Link to="/" className="inline-block mt-4 text-bean-600 underline">홈으로 돌아가기</Link>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const [detailBean, setDetailBean] = useState(null);
+      const [detailOpen, setDetailOpen] = useState(false);
+      const openDetail = useCallback((b) => { setDetailBean(b); setDetailOpen(true); }, []);
+      return (
+        <Router>
+          <CartProvider>
+            <div className="min-h-screen flex flex-col">
+              <Header />
+              <main className="flex-1">
+                <Routes onOpen={openDetail} />
+              </main>
+              <Footer />
+              <CartDrawer />
+              <BeanDetailModal bean={detailBean} isOpen={detailOpen} onClose={() => setDetailOpen(false)} />
+            </div>
+          </CartProvider>
+        </Router>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
