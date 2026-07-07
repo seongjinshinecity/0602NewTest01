@@ -1,0 +1,14 @@
+{
+  "eval_id": 0,
+  "eval_name": "concept-mode-hangang",
+  "prompt": "한강 근처에서 20대 타깃으로 카페를 준비 중이야. 컨셉은 '청량한 바다'. 여름 메뉴 8개 정도로 구성해줘. 결과물은 summer-menu-bada 폴더에 저장해줘.",
+  "assertions": [
+    "산출물 4종(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)이 모두 존재한다",
+    "cost-sheet.xlsx가 유효한 엑셀 파일이고 요약 시트와 재료 상세 시트를 포함한다",
+    "menu-board.html이 외부 리소스 없이 자체 완결이다 (외부 http(s) 참조 없음)",
+    "메뉴가 7~10개 범위이고 음료와 디저트 카테고리가 섞여 있다",
+    "recipes.md에 모든 메뉴의 재료와 만드는 법 단계가 있다",
+    "평균 재료 원가율이 20~40% 범위다",
+    "menu-data.json이 출력 폴더에 남아 있다"
+  ]
+}
