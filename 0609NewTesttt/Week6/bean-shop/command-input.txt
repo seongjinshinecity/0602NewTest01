@@ -1,1 +1,40 @@
 bean-shop 여기에 싱글오리진 원두 판매 쇼핑몰 UI 만들어줘
+
+[2026-07-07 리디자인]
+그 앱의 디자인스타일을
+https://i.pinimg.com/1200x/26/82/b8/2682b824ac3b00cbff48850f1a248d40.jpg
+https://i.pinimg.com/736x/ce/3f/f9/ce3ff9cc1d929a7b7777eda068bdb1ec.jpg
+https://i.pinimg.com/1200x/9a/7e/51/9a7e51eb23d315cacb4a7b800946bd72.jpg
+이거를 참고해줘
+
+[2026-07-07 Supabase 연동]
+supabase는 필요없나? → 필요한 구조로 바꾸면 뭐가 필요해? → 그대로 수정을 진행
+(beans/orders/order_items 테이블 + RLS 생성, 원두 DB 로드 + 주문 저장 연동, anon key는 추후 입력)
+
+[2026-07-07 토스페이먼츠 결제위젯 연동]
+bean-shop 쇼핑몰에 토스페이먼츠 결제위젯을 실제로 연동해줘 (테스트 상점 키 사용).
+- 장바구니 "결제하기" → 결제위젯(v2 SDK) → requestPayment 전체 플로우
+- 시크릿키는 클라이언트에 넣지 말고 Express server.js + .env로 분리 (.gitignore, .env.example)
+- successUrl/failUrl 처리 페이지 (승인 결과·에러 표시, 성공 시 장바구니 비우기)
+- 비회원 결제(customerKey ANONYMOUS), 기존 UI/기능 유지
+- 서버 켜고 브라우저로 위젯 렌더링까지 검증 + 스크린샷, confirm은 curl 형식 검증
+(→ /#/checkout 결제 페이지 + /#/payments/success·fail 추가, 해시 라우팅 successUrl 파서 대응,
+ 서버 금액검증 in-memory Map, 재confirm 방지 replaceState, screenshots/checkout-widget.png)
+
+[2026-07-07 결제서버 origin 안내 개선]
+"결제 요청 중 오류: 주문 등록에 실패했어요" 라고 나와
+(→ 원인은 접속 origin이 localhost:3000이 아닐 때. handlePay 에러를 자가진단형으로 개선,
+ README에 "자주 겪는 오류" 섹션 추가)
+
+[2026-07-07 ImageKit 프로필 사진 변경]
+ImageKit 이용해서 로그인한 유저가 자기 프로필 사진 바꾸는 기능 구현해줘
+- 대상: 기존 bean-shop에 로그인 + 마이페이지 추가
+- 인증: Supabase Auth 아님 → Express가 Postgres(DATABASE_URL)에 직접 붙어 bcrypt+JWT(httpOnly 쿠키) 자체 인증
+  (app_users / app_profiles(avatar_url) 테이블 기동 시 자동 생성)
+- ImageKit: private 키는 서버 .env 전용, /api/imagekit-auth로 서명만 내려주고 브라우저가 직접 업로드
+  → 업로드된 url을 app_profiles.avatar_url에 저장, 표시 시 ?tr=w-240,h-240,fo-auto 변환
+- 모든 자격증명 설정 주도(.env + 클라이언트 CONFIG 상수), 키 미설정 시 안내 배너 + 쇼핑·결제는 정상
+- 검증: 회원가입→로그인→실제 ImageKit 업로드 성공 + Postgres avatar_url 저장 확인,
+  결제 회귀 확인, screenshots/account-avatar-uploaded.png
+- 참고: 1차 ImageKit 키는 403(인증 실패) → 사용자 재발급 키로 정상 동작 확인.
+  Supabase publishable 키는 프로젝트에 미발급 상태(그래서 client Supabase는 폴백, 인증은 서버 Postgres로 처리)
