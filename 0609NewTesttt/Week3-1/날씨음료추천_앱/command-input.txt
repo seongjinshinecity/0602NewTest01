@@ -1,0 +1,23 @@
+# 날씨음료추천_앱 생성 명령 (2026-06-29)
+
+원본 요청:
+"0609NewTesttt/Week3-1/날씨기반_음료추천_위젯_퀘스트.md 퀘스트를 완료할 수 있게 앱 ui를 만들어 줘"
+
+작업:
+- 해당 퀘스트의 레퍼런스 앱을 단일 index.html로 제작
+- 외부 날씨 API(OpenWeatherMap, fetch) 기반, API 키는 입력창에서 받아 localStorage 보관
+- 키 없이도 UI/분기를 확인·스크린샷할 수 있도록 "데모 데이터로 보기" 버튼 추가
+- 기온 구간 + 날씨 상태(비/눈) 분기 음료 추천 로직, 로딩/404/401/429/네트워크 오류 처리
+- 고블린: Geolocation 현재 위치, 최근 도시 3개 localStorage 저장
+- Playwright로 더운 날(31℃)·비 오는 날(15℃) 데모 화면 스크린샷 2장 캡처 → README.md에 첨부
+
+산출물:
+- index.html
+- screenshot.png (더운 날 → 아이스 콜드브루)
+- screenshot-rain.png (비 오는 날 → 핫초코)
+- README.md (스크린샷 포함)
+
+참고:
+- 퀘스트 스펙: 0609NewTesttt/Week3-1/날씨기반_음료추천_위젯_퀘스트.md
+- 메모 규칙: UI 앱은 폴더에 README+스크린샷, 명령어 txt 포함
+- 실제 사용 시 OpenWeatherMap 무료 API 키 필요 (https://openweathermap.org/api)

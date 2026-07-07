@@ -1,0 +1,15 @@
+# quest-maker 에이전트 생성 명령 (2026-06-29)
+
+원본 요청:
+AI공장장-부트캠프-정리.md를 보고 퀘스트를 만들어주는 에이전트를 만들어줘
+
+산출물:
+- 0609NewTesttt/.claude/agents/quest-maker.md
+  부트캠프 카테고리 체계(Calculation/Transform/Network/Server/Server+AI/Server+DB/Auth/MCP·Skill/Context)와
+  항목 표기(🚩퀘스트·🚩고블린 등), 주차별 난이도 기준을 반영해
+  검증 가능한 과제 명세를 출제하는 subagent.
+
+사용 예:
+- "3주차 Network 쪽으로 퀘스트 하나 만들어줘"
+- "가계부 앱 관련 고블린 도전과제 만들어줘"
+- "Transform 카테고리 퀘스트 3개 뽑아줘"

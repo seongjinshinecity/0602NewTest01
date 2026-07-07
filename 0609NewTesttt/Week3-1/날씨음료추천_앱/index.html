@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>오늘의 음료 추천 위젯</title>
+<style>
+  :root{
+    --bg1:#1e293b; --bg2:#0f172a; --card:#ffffff;
+    --accent:#6366f1; --accent2:#8b5cf6; --text:#0f172a; --muted:#64748b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2)); color:var(--text);
+    display:flex; align-items:flex-start; justify-content:center; padding:32px 16px;
+  }
+  .widget{
+    width:100%; max-width:440px; background:var(--card); border-radius:24px;
+    box-shadow:0 24px 60px rgba(0,0,0,.35); padding:28px; }
+  h1{font-size:22px; margin:0 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 20px;}
+  .keyrow{margin-bottom:14px;}
+  details summary{cursor:pointer; color:var(--accent); font-size:13px; user-select:none;}
+  input{
+    width:100%; padding:12px 14px; border:1.5px solid #e2e8f0; border-radius:12px;
+    font-size:15px; outline:none; transition:border-color .15s; }
+  input:focus{border-color:var(--accent);}
+  .searchrow{display:flex; gap:8px; margin-top:10px;}
+  .searchrow input{flex:1;}
+  button{
+    border:none; cursor:pointer; font-size:15px; font-weight:600; border-radius:12px;
+    padding:12px 16px; background:var(--accent); color:#fff; transition:filter .15s; white-space:nowrap;}
+  button:hover{filter:brightness(1.07);}
+  button.ghost{background:#eef2ff; color:var(--accent);}
+  .actions{display:flex; gap:8px; margin-top:8px;}
+  .actions button{flex:1; font-size:13px; padding:9px;}
+  .recent{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .chip{background:#f1f5f9; color:#475569; border-radius:999px; padding:5px 12px; font-size:12px; cursor:pointer;}
+  .chip:hover{background:#e2e8f0;}
+  .state{margin-top:20px; text-align:center; color:var(--muted); font-size:14px; min-height:20px;}
+  .spinner{display:inline-block; width:22px; height:22px; border:3px solid #e2e8f0;
+    border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .card{margin-top:20px; border-radius:18px; padding:22px; color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent2)); display:none;}
+  .card.show{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+  .wtop{display:flex; align-items:center; justify-content:space-between;}
+  .city{font-size:16px; font-weight:700;}
+  .cond{font-size:13px; opacity:.9;}
+  .temp{font-size:48px; font-weight:800; line-height:1;}
+  .wicon{font-size:46px;}
+  .divider{height:1px; background:rgba(255,255,255,.25); margin:18px 0;}
+  .drinklabel{font-size:12px; opacity:.85; letter-spacing:.05em;}
+  .drink{font-size:26px; font-weight:800; margin:4px 0 6px; display:flex; align-items:center; gap:8px;}
+  .reason{font-size:14px; opacity:.95; line-height:1.5;}
+  .err{color:#dc2626; background:#fef2f2; border-radius:12px; padding:12px; font-size:14px;}
+  footer{margin-top:18px; text-align:center; font-size:11px; color:#94a3b8;}
+</style>
+</head>
+<body>
+  <main class="widget">
+    <h1>☕ 오늘의 음료 추천</h1>
+    <p class="sub">실시간 날씨에 맞춰 카페 메뉴를 추천해 드려요</p>
+
+    <div class="keyrow">
+      <details>
+        <summary>🔑 OpenWeatherMap API 키 설정</summary>
+        <input id="apiKey" type="password" placeholder="API 키를 붙여넣으세요 (브라우저에만 저장)" style="margin-top:10px;" />
+        <p class="sub" style="margin:8px 0 0;">키가 없으면 아래 "데모 데이터로 보기"로 화면을 미리 볼 수 있어요.</p>
+      </details>
+    </div>
+
+    <form id="searchForm">
+      <div class="searchrow">
+        <input id="cityInput" type="text" placeholder="도시 이름 (예: Seoul, Busan)" autocomplete="off" />
+        <button type="submit">추천받기</button>
+      </div>
+    </form>
+    <div class="actions">
+      <button type="button" class="ghost" id="geoBtn">📍 현재 위치</button>
+      <button type="button" class="ghost" id="demoBtn">🧪 데모 데이터로 보기</button>
+    </div>
+
+    <div class="recent" id="recent"></div>
+
+    <div class="state" id="state"></div>
+
+    <section class="card" id="card">
+      <div class="wtop">
+        <div>
+          <div class="city" id="cardCity"></div>
+          <div class="cond" id="cardCond"></div>
+        </div>
+        <div style="text-align:right;">
+          <div class="temp" id="cardTemp"></div>
+        </div>
+      </div>
+      <div class="wicon" id="cardIcon" style="margin-top:8px;"></div>
+      <div class="divider"></div>
+      <div class="drinklabel">오늘의 추천 음료</div>
+      <div class="drink" id="cardDrink"></div>
+      <div class="reason" id="cardReason"></div>
+    </section>
+
+    <footer>외부 날씨 API(fetch) · 3주차 Network 퀘스트</footer>
+  </main>
+
+<script>
+const API_BASE = "https://api.openweathermap.org/data/2.5/weather";
+const RECENT_KEY = "weather_drink_recent";
+const KEY_STORE = "weather_drink_apikey";
+
+const $ = (id) => document.getElementById(id);
+const stateEl = $("state"), cardEl = $("card");
+
+// 저장된 키 복원
+$("apiKey").value = localStorage.getItem(KEY_STORE) || "";
+$("apiKey").addEventListener("change", (e)=> localStorage.setItem(KEY_STORE, e.target.value.trim()));
+
+// 음료 추천 로직: 날씨 상태(비/눈)를 먼저 보고, 없으면 기온 구간으로 분기
+function recommend(tempC, weatherMain){
+  const w = (weatherMain || "").toLowerCase();
+  if (["rain","drizzle","thunderstorm"].includes(w))
+    return { drink:"따뜻한 핫초코", emoji:"🍫", reason:`비 오는 날(${Math.round(tempC)}℃)엔 달달한 핫초코로 기분 전환` };
+  if (w === "snow")
+    return { drink:"따뜻한 카페라떼", emoji:"❄️", reason:`눈 오는 날(${Math.round(tempC)}℃), 부드러운 라떼 한 잔으로 몸을 녹여요` };
+  if (tempC >= 28)
+    return { drink:"아이스 콜드브루", emoji:"🧊", reason:`기온 ${Math.round(tempC)}℃, 무더운 날엔 시원한 콜드브루가 딱` };
+  if (tempC >= 18)
+    return { drink:"자몽 에이드", emoji:"🍹", reason:`기온 ${Math.round(tempC)}℃, 선선하고 상쾌한 날엔 새콤한 에이드` };
+  if (tempC >= 8)
+    return { drink:"따뜻한 아메리카노", emoji:"☕", reason:`기온 ${Math.round(tempC)}℃, 쌀쌀한 날엔 따뜻한 아메리카노 한 잔` };
+  return { drink:"따뜻한 카페라떼", emoji:"🔥", reason:`기온 ${Math.round(tempC)}℃, 추운 날엔 든든한 라떼로 몸을 데워요` };
+}
+
+const iconFor = (w)=>({Clear:"☀️",Clouds:"☁️",Rain:"🌧️",Drizzle:"🌦️",Thunderstorm:"⛈️",Snow:"🌨️",Mist:"🌫️",Fog:"🌫️",Haze:"🌫️"}[w]||"🌤️");
+
+function showLoading(){ stateEl.innerHTML = '<span class="spinner"></span>'; cardEl.classList.remove("show"); }
+function showError(msg){ stateEl.innerHTML = `<div class="err">⚠️ ${msg}</div>`; cardEl.classList.remove("show"); }
+function clearState(){ stateEl.innerHTML = ""; }
+
+function render({city, tempC, weatherMain, description}){
+  clearState();
+  const rec = recommend(tempC, weatherMain);
+  $("cardCity").textContent = city;
+  $("cardCond").textContent = description || weatherMain;
+  $("cardTemp").textContent = Math.round(tempC) + "℃";
+  $("cardIcon").textContent = iconFor(weatherMain);
+  $("cardDrink").innerHTML = `<span>${rec.emoji}</span> ${rec.drink}`;
+  $("cardReason").textContent = rec.reason;
+  cardEl.classList.add("show");
+}
+
+async function fetchWeather(params){
+  const key = $("apiKey").value.trim();
+  if (!key){ showError("API 키를 먼저 입력하세요. 키가 없으면 '데모 데이터로 보기'를 눌러 화면을 확인할 수 있어요."); return; }
+  showLoading();
+  const url = `${API_BASE}?${params}&appid=${key}&units=metric&lang=kr`;
+  try{
+    const res = await fetch(url);
+    if (res.status === 401) return showError("API 키가 올바르지 않습니다 (401). 키를 다시 확인하세요.");
+    if (res.status === 404) return showError("그런 도시를 찾을 수 없어요. 영문 도시명으로 다시 시도해 보세요.");
+    if (res.status === 429) return showError("API 호출 한도를 초과했어요 (429). 잠시 후 다시 시도하세요.");
+    if (!res.ok) return showError(`날씨 정보를 불러오지 못했어요 (오류 ${res.status}).`);
+    const data = await res.json();
+    const city = data.name;
+    render({ city, tempC:data.main.temp, weatherMain:data.weather[0].main, description:data.weather[0].description });
+    saveRecent(city);
+  }catch(e){
+    showError("네트워크 오류로 날씨를 가져오지 못했어요. 연결을 확인해 주세요.");
+  }
+}
+
+// 최근 조회 도시 (localStorage, 최대 3개)
+function saveRecent(city){
+  let list = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+  list = [city, ...list.filter(c => c.toLowerCase() !== city.toLowerCase())].slice(0,3);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  renderRecent();
+}
+function renderRecent(){
+  const list = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+  $("recent").innerHTML = list.map(c => `<span class="chip" data-city="${c}">🕘 ${c}</span>`).join("");
+}
+$("recent").addEventListener("click", (e)=>{
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  $("cityInput").value = chip.dataset.city;
+  fetchWeather("q=" + encodeURIComponent(chip.dataset.city));
+});
+
+// 검색 폼
+$("searchForm").addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const city = $("cityInput").value.trim();
+  if (!city) return showError("도시 이름을 입력해 주세요.");
+  fetchWeather("q=" + encodeURIComponent(city));
+});
+
+// 현재 위치 (Geolocation)
+$("geoBtn").addEventListener("click", ()=>{
+  if (!navigator.geolocation) return showError("이 브라우저는 위치 기능을 지원하지 않아요.");
+  showLoading();
+  navigator.geolocation.getCurrentPosition(
+    (pos)=> fetchWeather(`lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`),
+    ()=> showError("위치 권한이 거부됐어요. 도시 이름으로 검색해 주세요.")
+  );
+});
+
+// 데모 데이터 (키 없이 UI/분기 확인용)
+const DEMOS = [
+  { city:"서울 (데모)", tempC:31, weatherMain:"Clear", description:"맑음" },
+  { city:"서울 (데모)", tempC:3,  weatherMain:"Clouds", description:"흐림" },
+  { city:"서울 (데모)", tempC:15, weatherMain:"Rain", description:"비" },
+];
+let demoIdx = 0;
+$("demoBtn").addEventListener("click", ()=>{
+  render(DEMOS[demoIdx % DEMOS.length]);
+  demoIdx++;
+});
+
+renderRecent();
+</script>
+</body>
+</html>
