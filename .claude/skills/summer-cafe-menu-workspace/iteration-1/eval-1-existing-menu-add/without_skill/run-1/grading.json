@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "산출물 4종(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)이 모두 존재한다",
+      "passed": false,
+      "evidence": "menu.md 없음(summer-menu.md로 생성), 나머지 3종은 존재"
+    },
+    {
+      "text": "cost-sheet.xlsx가 유효한 엑셀 파일이고 요약 시트와 재료 상세 시트를 포함한다",
+      "passed": true,
+      "evidence": "시트: ['여름 신메뉴 원가표', '재료 상세'], 수식 포함"
+    },
+    {
+      "text": "menu-board.html이 외부 리소스 없이 자체 완결이다",
+      "passed": true,
+      "evidence": "외부 http(s) src/href 참조 0건"
+    },
+    {
+      "text": "신메뉴가 정확히 6개다",
+      "passed": true,
+      "evidence": "원가표에 신메뉴 6개"
+    },
+    {
+      "text": "신메뉴 가격이 기존 가격대와 어울리는 4,000~8,500원 범위다",
+      "passed": true,
+      "evidence": "5,500~6,000원"
+    },
+    {
+      "text": "recipes.md에 모든 신메뉴의 재료와 만드는 법 단계가 있다",
+      "passed": true,
+      "evidence": "레시피 카드 6개 + 프렙 표"
+    },
+    {
+      "text": "평균 재료 원가율이 20~40% 범위다",
+      "passed": true,
+      "evidence": "원가율 22.7~31.7%, 평균 약 26.8%"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "pass_rate": 0.8571
+  }
+}

@@ -80,6 +80,10 @@ JSON 형식 (재료 원가는 1잔/1개 분량 기준 원가):
 ## 마무리
 
 4개 파일을 모두 만든 뒤:
-1. HTML 메뉴판을 열어볼 수 있게 경로를 안내한다
-2. 메뉴 구성 요약(카테고리별 개수, 가격 범위, 평균 원가율)을 짧게 보고한다
-3. 사용한 가정(타깃, 시세 기준)을 명시한다
+1. 헤드리스 크롬이 있으면 메뉴판을 렌더링해 `menu-board.png` 스크린샷을 폴더에 저장한다 (레이아웃 깨짐을 직접 확인하는 용도. 없으면 생략):
+   ```bash
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --screenshot=menu-board.png --window-size=800,1200 menu-board.html
+   ```
+2. HTML 메뉴판을 열어볼 수 있게 경로를 안내한다
+3. 메뉴 구성 요약(카테고리별 개수, 가격 범위, 평균 원가율)을 짧게 보고한다
+4. 사용한 가정(타깃, 시세 기준)을 명시한다

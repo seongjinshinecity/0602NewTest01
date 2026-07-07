@@ -1,0 +1,76 @@
+{
+  "cafe_name": "우리 카페 여름 시즌 메뉴",
+  "items": [
+    {
+      "category": "시즌 커피",
+      "name": "카페 토닉",
+      "price": 5500,
+      "ingredients": [
+        {"name": "에스프레소 2샷 (원두 18g)", "cost": 540},
+        {"name": "토닉워터 150ml", "cost": 500},
+        {"name": "레몬 슬라이스 1개", "cost": 100},
+        {"name": "얼음", "cost": 50},
+        {"name": "컵·빨대·부자재", "cost": 250}
+      ]
+    },
+    {
+      "category": "시즌 커피",
+      "name": "돌체 아이스라떼",
+      "price": 5800,
+      "ingredients": [
+        {"name": "에스프레소 2샷 (원두 18g)", "cost": 540},
+        {"name": "우유 150ml", "cost": 450},
+        {"name": "연유 30g", "cost": 300},
+        {"name": "얼음", "cost": 50},
+        {"name": "컵·빨대·부자재", "cost": 250}
+      ]
+    },
+    {
+      "category": "에이드·스무디",
+      "name": "청포도 에이드",
+      "price": 6000,
+      "ingredients": [
+        {"name": "청포도청 60g", "cost": 900},
+        {"name": "레몬즙 10ml", "cost": 130},
+        {"name": "탄산수 200ml", "cost": 350},
+        {"name": "애플민트 1줄기", "cost": 100},
+        {"name": "얼음", "cost": 50},
+        {"name": "컵·빨대·부자재", "cost": 250}
+      ]
+    },
+    {
+      "category": "에이드·스무디",
+      "name": "망고 요거트 스무디",
+      "price": 6800,
+      "ingredients": [
+        {"name": "냉동 망고 100g", "cost": 900},
+        {"name": "요거트 파우더 30g", "cost": 450},
+        {"name": "우유 100ml", "cost": 300},
+        {"name": "얼음 120g", "cost": 60},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "시즌 디저트",
+      "name": "아이스크림 크루아상",
+      "price": 6800,
+      "ingredients": [
+        {"name": "크루아상 1개 (기존 제품 원가)", "cost": 1300},
+        {"name": "바닐라 아이스크림 90g", "cost": 700},
+        {"name": "메이플시럽 10g", "cost": 100},
+        {"name": "슈가파우더", "cost": 30},
+        {"name": "접시·냅킨·부자재", "cost": 200}
+      ]
+    },
+    {
+      "category": "시즌 디저트",
+      "name": "레몬 파운드 케이크",
+      "price": 5500,
+      "ingredients": [
+        {"name": "레몬 파운드 케이크 1조각 (완제품 납품가)", "cost": 1700},
+        {"name": "레몬 제스트·슈가파우더", "cost": 50},
+        {"name": "접시·냅킨·부자재", "cost": 200}
+      ]
+    }
+  ]
+}

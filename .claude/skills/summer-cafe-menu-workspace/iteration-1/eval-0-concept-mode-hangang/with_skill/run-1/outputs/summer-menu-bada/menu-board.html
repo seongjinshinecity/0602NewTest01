@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청량한 바다 — SUMMER MENU</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: linear-gradient(180deg, #e8f7fb 0%, #cfeef7 40%, #a8dff0 100%);
+    color: #0b3550;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+  }
+  .board {
+    width: 100%;
+    max-width: 720px;
+    background: #f7fcfe;
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(11, 53, 80, 0.18);
+    overflow: hidden;
+  }
+  header {
+    background: linear-gradient(160deg, #0e6ba8 0%, #1d9bd1 55%, #6cc9e8 100%);
+    color: #ffffff;
+    text-align: center;
+    padding: 44px 24px 52px;
+    position: relative;
+  }
+  header .season {
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,0.7);
+    border-radius: 999px;
+    padding: 4px 16px;
+    font-size: 12px;
+    letter-spacing: 4px;
+    margin-bottom: 14px;
+  }
+  header h1 {
+    font-size: 40px;
+    letter-spacing: 6px;
+    font-weight: 800;
+  }
+  header p {
+    margin-top: 10px;
+    font-size: 14px;
+    opacity: 0.9;
+    letter-spacing: 1px;
+  }
+  .wave {
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 26px;
+    background:
+      radial-gradient(circle at 25% 0, transparent 18px, #f7fcfe 19px) 0 0 / 50px 26px repeat-x;
+  }
+  main { padding: 34px 40px 40px; }
+  section + section { margin-top: 34px; }
+  .cat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cat h2 {
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #0e6ba8;
+    white-space: nowrap;
+  }
+  .cat .en {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #5ab0d3;
+    white-space: nowrap;
+  }
+  .cat::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(90deg, #9fdcf0, transparent);
+    border-radius: 2px;
+  }
+  .item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 11px 0;
+  }
+  .item + .item { border-top: 1px dashed #cbe8f3; }
+  .name { font-size: 17px; font-weight: 700; }
+  .badge {
+    font-size: 10px;
+    color: #ffffff;
+    background: #1d9bd1;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-left: 8px;
+    vertical-align: 2px;
+    letter-spacing: 1px;
+  }
+  .desc { font-size: 13px; color: #4a7590; margin-top: 4px; line-height: 1.5; }
+  .price {
+    font-size: 17px;
+    font-weight: 800;
+    color: #0e6ba8;
+    white-space: nowrap;
+  }
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 12px;
+    color: #5a8aa5;
+    background: #eaf6fb;
+    letter-spacing: 1px;
+  }
+  @media print {
+    body { background: #ffffff; padding: 0; }
+    .board { box-shadow: none; border-radius: 0; max-width: 100%; }
+    header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    main { padding: 24px 28px; }
+    section + section { margin-top: 22px; }
+    .item { padding: 8px 0; }
+    @page { size: A4 portrait; margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+<div class="board">
+  <header>
+    <div class="season">SUMMER 2026</div>
+    <h1>청량한 바다</h1>
+    <p>한강 옆, 한 잔의 파도 — COOL BLUE SUMMER MENU</p>
+    <div class="wave"></div>
+  </header>
+  <main>
+    <section>
+      <div class="cat"><h2>커피</h2><span class="en">COFFEE</span></div>
+      <div class="item">
+        <div>
+          <div class="name">딥블루 라떼<span class="badge">SIGNATURE</span></div>
+          <div class="desc">우유 위에 바닷빛 블루 코코넛 크림을 올린 아이스 라떼</div>
+        </div>
+        <div class="price">6,000</div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="name">파도 소금크림 아인슈페너</div>
+          <div class="desc">진한 콜드브루 위, 파도 거품 같은 짭짤한 소금 크림</div>
+        </div>
+        <div class="price">6,500</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="cat"><h2>논커피</h2><span class="en">ADE · SMOOTHIE · TEA</span></div>
+      <div class="item">
+        <div>
+          <div class="name">블루 하와이 에이드</div>
+          <div class="desc">블루큐라소와 레몬, 탄산이 만드는 가장 바다다운 한 잔</div>
+        </div>
+        <div class="price">6,500</div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="name">청귤 민트 에이드</div>
+          <div class="desc">제주 청귤청에 민트를 더해 끝맛까지 청량하게</div>
+        </div>
+        <div class="price">6,500</div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="name">코코 파도 스무디</div>
+          <div class="desc">코코넛·파인애플 스무디에 블루 그라데이션, 해변 칵테일 무드</div>
+        </div>
+        <div class="price">7,000</div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="name">미드나잇 오션 티<span class="badge">COLOR MAGIC</span></div>
+          <div class="desc">레몬 시럽을 부으면 남색에서 보랏빛으로 변하는 버터플라이피 티</div>
+        </div>
+        <div class="price">5,500</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="cat"><h2>디저트</h2><span class="en">DESSERT</span></div>
+      <div class="item">
+        <div>
+          <div class="name">바다 파르페 컵</div>
+          <div class="desc">블루 젤리·요거트 크림·그래놀라를 층층이 쌓은 바다의 단면</div>
+        </div>
+        <div class="price">7,500</div>
+      </div>
+      <div class="item">
+        <div>
+          <div class="name">소금빵 아이스크림 샌드</div>
+          <div class="desc">따끈한 소금빵 사이 바닐라 아이스크림, 단짠의 정석</div>
+        </div>
+        <div class="price">5,500</div>
+      </div>
+    </section>
+  </main>
+  <footer>모든 음료는 아이스로 제공됩니다 · 가격 단위 KRW</footer>
+</div>
+</body>
+</html>

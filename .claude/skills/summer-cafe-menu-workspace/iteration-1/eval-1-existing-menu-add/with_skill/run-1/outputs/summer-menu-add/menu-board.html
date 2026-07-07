@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Summer Menu</title>
+<style>
+  :root {
+    --navy: #0e3a5d;
+    --aqua: #1e8fa6;
+    --sand: #fdf6ec;
+    --coral: #ff7a59;
+    --ink: #22303c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: linear-gradient(180deg, #e8f6f8 0%, var(--sand) 45%);
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  .board {
+    width: 100%;
+    max-width: 720px;
+    background: var(--sand);
+    border: 3px solid var(--navy);
+    border-radius: 18px;
+    padding: 48px 52px;
+    box-shadow: 0 12px 40px rgba(14, 58, 93, 0.18);
+  }
+  header { text-align: center; margin-bottom: 40px; }
+  .season-tag {
+    display: inline-block;
+    background: var(--coral);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 6px 18px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 40px;
+    color: var(--navy);
+    letter-spacing: 2px;
+    line-height: 1.2;
+  }
+  header p {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--aqua);
+    letter-spacing: 1px;
+  }
+  .divider {
+    width: 64px; height: 3px;
+    background: var(--aqua);
+    margin: 18px auto 0;
+    border-radius: 2px;
+  }
+  section { margin-bottom: 36px; }
+  h2 {
+    font-size: 17px;
+    color: var(--aqua);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--aqua);
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  h2 .kr { font-size: 14px; color: var(--navy); letter-spacing: 1px; }
+  .item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+  }
+  .item .info { flex: 1; }
+  .item .name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+  .badge-new {
+    display: inline-block;
+    background: var(--coral);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+    vertical-align: 2px;
+    letter-spacing: 1px;
+  }
+  .item .desc {
+    font-size: 13px;
+    color: #5c6b78;
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+  .dots {
+    flex: 0 1 auto;
+    min-width: 24px;
+    border-bottom: 2px dotted #b9c9d4;
+    transform: translateY(-4px);
+  }
+  .item .price {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .classic .item .name { font-weight: 600; }
+  footer {
+    text-align: center;
+    margin-top: 8px;
+    padding-top: 20px;
+    border-top: 2px solid var(--navy);
+    font-size: 12px;
+    color: #7a8a96;
+    letter-spacing: 1px;
+    line-height: 1.7;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .board { box-shadow: none; border-radius: 0; max-width: 100%; border-width: 2px; padding: 36px 40px; }
+    @page { size: A4 portrait; margin: 12mm; }
+  }
+</style>
+</head>
+<body>
+<div class="board">
+  <header>
+    <span class="season-tag">SUMMER SEASON</span>
+    <h1>여름 시즌 메뉴</h1>
+    <p>COOL DRINKS &amp; SWEET BREAK · 2026 SUMMER</p>
+    <div class="divider"></div>
+  </header>
+
+  <section>
+    <h2>Summer Coffee <span class="kr">시즌 커피</span></h2>
+    <div class="item">
+      <div class="info">
+        <span class="name">카페 토닉<span class="badge-new">NEW</span></span>
+        <div class="desc">토닉워터 위에 에스프레소를 얹은 스파클링 커피 · 레몬 슬라이스</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">5,500</span>
+    </div>
+    <div class="item">
+      <div class="info">
+        <span class="name">돌체 아이스라떼<span class="badge-new">NEW</span></span>
+        <div class="desc">연유의 부드러운 단맛 위로 에스프레소를 층층이</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">5,800</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Summer Drinks <span class="kr">에이드 · 스무디</span></h2>
+    <div class="item">
+      <div class="info">
+        <span class="name">청포도 에이드<span class="badge-new">NEW</span></span>
+        <div class="desc">알갱이 씹히는 청포도청 + 탄산수 · 애플민트 토핑</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">6,000</span>
+    </div>
+    <div class="item">
+      <div class="info">
+        <span class="name">망고 요거트 스무디<span class="badge-new">NEW</span></span>
+        <div class="desc">냉동 망고와 요거트를 진하게 갈아낸 여름 스무디</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">6,800</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Summer Dessert <span class="kr">시즌 디저트</span></h2>
+    <div class="item">
+      <div class="info">
+        <span class="name">아이스크림 크루아상<span class="badge-new">NEW</span></span>
+        <div class="desc">따뜻한 크루아상에 바닐라 아이스크림 · 메이플시럽</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">6,800</span>
+    </div>
+    <div class="item">
+      <div class="info">
+        <span class="name">레몬 파운드 케이크<span class="badge-new">NEW</span></span>
+        <div class="desc">상큼한 레몬 글레이즈 파운드 케이크 한 조각</div>
+      </div>
+      <span class="dots"></span>
+      <span class="price">5,500</span>
+    </div>
+  </section>
+
+  <section class="classic">
+    <h2>Classic <span class="kr">기존 메뉴</span></h2>
+    <div class="item">
+      <div class="info"><span class="name">아메리카노</span></div>
+      <span class="dots"></span>
+      <span class="price">4,500</span>
+    </div>
+    <div class="item">
+      <div class="info"><span class="name">카페라떼</span></div>
+      <span class="dots"></span>
+      <span class="price">5,000</span>
+    </div>
+    <div class="item">
+      <div class="info"><span class="name">바닐라라떼</span></div>
+      <span class="dots"></span>
+      <span class="price">5,500</span>
+    </div>
+    <div class="item">
+      <div class="info"><span class="name">크루아상</span></div>
+      <span class="dots"></span>
+      <span class="price">4,800</span>
+    </div>
+  </section>
+
+  <footer>
+    모든 시즌 음료는 아이스로 제공됩니다 · 시즌 메뉴는 재료 소진 시 조기 종료될 수 있습니다
+  </footer>
+</div>
+</body>
+</html>

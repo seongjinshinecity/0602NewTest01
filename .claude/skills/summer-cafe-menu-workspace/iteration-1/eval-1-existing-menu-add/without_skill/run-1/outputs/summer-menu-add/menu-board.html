@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMMER MENU</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", -apple-system, sans-serif;
+    background: #f6f1e7;
+    color: #2d2a26;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .board {
+    width: 100%;
+    max-width: 720px;
+    background: #fffdf8;
+    border: 1px solid #e5dcc9;
+    border-radius: 18px;
+    padding: 56px 48px;
+    box-shadow: 0 12px 40px rgba(60, 45, 20, 0.12);
+  }
+  header { text-align: center; margin-bottom: 44px; }
+  .season-tag {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: #d1662c;
+    border: 1px solid #d1662c;
+    border-radius: 999px;
+    padding: 6px 18px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 40px; letter-spacing: 8px; font-weight: 800; }
+  header p { margin-top: 10px; color: #8a8172; font-size: 14px; }
+
+  section { margin-bottom: 38px; }
+  .section-title {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 15px; font-weight: 700; letter-spacing: 3px;
+    color: #6b5d43; margin-bottom: 18px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: #e5dcc9; }
+
+  .item {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 9px 0;
+  }
+  .item .name { font-size: 17px; font-weight: 600; white-space: nowrap; }
+  .item .desc { font-size: 12.5px; color: #9a9082; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .dots { flex: 1; border-bottom: 2px dotted #d9cfb9; transform: translateY(-4px); min-width: 20px; }
+  .item .price { font-size: 17px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .new-badge {
+    font-size: 10px; font-weight: 800; color: #fff;
+    background: #d1662c; border-radius: 4px;
+    padding: 2px 6px; letter-spacing: 1px;
+    vertical-align: 2px;
+  }
+  .summer .name { color: #b34f1b; }
+
+  .notice {
+    margin-top: 8px;
+    background: #faf3e3;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: #7a6f5c;
+    line-height: 1.7;
+  }
+  footer { text-align: center; margin-top: 36px; font-size: 12px; color: #b3a892; letter-spacing: 2px; }
+
+  @media (max-width: 520px) {
+    .board { padding: 36px 22px; }
+    h1 { font-size: 30px; letter-spacing: 5px; }
+    .item .desc { display: none; }
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .board { box-shadow: none; border: none; max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="board">
+  <header>
+    <div class="season-tag">SUMMER SEASON</div>
+    <h1>MENU</h1>
+    <p>여름 한정 신메뉴 6종이 새로 나왔습니다</p>
+  </header>
+
+  <section>
+    <div class="section-title">COFFEE</div>
+    <div class="item">
+      <span class="name">아메리카노</span>
+      <span class="desc">HOT / ICE</span>
+      <span class="dots"></span><span class="price">4,500</span>
+    </div>
+    <div class="item">
+      <span class="name">카페라떼</span>
+      <span class="desc">HOT / ICE</span>
+      <span class="dots"></span><span class="price">5,000</span>
+    </div>
+    <div class="item">
+      <span class="name">바닐라라떼</span>
+      <span class="desc">HOT / ICE</span>
+      <span class="dots"></span><span class="price">5,500</span>
+    </div>
+    <div class="item summer">
+      <span class="name">콜드브루 토닉 <span class="new-badge">NEW</span></span>
+      <span class="desc">토닉워터 · 라임 · 콜드브루</span>
+      <span class="dots"></span><span class="price">5,500</span>
+    </div>
+    <div class="item summer">
+      <span class="name">아이스 크림 콜드브루 <span class="new-badge">NEW</span></span>
+      <span class="desc">콜드브루 위 바닐라 크림</span>
+      <span class="dots"></span><span class="price">5,800</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">NON-COFFEE</div>
+    <div class="item summer">
+      <span class="name">제주 청귤 에이드 <span class="new-badge">NEW</span></span>
+      <span class="desc">청귤청 · 탄산수 · 애플민트</span>
+      <span class="dots"></span><span class="price">5,500</span>
+    </div>
+    <div class="item summer">
+      <span class="name">수박 주스 <span class="new-badge">NEW</span></span>
+      <span class="desc">생수박 착즙 · 무가당 · 시즌 한정</span>
+      <span class="dots"></span><span class="price">5,800</span>
+    </div>
+    <div class="item summer">
+      <span class="name">망고 코코넛 스무디 <span class="new-badge">NEW</span></span>
+      <span class="desc">냉동망고 · 코코넛밀크 · 요거트</span>
+      <span class="dots"></span><span class="price">6,000</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">BAKERY</div>
+    <div class="item">
+      <span class="name">크루아상</span>
+      <span class="desc">매일 아침 구움</span>
+      <span class="dots"></span><span class="price">4,800</span>
+    </div>
+    <div class="item summer">
+      <span class="name">레몬 커드 크루아상 <span class="new-badge">NEW</span></span>
+      <span class="desc">레몬 커드 · 슈가파우더</span>
+      <span class="dots"></span><span class="price">5,800</span>
+    </div>
+  </section>
+
+  <div class="notice">
+    <strong>SUMMER SET</strong> — 여름 신메뉴 음료 + 레몬 커드 크루아상 주문 시 500원 할인<br>
+    여름 메뉴는 9월 초까지 판매되며, 수박 주스는 수박 수급에 따라 조기 종료될 수 있습니다.
+  </div>
+
+  <footer>ALL DRINKS 16oz · PRICE IN KRW</footer>
+</div>
+</body>
+</html>

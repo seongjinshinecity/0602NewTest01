@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청량한 바다 — 여름 메뉴</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    background: linear-gradient(180deg, #e8f7ff 0%, #bfe9ff 40%, #7fd0f5 100%);
+    color: #0b3954;
+    min-height: 100vh;
+    padding: 48px 20px 80px;
+  }
+  .board { max-width: 880px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 44px; }
+  .badge {
+    display: inline-block;
+    background: #0b3954; color: #fff;
+    font-size: 13px; letter-spacing: 4px;
+    padding: 6px 18px; border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 44px; letter-spacing: 2px; }
+  h1 span { color: #0e7fc0; }
+  header p { margin-top: 12px; font-size: 15px; color: #23617f; }
+  .section-title {
+    font-size: 20px; font-weight: 800;
+    margin: 36px 0 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after {
+    content: ""; flex: 1; height: 2px;
+    background: rgba(11,57,84,.25); border-radius: 2px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card {
+    background: rgba(255,255,255,.88);
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: 0 8px 24px rgba(11,57,84,.12);
+    border-top: 5px solid #7fd0f5;
+    position: relative;
+  }
+  .card.signature { border-top-color: #0e7fc0; }
+  .sig-tag {
+    position: absolute; top: 14px; right: 16px;
+    background: #ff7f50; color: #fff;
+    font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .name { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+  .name-en { font-size: 12px; color: #5c93ad; letter-spacing: 1px; margin-bottom: 10px; }
+  .desc { font-size: 14px; line-height: 1.6; color: #2c586f; margin-bottom: 14px; }
+  .price { font-size: 18px; font-weight: 800; color: #0e7fc0; }
+  .price small { font-size: 12px; color: #5c93ad; font-weight: 400; margin-left: 6px; }
+  footer {
+    text-align: center; margin-top: 52px;
+    font-size: 13px; color: #23617f; line-height: 1.8;
+  }
+  .wave { text-align: center; font-size: 22px; margin-top: 28px; letter-spacing: 6px; color: #0e7fc0; }
+</style>
+</head>
+<body>
+<div class="board">
+  <header>
+    <div class="badge">SUMMER SEASON · 6.1 – 8.31</div>
+    <h1>청량한 <span>바다</span></h1>
+    <p>한강에서 만나는 여름 바다 — Cool Ocean Summer Menu</p>
+  </header>
+
+  <div class="section-title">DRINK · 음료</div>
+  <div class="grid">
+    <div class="card signature">
+      <div class="sig-tag">SIGNATURE</div>
+      <div class="name">한강 블루라군 에이드</div>
+      <div class="name-en">HANGANG BLUE LAGOON ADE</div>
+      <div class="desc">블루큐라소와 라임, 탄산이 만든 두 겹의 바다. 한강을 배경으로 들면 사진 속이 곧 휴양지.</div>
+      <div class="price">6,500원</div>
+    </div>
+    <div class="card signature">
+      <div class="sig-tag">SIGNATURE</div>
+      <div class="name">파도 크림 소다</div>
+      <div class="name-en">WAVE CREAM SODA</div>
+      <div class="desc">블루레몬 소다 위로 하얀 크림 파도가 부서지고, 솔티드 크럼블 모래가 흩날립니다.</div>
+      <div class="price">6,800원</div>
+    </div>
+    <div class="card">
+      <div class="name">바다소금 크림 콜드브루</div>
+      <div class="name-en">SEA SALT CREAM COLD BREW</div>
+      <div class="desc">짭짤한 바다소금 크림과 진한 콜드브루의 단짠 밸런스. 바닷바람 같은 한 모금.</div>
+      <div class="price">6,000원</div>
+    </div>
+    <div class="card">
+      <div class="name">코코넛 세일링 스무디</div>
+      <div class="name-en">COCONUT SAILING SMOOTHIE</div>
+      <div class="desc">코코넛워터와 파인애플을 통째로 갈아낸 트로피컬 스무디. 러닝 후 수분 충전까지.</div>
+      <div class="price">7,000원 <small>비건 옵션 가능</small></div>
+    </div>
+    <div class="card">
+      <div class="name">선셋 오션 에이드</div>
+      <div class="name-en">SUNSET OCEAN ADE</div>
+      <div class="desc">자몽빛 노을이 파란 바다로 번지는 그라데이션. 한강 노을 시간에 가장 어울리는 잔.</div>
+      <div class="price">6,500원</div>
+    </div>
+    <div class="card">
+      <div class="name">씨글라스 젤리 티소다</div>
+      <div class="name-en">SEA GLASS JELLY TEA SODA</div>
+      <div class="desc">얼그레이 티소다 속에 바다유리 조각 같은 블루·민트 젤리. 씹는 재미가 있는 저카페인 한 잔.</div>
+      <div class="price">6,300원</div>
+    </div>
+  </div>
+
+  <div class="section-title">DESSERT · 디저트</div>
+  <div class="grid">
+    <div class="card signature">
+      <div class="sig-tag">SIGNATURE</div>
+      <div class="name">파도 빙수</div>
+      <div class="name-en">WAVE BINGSU</div>
+      <div class="desc">우유얼음 위 절반은 블루멜로우 파도, 절반은 코코넛 크럼블 모래사장. 화이트초코 조개까지, 그릇에 담은 해변. (2인)</div>
+      <div class="price">12,000원</div>
+    </div>
+    <div class="card">
+      <div class="name">조개 마들렌 세트</div>
+      <div class="name-en">SEASHELL MADELEINE SET</div>
+      <div class="desc">플레인·솔티드카라멜·블루 글레이즈, 조개 모양 마들렌 3종. 미니 파라솔 픽과 함께.</div>
+      <div class="price">5,500원 <small>3개입</small></div>
+    </div>
+  </div>
+
+  <div class="wave">~ ~ ~</div>
+  <footer>
+    한강 배경으로 음료 사진을 SNS에 올리면 조개 마들렌 1개를 드려요<br>
+    모든 에이드는 젓지 않고 먼저 찍은 뒤, 섞어서 즐겨 주세요
+  </footer>
+</div>
+</body>
+</html>

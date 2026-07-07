@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "산출물 4종(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)이 모두 존재한다",
+      "passed": false,
+      "evidence": "menu.md 없음(menu-plan.md로 생성), cost-sheet.xlsx 없음(csv로 생성)"
+    },
+    {
+      "text": "cost-sheet.xlsx가 유효한 엑셀 파일이고 요약 시트와 재료 상세 시트를 포함한다",
+      "passed": false,
+      "evidence": "엑셀 대신 cost-sheet.csv 생성, 재료 상세 시트 없음"
+    },
+    {
+      "text": "menu-board.html이 외부 리소스 없이 자체 완결이다",
+      "passed": true,
+      "evidence": "외부 http(s) src/href 참조 0건"
+    },
+    {
+      "text": "메뉴가 7~10개 범위이고 음료와 디저트 카테고리가 섞여 있다",
+      "passed": true,
+      "evidence": "8개 메뉴: 음료 6, 디저트 2"
+    },
+    {
+      "text": "recipes.md에 모든 메뉴의 재료와 만드는 법 단계가 있다",
+      "passed": true,
+      "evidence": "레시피 카드 8개 + 프렙 리스트"
+    },
+    {
+      "text": "평균 재료 원가율이 20~40% 범위다",
+      "passed": true,
+      "evidence": "csv 기준 26~33%, 평균 약 29%"
+    },
+    {
+      "text": "menu-data.json이 출력 폴더에 남아 있다",
+      "passed": false,
+      "evidence": "menu-data.json 없음"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 3,
+    "total": 7,
+    "pass_rate": 0.5714
+  }
+}

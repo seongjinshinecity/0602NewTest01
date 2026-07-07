@@ -1,0 +1,276 @@
+{
+  "metadata": {
+    "skill_name": "summer-cafe-menu",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-07-07T12:23:51Z",
+    "evals_run": [
+      0,
+      1
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 188.8,
+        "tokens": 35763,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "\uc0b0\ucd9c\ubb3c 4\uc885(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)\uc774 \ubaa8\ub450 \uc874\uc7ac\ud55c\ub2e4",
+          "passed": true,
+          "evidence": "4\uac1c \ud30c\uc77c \ubaa8\ub450 \uc874\uc7ac"
+        },
+        {
+          "text": "cost-sheet.xlsx\uac00 \uc720\ud6a8\ud55c \uc5d1\uc140 \ud30c\uc77c\uc774\uace0 \uc694\uc57d \uc2dc\ud2b8\uc640 \uc7ac\ub8cc \uc0c1\uc138 \uc2dc\ud2b8\ub97c \ud3ec\ud568\ud55c\ub2e4",
+          "passed": true,
+          "evidence": "\uc2dc\ud2b8: ['\uc6d0\uac00 \uc694\uc57d', '\uc7ac\ub8cc \uc0c1\uc138']"
+        },
+        {
+          "text": "menu-board.html\uc774 \uc678\ubd80 \ub9ac\uc18c\uc2a4 \uc5c6\uc774 \uc790\uccb4 \uc644\uacb0\uc774\ub2e4",
+          "passed": true,
+          "evidence": "\uc678\ubd80 http(s) src/href \ucc38\uc870 0\uac74"
+        },
+        {
+          "text": "\uba54\ub274\uac00 7~10\uac1c \ubc94\uc704\uc774\uace0 \uc74c\ub8cc\uc640 \ub514\uc800\ud2b8 \uce74\ud14c\uace0\ub9ac\uac00 \uc11e\uc5ec \uc788\ub2e4",
+          "passed": true,
+          "evidence": "8\uac1c \uba54\ub274: \ucee4\ud53c 2, \ub17c\ucee4\ud53c 4, \ub514\uc800\ud2b8 2"
+        },
+        {
+          "text": "recipes.md\uc5d0 \ubaa8\ub4e0 \uba54\ub274\uc758 \uc7ac\ub8cc\uc640 \ub9cc\ub4dc\ub294 \ubc95 \ub2e8\uacc4\uac00 \uc788\ub2e4",
+          "passed": true,
+          "evidence": "\ub808\uc2dc\ud53c \uce74\ub4dc 8\uac1c, '\ub9cc\ub4dc\ub294 \ubc95' 10\ud68c"
+        },
+        {
+          "text": "\ud3c9\uade0 \uc7ac\ub8cc \uc6d0\uac00\uc728\uc774 20~40% \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "\ud3c9\uade0 26.0%, \ucd5c\ub300 37.3%"
+        },
+        {
+          "text": "menu-data.json\uc774 \ucd9c\ub825 \ud3f4\ub354\uc5d0 \ub0a8\uc544 \uc788\ub2e4",
+          "passed": true,
+          "evidence": "menu-data.json \uc874\uc7ac (8\uac1c \uba54\ub274)"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 179.8,
+        "tokens": 36053,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "\uc0b0\ucd9c\ubb3c 4\uc885(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)\uc774 \ubaa8\ub450 \uc874\uc7ac\ud55c\ub2e4",
+          "passed": true,
+          "evidence": "4\uac1c \ud30c\uc77c \ubaa8\ub450 \uc874\uc7ac"
+        },
+        {
+          "text": "cost-sheet.xlsx\uac00 \uc720\ud6a8\ud55c \uc5d1\uc140 \ud30c\uc77c\uc774\uace0 \uc694\uc57d \uc2dc\ud2b8\uc640 \uc7ac\ub8cc \uc0c1\uc138 \uc2dc\ud2b8\ub97c \ud3ec\ud568\ud55c\ub2e4",
+          "passed": true,
+          "evidence": "\uc2dc\ud2b8: ['\uc6d0\uac00 \uc694\uc57d', '\uc7ac\ub8cc \uc0c1\uc138']"
+        },
+        {
+          "text": "menu-board.html\uc774 \uc678\ubd80 \ub9ac\uc18c\uc2a4 \uc5c6\uc774 \uc790\uccb4 \uc644\uacb0\uc774\ub2e4",
+          "passed": true,
+          "evidence": "\uc678\ubd80 http(s) src/href \ucc38\uc870 0\uac74"
+        },
+        {
+          "text": "\uc2e0\uba54\ub274\uac00 \uc815\ud655\ud788 6\uac1c\ub2e4",
+          "passed": true,
+          "evidence": "menu-data.json\uc5d0 6\uac1c \uba54\ub274"
+        },
+        {
+          "text": "\uc2e0\uba54\ub274 \uac00\uaca9\uc774 \uae30\uc874 \uac00\uaca9\ub300\uc640 \uc5b4\uc6b8\ub9ac\ub294 4,000~8,500\uc6d0 \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "5,500~6,800\uc6d0"
+        },
+        {
+          "text": "recipes.md\uc5d0 \ubaa8\ub4e0 \uc2e0\uba54\ub274\uc758 \uc7ac\ub8cc\uc640 \ub9cc\ub4dc\ub294 \ubc95 \ub2e8\uacc4\uac00 \uc788\ub2e4",
+          "passed": true,
+          "evidence": "\ub808\uc2dc\ud53c \uce74\ub4dc 6\uac1c, '\ub9cc\ub4dc\ub294 \ubc95' 6\ud68c"
+        },
+        {
+          "text": "\ud3c9\uade0 \uc7ac\ub8cc \uc6d0\uac00\uc728\uc774 20~40% \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "\ud3c9\uade0 30.4%, \ucd5c\ub300 35.5%"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.5714,
+        "passed": 4,
+        "failed": 3,
+        "total": 7,
+        "time_seconds": 217.1,
+        "tokens": 35853,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "\uc0b0\ucd9c\ubb3c 4\uc885(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)\uc774 \ubaa8\ub450 \uc874\uc7ac\ud55c\ub2e4",
+          "passed": false,
+          "evidence": "menu.md \uc5c6\uc74c(menu-plan.md\ub85c \uc0dd\uc131), cost-sheet.xlsx \uc5c6\uc74c(csv\ub85c \uc0dd\uc131)"
+        },
+        {
+          "text": "cost-sheet.xlsx\uac00 \uc720\ud6a8\ud55c \uc5d1\uc140 \ud30c\uc77c\uc774\uace0 \uc694\uc57d \uc2dc\ud2b8\uc640 \uc7ac\ub8cc \uc0c1\uc138 \uc2dc\ud2b8\ub97c \ud3ec\ud568\ud55c\ub2e4",
+          "passed": false,
+          "evidence": "\uc5d1\uc140 \ub300\uc2e0 cost-sheet.csv \uc0dd\uc131, \uc7ac\ub8cc \uc0c1\uc138 \uc2dc\ud2b8 \uc5c6\uc74c"
+        },
+        {
+          "text": "menu-board.html\uc774 \uc678\ubd80 \ub9ac\uc18c\uc2a4 \uc5c6\uc774 \uc790\uccb4 \uc644\uacb0\uc774\ub2e4",
+          "passed": true,
+          "evidence": "\uc678\ubd80 http(s) src/href \ucc38\uc870 0\uac74"
+        },
+        {
+          "text": "\uba54\ub274\uac00 7~10\uac1c \ubc94\uc704\uc774\uace0 \uc74c\ub8cc\uc640 \ub514\uc800\ud2b8 \uce74\ud14c\uace0\ub9ac\uac00 \uc11e\uc5ec \uc788\ub2e4",
+          "passed": true,
+          "evidence": "8\uac1c \uba54\ub274: \uc74c\ub8cc 6, \ub514\uc800\ud2b8 2"
+        },
+        {
+          "text": "recipes.md\uc5d0 \ubaa8\ub4e0 \uba54\ub274\uc758 \uc7ac\ub8cc\uc640 \ub9cc\ub4dc\ub294 \ubc95 \ub2e8\uacc4\uac00 \uc788\ub2e4",
+          "passed": true,
+          "evidence": "\ub808\uc2dc\ud53c \uce74\ub4dc 8\uac1c + \ud504\ub819 \ub9ac\uc2a4\ud2b8"
+        },
+        {
+          "text": "\ud3c9\uade0 \uc7ac\ub8cc \uc6d0\uac00\uc728\uc774 20~40% \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "csv \uae30\uc900 26~33%, \ud3c9\uade0 \uc57d 29%"
+        },
+        {
+          "text": "menu-data.json\uc774 \ucd9c\ub825 \ud3f4\ub354\uc5d0 \ub0a8\uc544 \uc788\ub2e4",
+          "passed": false,
+          "evidence": "menu-data.json \uc5c6\uc74c"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8571,
+        "passed": 6,
+        "failed": 1,
+        "total": 7,
+        "time_seconds": 229.8,
+        "tokens": 37940,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "\uc0b0\ucd9c\ubb3c 4\uc885(menu.md, recipes.md, menu-board.html, cost-sheet.xlsx)\uc774 \ubaa8\ub450 \uc874\uc7ac\ud55c\ub2e4",
+          "passed": false,
+          "evidence": "menu.md \uc5c6\uc74c(summer-menu.md\ub85c \uc0dd\uc131), \ub098\uba38\uc9c0 3\uc885\uc740 \uc874\uc7ac"
+        },
+        {
+          "text": "cost-sheet.xlsx\uac00 \uc720\ud6a8\ud55c \uc5d1\uc140 \ud30c\uc77c\uc774\uace0 \uc694\uc57d \uc2dc\ud2b8\uc640 \uc7ac\ub8cc \uc0c1\uc138 \uc2dc\ud2b8\ub97c \ud3ec\ud568\ud55c\ub2e4",
+          "passed": true,
+          "evidence": "\uc2dc\ud2b8: ['\uc5ec\ub984 \uc2e0\uba54\ub274 \uc6d0\uac00\ud45c', '\uc7ac\ub8cc \uc0c1\uc138'], \uc218\uc2dd \ud3ec\ud568"
+        },
+        {
+          "text": "menu-board.html\uc774 \uc678\ubd80 \ub9ac\uc18c\uc2a4 \uc5c6\uc774 \uc790\uccb4 \uc644\uacb0\uc774\ub2e4",
+          "passed": true,
+          "evidence": "\uc678\ubd80 http(s) src/href \ucc38\uc870 0\uac74"
+        },
+        {
+          "text": "\uc2e0\uba54\ub274\uac00 \uc815\ud655\ud788 6\uac1c\ub2e4",
+          "passed": true,
+          "evidence": "\uc6d0\uac00\ud45c\uc5d0 \uc2e0\uba54\ub274 6\uac1c"
+        },
+        {
+          "text": "\uc2e0\uba54\ub274 \uac00\uaca9\uc774 \uae30\uc874 \uac00\uaca9\ub300\uc640 \uc5b4\uc6b8\ub9ac\ub294 4,000~8,500\uc6d0 \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "5,500~6,000\uc6d0"
+        },
+        {
+          "text": "recipes.md\uc5d0 \ubaa8\ub4e0 \uc2e0\uba54\ub274\uc758 \uc7ac\ub8cc\uc640 \ub9cc\ub4dc\ub294 \ubc95 \ub2e8\uacc4\uac00 \uc788\ub2e4",
+          "passed": true,
+          "evidence": "\ub808\uc2dc\ud53c \uce74\ub4dc 6\uac1c + \ud504\ub819 \ud45c"
+        },
+        {
+          "text": "\ud3c9\uade0 \uc7ac\ub8cc \uc6d0\uac00\uc728\uc774 20~40% \ubc94\uc704\ub2e4",
+          "passed": true,
+          "evidence": "\uc6d0\uac00\uc728 22.7~31.7%, \ud3c9\uade0 \uc57d 26.8%"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 184.3,
+        "stddev": 6.364,
+        "min": 179.8,
+        "max": 188.8
+      },
+      "tokens": {
+        "mean": 35908.0,
+        "stddev": 205.061,
+        "min": 35763,
+        "max": 36053
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.7143,
+        "stddev": 0.202,
+        "min": 0.5714,
+        "max": 0.8571
+      },
+      "time_seconds": {
+        "mean": 223.45,
+        "stddev": 8.9803,
+        "min": 217.1,
+        "max": 229.8
+      },
+      "tokens": {
+        "mean": 36896.5,
+        "stddev": 1475.7319,
+        "min": 35853,
+        "max": 37940
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.29",
+      "time_seconds": "-39.1",
+      "tokens": "-988"
+    }
+  },
+  "notes": []
+}

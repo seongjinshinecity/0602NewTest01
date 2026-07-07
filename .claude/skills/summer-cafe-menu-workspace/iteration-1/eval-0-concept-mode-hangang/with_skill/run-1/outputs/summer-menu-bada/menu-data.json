@@ -1,0 +1,102 @@
+{
+  "cafe_name": "청량한 바다",
+  "items": [
+    {
+      "category": "커피",
+      "name": "딥블루 라떼",
+      "price": 6000,
+      "ingredients": [
+        {"name": "에스프레소 2샷(원두 18g)", "cost": 500},
+        {"name": "우유 180ml", "cost": 300},
+        {"name": "코코넛 시럽 15ml", "cost": 150},
+        {"name": "생크림 40ml", "cost": 320},
+        {"name": "블루큐라소 시럽 10ml", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "커피",
+      "name": "파도 소금크림 아인슈페너",
+      "price": 6500,
+      "ingredients": [
+        {"name": "콜드브루 원액 60ml", "cost": 700},
+        {"name": "생크림 60ml", "cost": 480},
+        {"name": "연유 15ml", "cost": 100},
+        {"name": "소금 1g", "cost": 10},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "논커피",
+      "name": "블루 하와이 에이드",
+      "price": 6500,
+      "ingredients": [
+        {"name": "블루큐라소 시럽 30ml", "cost": 450},
+        {"name": "레몬즙 15ml", "cost": 200},
+        {"name": "탄산수 200ml", "cost": 300},
+        {"name": "레몬 슬라이스 1개", "cost": 150},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "논커피",
+      "name": "청귤 민트 에이드",
+      "price": 6500,
+      "ingredients": [
+        {"name": "청귤청 50g", "cost": 700},
+        {"name": "라임즙 10ml", "cost": 100},
+        {"name": "탄산수 200ml", "cost": 300},
+        {"name": "애플민트 3~4잎", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "논커피",
+      "name": "코코 파도 스무디",
+      "price": 7000,
+      "ingredients": [
+        {"name": "코코넛 밀크 100ml", "cost": 500},
+        {"name": "냉동 파인애플 120g", "cost": 700},
+        {"name": "바닐라 시럽 10ml", "cost": 100},
+        {"name": "블루큐라소 시럽 15ml", "cost": 150},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "논커피",
+      "name": "미드나잇 오션 티",
+      "price": 5500,
+      "ingredients": [
+        {"name": "버터플라이피 티백 1개", "cost": 400},
+        {"name": "레몬 시럽 20ml", "cost": 150},
+        {"name": "탄산수 100ml", "cost": 150},
+        {"name": "컵·빨대·미니저그 부자재", "cost": 350}
+      ]
+    },
+    {
+      "category": "디저트",
+      "name": "바다 파르페 컵",
+      "price": 7500,
+      "ingredients": [
+        {"name": "블루 젤리 80g(사이다·시럽·젤라틴)", "cost": 400},
+        {"name": "플레인 요거트 100g", "cost": 600},
+        {"name": "생크림 30ml", "cost": 240},
+        {"name": "꿀 10g", "cost": 100},
+        {"name": "그래놀라 30g", "cost": 400},
+        {"name": "코코넛 칩 5g", "cost": 100},
+        {"name": "유리컵 대체 컵·스푼 부자재", "cost": 400}
+      ]
+    },
+    {
+      "category": "디저트",
+      "name": "소금빵 아이스크림 샌드",
+      "price": 5500,
+      "ingredients": [
+        {"name": "소금빵 1개(완제품 납품)", "cost": 1200},
+        {"name": "바닐라 아이스크림 80g", "cost": 600},
+        {"name": "꿀 5g", "cost": 50},
+        {"name": "포장지·냅킨 부자재", "cost": 200}
+      ]
+    }
+  ]
+}
