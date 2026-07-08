@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>마이페이지 — QUARTER STORE</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1><a href="/shop.html">QUARTER&nbsp;STORE</a></h1>
+  <a href="/shop.html"><button class="ghost sm">← 쇼핑 계속</button></a>
+</header>
+<div class="wrap" style="max-width:680px;">
+  <h2 style="font-size:20px;">📦 내 주문 내역</h2>
+  <p class="muted" id="who"></p>
+  <div class="card" id="orders"><span class="muted">불러오는 중…</span></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+const esc = (s) => String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (url) => {
+  const r = await fetch(url);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+
+(async function main() {
+  try {
+    const { user } = await api('/api/auth/me');
+    if (!user) { alert('로그인이 필요합니다'); location.href = '/shop.html'; return; }
+    $('#who').textContent = `${user.name} (${user.email}) 님의 주문만 표시됩니다`;
+
+    const orders = await api('/api/orders'); // 서버가 user_id 로 필터 — 본인 것만
+    if (!orders.length) {
+      $('#orders').innerHTML = `
+        <div style="text-align:center; padding:30px 10px;">
+          <p style="font-size:36px; margin:0;">🛍️</p>
+          <p class="muted">아직 주문이 없습니다.<br/>첫 주문을 해보세요!</p>
+          <a href="/shop.html"><button class="sm">상품 보러 가기</button></a>
+        </div>`;
+      return;
+    }
+    $('#orders').innerHTML = orders.map((o) => {
+      const shortId = o.order_id.replace('order_', '').slice(0, 8); // 주문번호 앞 8자리만
+      const itemTotal = o.items.reduce((s, i) => s + i.price * i.quantity, 0);
+      return `
+      <div class="order">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <strong>${esc(o.order_name)}</strong>
+            <span class="tag paid">결제완료</span>
+          </div>
+          <strong>${won(o.amount)}</strong>
+        </div>
+        <div class="muted" style="margin-top:4px;">
+          주문번호 ${shortId} · ${o.method || '-'} · ${o.paid_at ? new Date(o.paid_at).toLocaleString('ko-KR') : ''}
+        </div>
+        <div class="oitems">
+          ${o.items.map((i) => `
+            <div class="oitem">
+              <img src="${i.image_url}" onerror="this.style.opacity=.3" />
+              <span style="flex:1;">${esc(i.name)}</span>
+              <span class="muted">${won(i.price)} × ${i.quantity}</span>
+              <span>${won(i.price * i.quantity)}</span>
+            </div>`).join('')}
+          <div class="row" style="justify-content:flex-end; gap:14px;" >
+            <span class="muted">상품 합계</span><strong>${won(itemTotal)}</strong>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    $('#orders').innerHTML = `<span class="err">${e.message}</span>`;
+  }
+})();
+</script>
+</body>
+</html>

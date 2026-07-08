@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>결제 실패 — QUARTER STORE</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1><a href="/shop.html">QUARTER&nbsp;STORE</a></h1>
+</header>
+<div class="wrap" style="max-width:520px; text-align:center;">
+  <div class="card">
+    <p style="font-size:40px; margin:8px 0;">❌</p>
+    <strong style="color:#ff6b6b;">결제에 실패했습니다</strong>
+    <p class="muted" id="reason"></p>
+  </div>
+  <div class="row" style="justify-content:center; gap:10px; margin-top:16px;">
+    <a href="/checkout.html"><button>다시 시도</button></a>
+    <a href="/shop.html"><button class="ghost">홈으로</button></a>
+  </div>
+</div>
+<script>
+const q = new URLSearchParams(location.search);
+document.getElementById('reason').textContent =
+  `${q.get('code') || ''} ${q.get('message') || '사용자가 결제를 취소했거나 오류가 발생했습니다.'}`;
+</script>
+</body>
+</html>

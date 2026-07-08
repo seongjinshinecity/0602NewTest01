@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>결제 — QUARTER STORE</title>
+<link rel="stylesheet" href="/style.css" />
+<!-- 토스페이먼츠 결제위젯 v2 SDK -->
+<script src="https://js.tosspayments.com/v2/standard"></script>
+</head>
+<body>
+<header>
+  <h1><a href="/shop.html">QUARTER&nbsp;STORE</a></h1>
+  <a href="/shop.html"><button class="ghost sm">← 계속 쇼핑</button></a>
+</header>
+<div class="wrap" style="max-width:640px;">
+  <div class="card" style="margin-bottom:16px;">
+    <strong>주문 내역</strong>
+    <div class="oitems" id="summary"><span class="muted">불러오는 중…</span></div>
+    <div class="row" style="justify-content:space-between; margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">
+      <span class="muted">결제 금액</span><strong id="amount" style="font-size:20px;">—</strong>
+    </div>
+  </div>
+
+  <div class="widget-box">
+    <div id="payment-method"></div>
+    <div id="agreement"></div>
+  </div>
+  <div class="err" id="err" style="margin-top:10px;"></div>
+  <button id="payBtn" style="width:100%; margin-top:12px; padding:14px;" disabled>결제하기</button>
+  <p class="muted" style="text-align:center;">테스트 키 결제입니다 — 실제 돈이 나가지 않고 자정에 자동 취소됩니다.</p>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+const esc = (s) => String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+
+(async function main() {
+  try {
+    const { user } = await api('/api/auth/me');
+    if (!user) { alert('로그인이 필요합니다'); location.href = '/shop.html'; return; }
+
+    // 장바구니 요약 표시
+    const cart = await api('/api/cart');
+    if (!cart.items.length) { alert('장바구니가 비어 있습니다'); location.href = '/shop.html'; return; }
+    $('#summary').innerHTML = cart.items.map((i) => `
+      <div class="oitem"><img src="${i.image_url}" />
+        <span style="flex:1;">${esc(i.name)} × ${i.quantity}</span>
+        <span>${won(i.line_total)}</span></div>`).join('');
+    $('#amount').textContent = won(cart.total);
+
+    // 서버에 주문(PENDING) 생성 — 금액은 서버가 계산
+    const order = await api('/api/checkout', { method: 'POST' });
+    const { tossClientKey } = await api('/api/config');
+    if (!tossClientKey) throw new Error('결제 키가 설정되지 않았습니다');
+
+    // 위젯 렌더링
+    const tossPayments = TossPayments(tossClientKey);
+    const widgets = tossPayments.widgets({ customerKey: order.customerKey });
+    await widgets.setAmount({ currency: 'KRW', value: Number(order.amount) });
+    await Promise.all([
+      widgets.renderPaymentMethods({ selector: '#payment-method', variantKey: 'DEFAULT' }),
+      widgets.renderAgreement({ selector: '#agreement', variantKey: 'AGREEMENT' }),
+    ]);
+
+    const btn = $('#payBtn');
+    btn.disabled = false;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        await widgets.requestPayment({
+          orderId: order.orderId,
+          orderName: order.orderName,
+          successUrl: location.origin + '/success.html',
+          failUrl: location.origin + '/fail.html',
+          customerEmail: order.customerEmail,
+          customerName: order.customerName,
+        });
+      } catch (e) {
+        // 사용자가 결제창을 닫은 경우 등
+        $('#err').textContent = e.message || '결제가 중단되었습니다';
+        btn.disabled = false;
+      }
+    };
+  } catch (e) {
+    $('#err').textContent = e.message;
+  }
+})();
+</script>
+</body>
+</html>

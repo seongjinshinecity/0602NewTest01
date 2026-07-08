@@ -1,0 +1,17 @@
+{
+  "name": "shopping-mall-complete",
+  "version": "1.0.0",
+  "description": "AI 공장장 부트캠프 6주차 — [Payment+File] 쇼핑몰 완성 (이미지 업로드 + 토스 결제 + 마이페이지)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

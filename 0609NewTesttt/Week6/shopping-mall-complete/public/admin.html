@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>관리자 — QUARTER STORE</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <h1><a href="/shop.html">QUARTER&nbsp;STORE</a> <span class="muted" style="font-size:13px;">관리자</span></h1>
+  <a href="/shop.html"><button class="ghost sm">← 스토어</button></a>
+</header>
+<div class="wrap" style="max-width:680px;">
+  <div class="card" style="margin-bottom:18px;">
+    <strong>➕ 새 상품 등록 (이미지 → ImageKit 업로드)</strong>
+    <p class="muted" id="ikState" style="margin:6px 0 0;"></p>
+    <label>상품명</label><input id="pname" placeholder="예: 유리 저그 1L" />
+    <label>가격 (원)</label><input id="pprice" type="number" min="0" placeholder="25000" />
+    <label>설명</label><textarea id="pdesc" rows="2" placeholder="상품 설명"></textarea>
+    <label>상품 이미지</label><input id="pfile" type="file" accept="image/*" />
+    <div id="preview" style="margin-top:8px;"></div>
+    <div class="err" id="err"></div>
+    <button id="createBtn" style="margin-top:8px;">상품 등록</button>
+  </div>
+
+  <div class="card">
+    <strong>📋 상품 목록 — 이미지 교체</strong>
+    <div id="plist" style="margin-top:10px;"><span class="muted">불러오는 중…</span></div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+const esc = (s) => String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+const toBase64 = (file) => new Promise((ok, no) => {
+  const fr = new FileReader();
+  fr.onload = () => ok(fr.result);   // data:image/...;base64,...
+  fr.onerror = no;
+  fr.readAsDataURL(file);
+});
+
+(async function main() {
+  const { user } = await api('/api/auth/me');
+  if (!user) { alert('로그인이 필요합니다'); location.href = '/shop.html'; return; }
+  const { admin } = await api('/api/admin/me');
+  if (!admin) { alert('관리자만 접근할 수 있습니다'); location.href = '/shop.html'; return; }
+  const { imagekitReady } = await api('/api/config');
+  $('#ikState').innerHTML = imagekitReady
+    ? '<span class="ok">ImageKit 연결됨 — 업로드 가능</span>'
+    : '<span class="err">ImageKit 키 미설정 — 이미지 없이 등록은 가능, 업로드는 키 설정 후</span>';
+  await renderList();
+})();
+
+$('#pfile').onchange = async () => {
+  const f = $('#pfile').files[0];
+  if (f) $('#preview').innerHTML = `<img src="${await toBase64(f)}" style="width:120px;height:90px;object-fit:cover;border-radius:8px;" />`;
+};
+
+$('#createBtn').onclick = async () => {
+  const btn = $('#createBtn');
+  btn.disabled = true; $('#err').textContent = '';
+  try {
+    const body = {
+      name: $('#pname').value,
+      price: Number($('#pprice').value),
+      description: $('#pdesc').value,
+    };
+    const f = $('#pfile').files[0];
+    if (f) { body.imageBase64 = await toBase64(f); body.fileName = f.name; }
+    await api('/api/admin/products', { method: 'POST', body: JSON.stringify(body) });
+    $('#pname').value = $('#pprice').value = $('#pdesc').value = ''; $('#pfile').value = ''; $('#preview').innerHTML = '';
+    await renderList();
+    alert('상품이 등록되었습니다');
+  } catch (e) { $('#err').textContent = e.message; }
+  btn.disabled = false;
+};
+
+async function renderList() {
+  const items = await api('/api/products');
+  $('#plist').innerHTML = items.map((p) => `
+    <div class="oitem" style="padding:8px 0; border-bottom:1px solid var(--line);">
+      <img src="${p.image_url}" onerror="this.style.opacity=.3" />
+      <span style="flex:1;">${esc(p.name)} <span class="muted">${won(p.price)}</span></span>
+      <label class="ghost sm" style="cursor:pointer; border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:12px;">
+        이미지 교체<input type="file" accept="image/*" style="display:none;" onchange="swap(${p.id}, this)" />
+      </label>
+    </div>`).join('');
+}
+
+window.swap = async (id, input) => {
+  const f = input.files[0];
+  if (!f) return;
+  try {
+    await api(`/api/admin/products/${id}/image`, {
+      method: 'PATCH',
+      body: JSON.stringify({ imageBase64: await toBase64(f), fileName: f.name }),
+    });
+    await renderList();
+  } catch (e) { alert(e.message); }
+};
+</script>
+</body>
+</html>
