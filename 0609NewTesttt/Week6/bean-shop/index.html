@@ -111,29 +111,17 @@
       return params;
     }
 
-    // 결제 성공 시 대기 주문을 Supabase에 저장(있을 때만) — best-effort, 실패해도 결과 표시를 막지 않음
-    async function savePendingOrderToDb() {
-      if (!db) return;
-      let pending;
-      try { pending = JSON.parse(localStorage.getItem('bean_pending_order') || 'null'); }
-      catch (e) { return; }
-      if (!pending || !pending.form) return;
-      const orderId = crypto.randomUUID();
-      const { error: oErr } = await db.from('orders').insert({
-        id: orderId,
-        customer_name: pending.form.name,
-        phone: pending.form.phone,
-        address: pending.form.address,
-        memo: pending.form.memo || null,
-        total_price: pending.amount,
-        shipping_fee: pending.shipping,
-      });
-      if (oErr) return;
-      await db.from('order_items').insert((pending.items || []).map((l) => ({
-        order_id: orderId, bean_id: l.id, bean_name: l.name,
-        weight_label: l.weightLabel, unit_price: l.price, qty: l.qty,
-      })));
-    }
+    // 주문 저장은 서버(server.js)가 /api/orders → /api/confirm 에서 Postgres(app_orders)로 처리한다.
+    // (예전 클라이언트 Supabase 저장 로직은 서버 저장으로 대체됨)
+
+    // 배송비: 100원 테스트 상품만 담긴 경우 무료(정확히 100원 결제되도록), 그 외 3만원 미만 3천원
+    const computeShipping = (items, totalPrice) => {
+      if (!items || items.length === 0) return 0;
+      if (items.every((l) => l.isTest)) return 0;
+      return totalPrice >= 30000 ? 0 : 3000;
+    };
+    // 8자리 주문번호 표기 (#ABC12345)
+    const shortOrderNo = (id) => '#' + String(id || '').replace(/-/g, '').slice(0, 8).toUpperCase();
 
     // DB row → 앱 내부 형태
     const mapBean = (r) => ({
@@ -300,7 +288,16 @@
         }});
       }, []);
 
-      const value = { items, dispatch, totalQty, totalPrice, addItem, drawerOpen, setDrawerOpen };
+      // 과제용 100원 테스트 상품 (배송비 없이 정확히 100원 결제)
+      const addTestItem = useCallback(() => {
+        dispatch({ type: 'ADD', item: {
+          key: 'test-100', id: 'test-100', name: '결제 테스트 상품', country: 'TEST', en: 'TEST',
+          roast: 'medium', grad: 'radial-gradient(120% 120% at 30% 20%, #FF7A33 0%, #C4470F 45%, #1A0B04 100%)',
+          weightLabel: '테스트', price: 100, qty: 1, isTest: true,
+        }});
+      }, []);
+
+      const value = { items, dispatch, totalQty, totalPrice, addItem, addTestItem, drawerOpen, setDrawerOpen };
       return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
     }
     const useCart = () => useContext(CartContext);
@@ -547,7 +544,7 @@
             </nav>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => user ? navigate('/account') : setLoginOpen(true)}
+              <button onClick={() => user ? navigate('/mypage') : setLoginOpen(true)}
                 className="relative p-1.5 border border-transparent hover:border-ink-600 transition" aria-label={user ? '마이페이지' : '로그인'}>
                 {user
                   ? <Avatar url={profile && profile.avatar_url} email={user.email} size="w-7 h-7" text="text-xs" />
@@ -761,7 +758,7 @@
     // 📄 장바구니 드로어
     // ========================================
     function CartDrawer() {
-      const { items, dispatch, totalPrice, drawerOpen, setDrawerOpen } = useCart();
+      const { items, dispatch, totalPrice, drawerOpen, setDrawerOpen, addTestItem } = useCart();
       const { navigate } = useRouter();
       useEffect(() => {
         if (!drawerOpen) return;
@@ -771,7 +768,7 @@
         return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
       }, [drawerOpen]);
       if (!drawerOpen) return null;
-      const shipping = totalPrice >= 30000 || totalPrice === 0 ? 0 : 3000;
+      const shipping = computeShipping(items, totalPrice);
       return (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="장바구니">
           <div className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm animate-fade" onClick={() => setDrawerOpen(false)}></div>
@@ -789,6 +786,10 @@
                 <p className="font-serif text-paper font-bold">장바구니가 비어있어요</p>
                 <p className="text-sm text-paper-dim mt-1">마음에 드는 싱글오리진 원두를 담아보세요.</p>
                 <Button className="mt-6" onClick={() => setDrawerOpen(false)}>원두 보러가기</Button>
+                <button onClick={() => addTestItem()}
+                  className="mt-4 font-mono text-[10px] uppercase tracking-[0.15em] text-paper-faint hover:text-flame border border-dashed border-ink-600 hover:border-flame/50 px-3 py-2">
+                  ⚙ 100원 테스트 결제 담기
+                </button>
               </div>
             ) : (
               <>
@@ -852,7 +853,8 @@
     //  위젯은 페이지 마운트당 1회만 렌더(renderedRef 가드), 금액 변경은 setAmount로만.
     // ========================================
     function CheckoutPage() {
-      const { items, totalPrice } = useCart();
+      const { items, totalPrice, addTestItem } = useCart();
+      const { user, authReady, setLoginOpen } = useAuth();
       const { navigate } = useRouter();
       const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '' });
       const [errMsg, setErrMsg] = useState('');
@@ -860,15 +862,16 @@
       const [paying, setPaying] = useState(false);  // 결제창 호출 중
       const widgetsRef = useRef(null);
       const renderedRef = useRef(false);
+      const loggedIn = !!user;
 
-      const shipping = totalPrice >= 30000 || totalPrice === 0 ? 0 : 3000;
+      const shipping = computeShipping(items, totalPrice);
       const amount = totalPrice + shipping;
       const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
       const inputCls = 'w-full bg-ink-950 border border-ink-600 px-3 py-2.5 text-sm text-paper placeholder:text-paper-faint focus:outline-none focus:border-flame transition';
 
-      // 위젯 초기화 — 마운트당 1회
+      // 위젯 초기화 — 로그인 상태에서 위젯 divs가 렌더된 뒤 1회
       useEffect(() => {
-        if (items.length === 0) return;
+        if (items.length === 0 || !loggedIn) return;
         if (typeof TossPayments === 'undefined') {
           setErrMsg('토스 SDK를 불러오지 못했습니다. 네트워크를 확인하고 새로고침 해주세요.');
           return;
@@ -893,7 +896,7 @@
           }
         })();
         return () => { cancelled = true; };
-      }, []);
+      }, [loggedIn]);
 
       // 페이지에 머무는 동안 수량이 바뀌면 금액만 갱신 (재렌더 금지)
       useEffect(() => {
@@ -926,8 +929,11 @@
           let res;
           try {
             res = await fetch('/api/orders', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId, amount, orderName }),
+              method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId, amount, orderName,
+                items: items.map((l) => ({ name: l.name, qty: l.qty, unitPrice: l.price })),
+              }),
             });
           } catch (netErr) {
             // fetch 자체 실패(연결 거부/CORS) — 대개 오리진이 틀렸거나 서버 미실행
@@ -953,13 +959,41 @@
         }
       };
 
+      if (!authReady) {
+        return (
+          <section className="max-w-lg mx-auto px-4 py-28 text-center">
+            <Spark className="w-10 h-10 mx-auto mb-5 opacity-50 animate-pulse" fill="#EB5A1E" />
+            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-paper-dim">Loading…</div>
+          </section>
+        );
+      }
+      // 과제 취지: 로그인 후 결제해야 마이페이지에서 확인 가능 → 결제는 로그인 필요
+      if (!loggedIn) {
+        return (
+          <section className="max-w-lg mx-auto px-4 py-24 text-center">
+            <Card className="relative p-10">
+              <RegMarks />
+              <Spark className="w-12 h-12 mx-auto mb-6 opacity-50" fill="#EB5A1E" />
+              <h2 className="font-serif text-2xl font-black text-paper">로그인 후 결제할 수 있어요</h2>
+              <p className="text-sm text-paper-dim mt-2">주문 내역을 마이페이지에서 확인하려면 로그인이 필요합니다.</p>
+              <div className="mt-6 flex gap-2 justify-center">
+                <Button onClick={() => setLoginOpen(true)}>로그인 / 회원가입</Button>
+                <Button variant="ghost" onClick={() => navigate('/beans')}>원두 목록</Button>
+              </div>
+            </Card>
+          </section>
+        );
+      }
       if (items.length === 0) {
         return (
           <section className="max-w-2xl mx-auto px-4 py-24 text-center">
             <Spark className="w-14 h-14 mx-auto mb-6 opacity-40" fill="#EB5A1E" />
             <h2 className="font-serif text-2xl font-black text-paper">장바구니가 비어있어요</h2>
             <p className="text-sm text-paper-dim mt-2">결제할 원두를 먼저 담아주세요.</p>
-            <div className="mt-6"><Button onClick={() => navigate('/beans')}>원두 보러가기</Button></div>
+            <div className="mt-6 flex gap-2 justify-center">
+              <Button onClick={() => navigate('/beans')}>원두 보러가기</Button>
+              <Button variant="outline" onClick={() => { addTestItem(); }}>⚙ 100원 테스트 담기</Button>
+            </div>
           </section>
         );
       }
@@ -1087,7 +1121,7 @@
           let ok = false;
           try {
             const res = await fetch('/api/confirm', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
             });
             data = await res.json();
@@ -1100,11 +1134,12 @@
           // 새로고침 재confirm 방지 — location.search의 민감 파라미터 제거
           window.history.replaceState({}, '', window.location.pathname + window.location.hash);
           if (ok) {
-            try { await savePendingOrderToDb(); } catch (e) {}
+            // 주문 저장은 서버(/api/confirm)가 Postgres에 이미 완료. 여기선 장바구니만 비운다.
             dispatch({ type: 'CLEAR' });
             localStorage.removeItem('bean_pending_order');
             setInfo({
               orderId,
+              internalId: data.order && data.order.id ? data.order.id : null,  // 주문 상세 링크용
               amount: Number(amount),
               method: data.method || null,
               approvedAt: data.approvedAt || null,
@@ -1155,7 +1190,9 @@
             </div>
             <h2 className="font-serif text-2xl font-black text-paper">결제가 완료되었습니다</h2>
             <div className="mt-6 border-t border-ink-700 pt-5 space-y-2 text-left">
-              <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">Order ID</span><span className="text-paper break-all text-right ml-3">{info.orderId}</span></div>
+              {info.internalId && (
+                <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">주문번호</span><span className="text-paper">{shortOrderNo(info.internalId)}</span></div>
+              )}
               <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">결제 금액</span><span className="text-flame font-bold">{won(info.amount)}</span></div>
               {info.method && (
                 <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">결제 수단</span><span className="text-paper">{info.method}</span></div>
@@ -1165,7 +1202,11 @@
               )}
             </div>
             <p className="mt-6 text-sm text-paper-dim leading-relaxed">주문하신 원두는 로스팅 후<br/>가장 신선한 상태로 발송됩니다.</p>
-            <Button className="mt-7 w-full" onClick={() => navigate('/beans')}>계속 쇼핑하기</Button>
+            <div className="mt-7 flex gap-2">
+              {info.internalId && <Button className="flex-1" onClick={() => navigate('/orders/' + info.internalId)}>주문 상세 보기</Button>}
+              <Button variant="outline" className="flex-1" onClick={() => navigate('/mypage')}>주문 내역</Button>
+            </div>
+            <Button variant="ghost" className="mt-3 w-full" onClick={() => navigate('/beans')}>계속 쇼핑하기</Button>
           </Card>
         </section>
       );
@@ -1586,9 +1627,201 @@
             </Card>
           )}
 
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 flex gap-2 justify-center">
+            {user && <Button variant="outline" onClick={() => navigate('/mypage')}>주문 내역 보기</Button>}
             <Button variant="ghost" onClick={() => navigate('/beans')}>← 원두 보러가기</Button>
           </div>
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 마이페이지 — 주문 내역 (/#/mypage) — user_id 격리, 최신순
+    // ========================================
+    function MyOrdersPage() {
+      const { user, authReady, backend, setLoginOpen } = useAuth();
+      const { navigate } = useRouter();
+      const [state, setState] = useState('loading'); // loading | ready | error
+      const [orders, setOrders] = useState([]);
+
+      useEffect(() => {
+        if (!authReady) return;
+        if (!user) { setState('ready'); return; }
+        let cancelled = false;
+        (async () => {
+          try {
+            const res = await fetch('/api/me/orders', { credentials: 'include' });
+            if (!res.ok) throw new Error();
+            const d = await res.json();
+            if (!cancelled) { setOrders(d.orders || []); setState('ready'); }
+          } catch (e) { if (!cancelled) setState('error'); }
+        })();
+        return () => { cancelled = true; };
+      }, [authReady, user]);
+
+      if (!authReady || state === 'loading') {
+        return (
+          <section className="max-w-2xl mx-auto px-4 py-28 text-center">
+            <Spark className="w-10 h-10 mx-auto mb-5 opacity-50 animate-pulse" fill="#EB5A1E" />
+            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-paper-dim">Loading / 주문 내역 불러오는 중</div>
+          </section>
+        );
+      }
+
+      return (
+        <section className="max-w-2xl mx-auto px-4 py-14">
+          <div className="mb-8 flex items-end justify-between flex-wrap gap-3">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-flame mb-2">My page / 마이페이지</div>
+              <h2 className="font-serif text-3xl font-black text-paper">주문 내역</h2>
+            </div>
+            {user && <Button variant="outline" size="sm" onClick={() => navigate('/account')}>프로필 설정</Button>}
+          </div>
+
+          {!user ? (
+            <Card className="relative p-10 text-center">
+              <RegMarks />
+              <p className="font-serif text-paper font-bold">로그인이 필요해요</p>
+              <p className="text-sm text-paper-dim mt-1">로그인하면 내 주문 내역을 볼 수 있어요.</p>
+              <Button className="mt-6" disabled={!backend.authEnabled} onClick={() => setLoginOpen(true)}>로그인 / 회원가입</Button>
+            </Card>
+          ) : orders.length === 0 ? (
+            <Card className="relative p-12 text-center">
+              <RegMarks />
+              <Spark className="w-12 h-12 mx-auto mb-5 opacity-40" fill="#EB5A1E" />
+              <p className="font-serif text-paper font-bold text-lg">아직 주문 내역이 없어요</p>
+              <p className="text-sm text-paper-dim mt-1">원두를 담고 결제하면 여기에 표시됩니다.</p>
+              <div className="mt-6 flex gap-2 justify-center">
+                <Button onClick={() => navigate('/beans')}>원두 보러가기</Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {orders.map((o) => (
+                <button key={o.id} onClick={() => navigate('/orders/' + o.id)}
+                  className="w-full text-left">
+                  <Card className="relative p-5 hover:border-flame/50 transition">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-paper-faint">{shortOrderNo(o.id)}</div>
+                        <div className="font-serif font-bold text-paper mt-1 truncate">{o.order_name || '주문'}</div>
+                        <div className="font-mono text-[10px] text-paper-dim mt-1">
+                          {o.paid_at ? new Date(o.paid_at).toLocaleString('ko-KR') : '-'} · 상품 {o.item_count}종
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-serif font-black text-flame text-lg">{won(o.amount)}</div>
+                        <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-paper-faint mt-1">{o.status}</div>
+                      </div>
+                    </div>
+                  </Card>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 주문 상세 (/#/orders/:id) — 상품(수량/단가/합계) + 결제 내역
+    // ========================================
+    function OrderDetailPage({ orderId }) {
+      const { authReady, user, setLoginOpen } = useAuth();
+      const { navigate } = useRouter();
+      const [state, setState] = useState('loading'); // loading | ready | notfound | error
+      const [order, setOrder] = useState(null);
+      const [items, setItems] = useState([]);
+
+      useEffect(() => {
+        if (!authReady) return;
+        if (!user) { setState('ready'); return; }
+        let cancelled = false;
+        (async () => {
+          try {
+            const res = await fetch('/api/me/orders/' + encodeURIComponent(orderId), { credentials: 'include' });
+            if (res.status === 404) { if (!cancelled) setState('notfound'); return; }
+            if (!res.ok) throw new Error();
+            const d = await res.json();
+            if (!cancelled) { setOrder(d.order); setItems(d.items || []); setState('ready'); }
+          } catch (e) { if (!cancelled) setState('error'); }
+        })();
+        return () => { cancelled = true; };
+      }, [authReady, user, orderId]);
+
+      if (!authReady || state === 'loading') {
+        return (
+          <section className="max-w-lg mx-auto px-4 py-28 text-center">
+            <Spark className="w-10 h-10 mx-auto mb-5 opacity-50 animate-pulse" fill="#EB5A1E" />
+            <div className="font-mono text-[11px] uppercase tracking-[0.3em] text-paper-dim">Loading…</div>
+          </section>
+        );
+      }
+      if (!user) {
+        return (
+          <section className="max-w-lg mx-auto px-4 py-24 text-center">
+            <Card className="relative p-10"><RegMarks />
+              <p className="font-serif text-paper font-bold">로그인이 필요해요</p>
+              <Button className="mt-5" onClick={() => setLoginOpen(true)}>로그인</Button>
+            </Card>
+          </section>
+        );
+      }
+      if (state === 'notfound') {
+        return (
+          <section className="max-w-lg mx-auto px-4 py-24 text-center">
+            <Card className="relative p-10"><RegMarks />
+              <h2 className="font-serif text-xl font-black text-paper">주문을 찾을 수 없어요</h2>
+              <p className="text-sm text-paper-dim mt-2">내 계정의 주문만 볼 수 있어요.</p>
+              <Button className="mt-6" onClick={() => navigate('/mypage')}>주문 내역으로</Button>
+            </Card>
+          </section>
+        );
+      }
+      const lineTotal = (it) => it.qty * it.unit_price;
+      const itemsSum = items.reduce((s, it) => s + lineTotal(it), 0);
+
+      return (
+        <section className="max-w-lg mx-auto px-4 py-14">
+          <button onClick={() => navigate('/mypage')} className="mb-4 font-mono text-[11px] uppercase tracking-[0.2em] text-paper-dim hover:text-flame">← 주문 내역</button>
+          <Card className="relative p-7 md:p-8">
+            <RegMarks />
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-flame mb-2">Order detail / 주문 상세</div>
+            <h2 className="font-serif text-2xl font-black text-paper">{order.order_name || '주문'}</h2>
+
+            <div className="mt-5 border-t border-ink-700 pt-4 space-y-2">
+              <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">주문번호</span><span className="text-paper">{shortOrderNo(order.id)}</span></div>
+              <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">주문일</span><span className="text-paper">{order.paid_at ? new Date(order.paid_at).toLocaleString('ko-KR') : '-'}</span></div>
+              {order.method && <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">결제 수단</span><span className="text-paper">{order.method}</span></div>}
+              <div className="flex justify-between font-mono text-[11px]"><span className="text-paper-faint uppercase tracking-[0.15em]">상태</span><span className="text-paper">{order.status}</span></div>
+            </div>
+
+            <div className="mt-6">
+              <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-flame mb-3">Items / 상품</div>
+              <div className="space-y-2">
+                {items.map((it, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 border-b border-ink-700 pb-2">
+                    <div className="min-w-0">
+                      <div className="font-serif text-paper text-sm truncate">{it.product_name}</div>
+                      <div className="font-mono text-[10px] text-paper-dim mt-0.5">{won(it.unit_price)} × {it.qty}</div>
+                    </div>
+                    <div className="font-serif font-bold text-paper text-sm shrink-0">{won(lineTotal(it))}</div>
+                  </div>
+                ))}
+                {items.length === 0 && <div className="font-mono text-[11px] text-paper-faint">상품 정보가 없습니다.</div>}
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-ink-700 pt-4 space-y-1.5">
+              {itemsSum !== order.amount && (
+                <div className="flex justify-between font-mono text-[11px] text-paper-dim"><span>상품 합계</span><span>{won(itemsSum)}</span></div>
+              )}
+              <div className="flex justify-between items-baseline">
+                <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-paper-faint">결제 금액</span>
+                <span className="font-serif font-black text-flame text-xl">{won(order.amount)}</span>
+              </div>
+            </div>
+          </Card>
         </section>
       );
     }
@@ -1610,6 +1843,8 @@
       if (route === '/payments/success') return <PaymentSuccessPage />;
       if (route === '/payments/fail') return <PaymentFailPage />;
       if (route === '/account') return <AccountPage />;
+      if (route === '/mypage') return <MyOrdersPage />;
+      if (route.startsWith('/orders/')) return <OrderDetailPage orderId={route.slice('/orders/'.length)} />;
       return (
         <div className="max-w-6xl mx-auto px-4 py-24 text-center">
           <Spark className="w-14 h-14 mx-auto mb-6 opacity-40" fill="#EB5A1E" />

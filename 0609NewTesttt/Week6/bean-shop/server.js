@@ -69,9 +69,29 @@ async function initDb() {
       avatar_url text,
       updated_at timestamptz DEFAULT now()
     );
+    -- 주문: 앞의 Supabase orders(구스키마)와 충돌 피하려 app_ 접두사 사용
+    CREATE TABLE IF NOT EXISTS app_orders (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id text UNIQUE NOT NULL,                 -- 토스 orderId
+      user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+      order_name text,
+      amount integer NOT NULL,
+      status text NOT NULL DEFAULT 'PENDING',        -- PENDING → DONE
+      payment_key text,
+      method text,
+      paid_at timestamptz,
+      created_at timestamptz DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS app_order_items (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_ref uuid REFERENCES app_orders(id) ON DELETE CASCADE,
+      product_name text NOT NULL,
+      qty integer NOT NULL,
+      unit_price integer NOT NULL
+    );
   `);
   dbReady = true;
-  console.log('   DB 연결 + 테이블(app_users/app_profiles) 준비 완료.');
+  console.log('   DB 연결 + 테이블(app_users/app_profiles/app_orders/app_order_items) 준비 완료.');
 }
 
 // ============================================================
@@ -182,17 +202,40 @@ app.get('/api/imagekit-auth', (req, res) => {
 });
 
 // ============================================================
-// 결제(토스) — 금액 검증 후 서버에서만 시크릿 키로 승인
+// 결제(토스) — 주문을 Postgres에 PENDING으로 저장 → 승인 성공 시 DONE
+//  · 금액 검증은 DB에 저장된 기대 금액과 대조 (DB 없으면 in-memory 폴백)
+//  · user_id는 세션 쿠키에서 서버가 도출 (위변조 불가)
 // ============================================================
-const orderAmounts = new Map(); // orderId -> { amount, orderName, createdAt }
+const orderAmounts = new Map(); // 폴백(DB off): orderId -> { amount }
 
-app.post('/api/orders', (req, res) => {
-  const { orderId, amount, orderName } = req.body || {};
+app.post('/api/orders', async (req, res) => {
+  const { orderId, amount, orderName, items } = req.body || {};
   if (!orderId || typeof amount !== 'number' || amount <= 0) {
     return res.status(400).json({ code: 'INVALID_ORDER', message: 'orderId와 양수 amount가 필요합니다.' });
   }
-  orderAmounts.set(orderId, { amount, orderName: orderName || '', createdAt: Date.now() });
-  res.json({ ok: true, orderId });
+  if (!dbReady) { orderAmounts.set(orderId, { amount }); return res.json({ ok: true, orderId }); }
+  const uid = currentUserId(req); // 로그인했으면 주문에 연결
+  try {
+    const ins = await pool.query(
+      `INSERT INTO app_orders (order_id, user_id, order_name, amount, status)
+       VALUES ($1, $2, $3, $4, 'PENDING')
+       ON CONFLICT (order_id) DO NOTHING
+       RETURNING id`,
+      [orderId, uid, orderName || '', amount]
+    );
+    if (ins.rows[0] && Array.isArray(items) && items.length) {
+      const ref = ins.rows[0].id;
+      for (const it of items) {
+        await pool.query(
+          `INSERT INTO app_order_items (order_ref, product_name, qty, unit_price) VALUES ($1, $2, $3, $4)`,
+          [ref, String(it.name || '상품'), Number(it.qty) || 1, Number(it.unitPrice) || 0]
+        );
+      }
+    }
+    res.json({ ok: true, orderId });
+  } catch (e) {
+    res.status(500).json({ code: 'ORDER_SAVE_FAILED', message: e.message });
+  }
 });
 
 app.post('/api/confirm', async (req, res) => {
@@ -203,13 +246,24 @@ app.post('/api/confirm', async (req, res) => {
   if (!TOSS_SECRET_KEY) {
     return res.status(500).json({ code: 'SERVER_MISCONFIGURED', message: 'TOSS_SECRET_KEY가 설정되지 않았습니다. .env를 확인하세요.' });
   }
-  const expected = orderAmounts.get(orderId);
-  if (!expected) {
+
+  // 1) 기대 금액 대조 (DB 우선, 없으면 in-memory)
+  let expectedAmount = null;
+  if (dbReady) {
+    const r = await pool.query('SELECT amount FROM app_orders WHERE order_id = $1', [orderId]);
+    if (r.rows[0]) expectedAmount = Number(r.rows[0].amount);
+  } else if (orderAmounts.has(orderId)) {
+    expectedAmount = Number(orderAmounts.get(orderId).amount);
+  }
+  if (expectedAmount == null) {
     return res.status(400).json({ code: 'ORDER_NOT_FOUND', message: '서버에 등록되지 않은 주문입니다. (/api/orders 선행 필요)' });
   }
-  if (Number(expected.amount) !== Number(amount)) {
-    return res.status(400).json({ code: 'AMOUNT_MISMATCH', message: `결제 금액이 일치하지 않습니다. (기대 ${expected.amount}원, 요청 ${amount}원)` });
+  if (expectedAmount !== Number(amount)) {
+    return res.status(400).json({ code: 'AMOUNT_MISMATCH', message: `결제 금액이 일치하지 않습니다. (기대 ${expectedAmount}원, 요청 ${amount}원)` });
   }
+
+  // 2) 토스 승인
+  let data, ok;
   try {
     const encoded = Buffer.from(TOSS_SECRET_KEY + ':').toString('base64');
     const tossRes = await fetch(TOSS_CONFIRM_URL, {
@@ -217,10 +271,74 @@ app.post('/api/confirm', async (req, res) => {
       headers: { Authorization: `Basic ${encoded}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
     });
-    const data = await tossRes.json();
-    return res.status(tossRes.ok ? 200 : tossRes.status).json(data);
+    data = await tossRes.json();
+    ok = tossRes.ok || data.code === 'ALREADY_PROCESSED_PAYMENT';
+    if (!ok) return res.status(tossRes.status).json(data);
   } catch (e) {
     return res.status(502).json({ code: 'CONFIRM_REQUEST_FAILED', message: e.message });
+  }
+
+  // 3) 승인 성공 → 주문 DONE 처리 (멱등: 이미 DONE이면 그대로), 내부 주문 id 반환
+  let order = null;
+  if (dbReady) {
+    try {
+      await pool.query(
+        `UPDATE app_orders
+            SET status='DONE', payment_key=$2, method=$3, paid_at=COALESCE(paid_at, now())
+          WHERE order_id=$1 AND status <> 'DONE'`,
+        [orderId, paymentKey, data.method || null]
+      );
+      const r = await pool.query('SELECT id, order_id FROM app_orders WHERE order_id=$1', [orderId]);
+      if (r.rows[0]) order = r.rows[0];
+    } catch (e) {
+      // 저장 실패해도 승인 자체는 성공 → 결과는 반환하되 로그만 남김
+      console.warn('주문 DONE 처리 실패:', e.message);
+    }
+  }
+  return res.status(200).json({ ...data, order });
+});
+
+// ============================================================
+// 마이페이지 — 로그인 사용자의 주문 내역 (user_id 격리, 최신순)
+// ============================================================
+app.get('/api/me/orders', async (req, res) => {
+  if (!dbReady) return res.status(503).json({ code: 'AUTH_DISABLED', message: '인증 백엔드 미설정' });
+  const uid = currentUserId(req);
+  if (!uid) return res.status(401).json({ code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT o.id, o.order_id, o.order_name, o.amount, o.status, o.paid_at, o.created_at,
+              (SELECT count(*) FROM app_order_items i WHERE i.order_ref = o.id) AS item_count
+         FROM app_orders o
+        WHERE o.user_id = $1 AND o.status = 'DONE'
+        ORDER BY o.paid_at DESC NULLS LAST, o.created_at DESC`,
+      [uid]
+    );
+    res.json({ orders: rows });
+  } catch (e) {
+    res.status(500).json({ code: 'ORDERS_FAILED', message: e.message });
+  }
+});
+
+app.get('/api/me/orders/:id', async (req, res) => {
+  if (!dbReady) return res.status(503).json({ code: 'AUTH_DISABLED', message: '인증 백엔드 미설정' });
+  const uid = currentUserId(req);
+  if (!uid) return res.status(401).json({ code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
+  try {
+    // user_id 격리: 남의 주문 id로 조회해도 안 나옴
+    const o = await pool.query(
+      `SELECT id, order_id, order_name, amount, status, payment_key, method, paid_at, created_at
+         FROM app_orders WHERE id = $1 AND user_id = $2`,
+      [req.params.id, uid]
+    );
+    if (!o.rows[0]) return res.status(404).json({ code: 'NOT_FOUND', message: '주문을 찾을 수 없습니다.' });
+    const items = await pool.query(
+      `SELECT product_name, qty, unit_price FROM app_order_items WHERE order_ref = $1 ORDER BY product_name`,
+      [req.params.id]
+    );
+    res.json({ order: o.rows[0], items: items.rows });
+  } catch (e) {
+    res.status(500).json({ code: 'ORDER_DETAIL_FAILED', message: e.message });
   }
 });
 

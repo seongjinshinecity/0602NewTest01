@@ -124,6 +124,17 @@ url 저장         ──POST /api/me/avatar ─▶ app_profiles.avatar_url 갱�
 | `app_users` | `id uuid pk`, `email unique`, `password_hash`, `created_at` |
 | `app_profiles` | `user_id uuid pk → app_users(id)`, `avatar_url`, `updated_at` |
 
+## 🧾 주문 저장 · 마이페이지 주문 내역 (2026-07-08, 부트캠프 과제)
+
+토스 결제 승인이 성공하면 주문을 **Postgres에 저장**하고, 로그인 사용자가 **마이페이지에서 자기 주문 내역**을 봅니다.
+
+- **결제 = 로그인 필요**: 마이페이지에서 주문을 확인하려면 결제 전에 로그인해야 합니다. `/#/checkout`은 비로그인 시 로그인 안내를 띄웁니다.
+- **저장 흐름**: `/api/orders`가 주문을 `PENDING`으로 저장(+상품 items) → `/api/confirm` 승인 성공 시 `DONE`으로 전환하고 `payment_key/method/paid_at` 기록. `user_id`는 **세션 쿠키에서 서버가 도출**(위변조 불가).
+- **테이블**: `app_orders`(id, order_id, user_id, order_name, amount, status, payment_key, method, paid_at) / `app_order_items`(order_ref, product_name, qty, unit_price) — 기존 Supabase `orders`(구스키마)와 충돌 피하려 `app_` 접두사.
+- **마이페이지(`/#/mypage`)**: `WHERE user_id = 현재 사용자`로 격리, `paid_at DESC` 최신순, 주문번호는 `#` + 앞 8자리(`#91A899D8`), 0건이면 "아직 주문 내역이 없어요" 빈 상태.
+- **주문 상세(`/#/orders/:id`)**: 상품별 수량·단가·합계 + 주문번호/주문일/결제수단/금액. 남의 주문 id로 접근하면 404.
+- **100원 테스트 결제**: 장바구니(빈 상태) 또는 결제 페이지의 "⚙ 100원 테스트 결제 담기" 버튼 → 배송비 없이 정확히 100원 결제. 토스 테스트 카드는 **VISA/MASTER(해외카드)** 선택 시 카드번호 직접 입력창이 뜹니다(예: `4242 4242 4242 4242`, 미래 만료월, 이메일). 국내 카드사는 앱 인증이 필요하므로 해외카드 입력 방식을 권장.
+
 ## 라우트
 
 | 경로 | 화면 |
@@ -132,10 +143,12 @@ url 저장         ──POST /api/me/avatar ─▶ app_profiles.avatar_url 갱�
 | `/#/beans` | 원두 목록 (필터/정렬) |
 | `/#/subscribe` | 정기구독 플랜 |
 | `/#/story` | 브랜드 스토리 |
-| `/#/checkout` | 결제 페이지 (배송정보 + 토스 결제위젯) |
+| `/#/checkout` | 결제 페이지 (로그인 필요 · 배송정보 + 토스 결제위젯) |
 | `/#/payments/success` | 결제 승인 결과 (성공/실패 분기) |
 | `/#/payments/fail` | 결제 실패 (code/message 표시) |
-| `/#/account` | 마이페이지 (로그인/프로필 사진 변경) |
+| `/#/account` | 프로필 (로그인/프로필 사진 변경) |
+| `/#/mypage` | 마이페이지 — 주문 내역 (최신순, 빈 상태) |
+| `/#/orders/:id` | 주문 상세 (상품 수량/단가/합계) |
 
 ## 실행 방법
 
@@ -202,8 +215,10 @@ ImageKit:   ON        ← IMAGEKIT_PRIVATE_KEY 가 있으면 ON
 | `GET /api/me` | 로그인 사용자 + `avatar_url` |
 | `POST /api/me/avatar` | 프로필 사진 URL 저장 (`{avatarUrl}`) |
 | `GET /api/imagekit-auth` | ImageKit 업로드 서명 (`token/expire/signature/publicKey`) |
-| `POST /api/orders` | 결제 요청 전 기대 금액 등록 (`{orderId, amount, orderName}`) |
-| `POST /api/confirm` | 금액 대조 → 시크릿 키로 토스 결제 승인 (`{paymentKey, orderId, amount}`) |
+| `POST /api/orders` | 주문 PENDING 저장 + 기대 금액 기록 (`{orderId, amount, orderName, items}`) |
+| `POST /api/confirm` | 금액 대조 → 토스 승인 → 주문 DONE 저장, 내부 `order.id` 반환 |
+| `GET /api/me/orders` | 내 주문 목록 (`user_id` 격리, `paid_at DESC`) |
+| `GET /api/me/orders/:id` | 내 주문 상세 (상품 포함, 남의 주문은 404) |
 
 ```bash
 # 승인 엔드포인트 형식 검증 예시 (실제 결제 없이)
@@ -253,6 +268,15 @@ curl -X POST http://localhost:3000/api/confirm -H "Content-Type: application/jso
 마이페이지 — ImageKit 업로드로 프로필 사진 반영:
 
 ![마이페이지 프로필](screenshots/account-avatar-uploaded.png)
+
+100원 테스트 결제 성공 · 마이페이지 주문 내역 · 주문 상세 · 빈 상태:
+
+![100원 결제 성공](screenshots/payment-success-100won.png)
+![마이페이지 주문 내역](screenshots/mypage-orders-list.png)
+![주문 상세](screenshots/order-detail.png)
+![빈 상태](screenshots/mypage-empty-state.png)
+
+- `POST /api/confirm` 200 OK 및 Postgres 저장 증거: [screenshots/confirm-200-network.txt](screenshots/confirm-200-network.txt)
 
 ## 파일 구성
 

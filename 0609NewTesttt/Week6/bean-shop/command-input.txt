@@ -38,3 +38,16 @@ ImageKit 이용해서 로그인한 유저가 자기 프로필 사진 바꾸는 �
   결제 회귀 확인, screenshots/account-avatar-uploaded.png
 - 참고: 1차 ImageKit 키는 403(인증 실패) → 사용자 재발급 키로 정상 동작 확인.
   Supabase publishable 키는 프로젝트에 미발급 상태(그래서 client Supabase는 폴백, 인증은 서버 Postgres로 처리)
+
+[2026-07-08 부트캠프 과제 2종 충족 — 결제 100원 + 마이페이지 주문내역]
+과제1 [Payment] 100원 결제 성공(테스트 키): 위젯→결제요청→승인→DB저장, /confirm 200,
+  테스트 카드, (보너스) 주문 상세에 상품명/금액/주문번호.
+과제2 마이페이지: 로그인 사용자 주문내역(상품명/금액/주문일/주문번호), where user_id 격리,
+  paid_at DESC 최신순, 주문번호 앞 8자리(#ABC12345), 0건 빈 상태, (보너스) 주문 상세에 수량/단가/합계.
+구현: 주문 저장을 in-memory Map → Postgres(app_orders/app_order_items, app_ 접두사로 구스키마 충돌 회피),
+  /api/orders(PENDING+items)→/api/confirm(DONE, user_id는 세션 쿠키에서 도출)→/api/me/orders·/:id,
+  /#/mypage·/#/orders/:id 라우트, 결제는 로그인 필요, 100원 테스트 상품(배송비 0).
+검증: 브라우저로 실제 100원 테스트 결제 성공(VISA 해외카드 직접입력 4242…) → /confirm 200 →
+  Postgres에 user_id 포함 저장 확인 → 마이페이지 최신순/8자리 표시, 타 계정 격리(404)·빈 상태,
+  주문 상세, 결제/프로필/라이브 카탈로그 회귀 확인. (Supabase publishable 키 연결로 카탈로그 라이브 전환됨)
+서버 안정화: pg Pool 'error' 핸들러 추가(Supabase 풀러 유휴 커넥션 종료 시 프로세스 크래시 방지).

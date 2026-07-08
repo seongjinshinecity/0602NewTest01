@@ -1,0 +1,45 @@
+개발자도구 Network 탭 — POST /api/confirm 200 OK 증거
+====================================================================
+(헤드리스 검증이라 DevTools UI 캡처 대신 실제 네트워크 요청/응답을 기록)
+
+[Playwright Network 패널 캡처]
+745. [POST] http://localhost:3000/api/confirm => [200] OK
+
+────────────────────────────────────────────────────────────────────
+1) 최초 승인 — POST /api/confirm 응답 본문 (HTTP 200)
+   요청: { paymentKey: "tgen_20260708101427Jakx3",
+           orderId: "bean_1783473266026_7wyrhg", amount: 100 }
+   응답(요약):
+   {
+     "paymentKey": "tgen_20260708101427Jakx3",
+     "orderId": "bean_1783473266026_7wyrhg",
+     "orderName": "결제 테스트 상품",
+     "status": "DONE",
+     "approvedAt": "2026-07-08T10:15:08+09:00",
+     "method": "카드",
+     "card": { "number": "42424242****424*", "amount": 100 },
+     "totalAmount": 100,
+     "currency": "KRW",
+     "order": { "id": "91a899d8-1f15-44e1-aa53-e264e2b7186c",
+                "order_id": "bean_1783473266026_7wyrhg" }   ← 서버가 Postgres에 저장 후 반환한 내부 주문 id
+   }
+
+────────────────────────────────────────────────────────────────────
+2) 새로고침/재요청 멱등성 — 같은 paymentKey 재승인 (HTTP 200)
+   $ curl -X POST http://localhost:3000/api/confirm \
+       -d '{"paymentKey":"tgen_20260708101427Jakx3","orderId":"bean_1783473266026_7wyrhg","amount":100}'
+   → HTTP_STATUS=200
+   {
+     "code": "ALREADY_PROCESSED_PAYMENT",
+     "message": "이미 처리된 결제 입니다.",
+     "order": { "id": "91a899d8-1f15-44e1-aa53-e264e2b7186c",
+                "order_id": "bean_1783473266026_7wyrhg" }
+   }
+   (중복 주문/중복 아이템 생성 없음 — ON CONFLICT + status 가드)
+
+────────────────────────────────────────────────────────────────────
+3) Postgres 저장 확인 (app_orders / app_order_items)
+   order  : id=91a899d8… order_id=bean_1783473266026_7wyrhg
+            user_id=675a5b53…(browser_e2e 로그인 사용자, NOT NULL) amount=100
+            status=DONE method=카드 paid_at=2026-07-08T01:15:08Z
+   items  : [ { product_name:"결제 테스트 상품", qty:1, unit_price:100 } ]
