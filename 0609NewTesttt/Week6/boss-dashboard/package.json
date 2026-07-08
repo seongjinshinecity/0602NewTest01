@@ -1,0 +1,14 @@
+{
+  "name": "boss-dashboard",
+  "version": "1.0.0",
+  "description": "AI 공장장 부트캠프 — [Auth+MCP+DB+App] 내 카페 사장님 대시보드 (데일리브루)",
+  "type": "module",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

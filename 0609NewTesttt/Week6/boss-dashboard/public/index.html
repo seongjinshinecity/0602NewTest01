@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>데일리브루 사장님 대시보드</title>
+<style>
+  :root { --bg:#12100e; --card:#1d1915; --line:#332c25; --fg:#f3efe9; --mut:#9a8f82; --berry:#c76b84; --gold:#d9a85a; --ok:#7fc98f; --warn:#e08b8b; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--fg); font-family:-apple-system,"Apple SD Gothic Neo",sans-serif; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(18,16,14,.93); backdrop-filter:blur(8px); }
+  h1 { font-size:17px; letter-spacing:1px; }
+  h1 .sub { color:var(--gold); font-size:12px; margin-left:8px; letter-spacing:2px; }
+  .wrap { max-width:1060px; margin:0 auto; padding:22px; }
+  .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
+  .card h2 { font-size:13px; color:var(--mut); font-weight:600; margin-bottom:12px; letter-spacing:.5px; }
+  .span4 { grid-column:span 4; } .span6 { grid-column:span 6; } .span8 { grid-column:span 8; } .span12 { grid-column:span 12; }
+  @media (max-width:800px){ .span4,.span6,.span8 { grid-column:span 12; } }
+  .big { font-size:30px; font-weight:800; }
+  .delta { font-size:13px; margin-left:8px; }
+  .delta.up { color:var(--ok); } .delta.down { color:var(--warn); }
+  .muted { color:var(--mut); font-size:13px; }
+  button { font:inherit; border:none; border-radius:9px; padding:10px 16px; background:var(--fg); color:#221c16; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); font-weight:500; }
+  input { width:100%; font:inherit; background:#151210; border:1px solid var(--line); color:var(--fg); border-radius:9px; padding:11px; margin-top:6px; }
+  label { font-size:13px; color:var(--mut); }
+  .err { color:#ff8a8a; font-size:13px; min-height:18px; }
+  /* 브리핑 */
+  .brief li { margin:8px 0 8px 4px; line-height:1.55; font-size:14.5px; list-style:none; padding-left:22px; position:relative; }
+  .brief li::before { content:"☕"; position:absolute; left:0; }
+  /* 주간 매출 바 차트 */
+  .bars { display:flex; align-items:flex-end; gap:8px; height:120px; margin-top:8px; }
+  .bar { flex:1; background:linear-gradient(180deg,var(--berry),#8a4a5e); border-radius:6px 6px 0 0; position:relative; min-height:6px; }
+  .bar span { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:10px; color:var(--mut); }
+  .bar em { position:absolute; bottom:-20px; left:0; right:0; text-align:center; font-size:10.5px; color:var(--mut); font-style:normal; }
+  .bar.today { background:linear-gradient(180deg,var(--gold),#a97e3c); }
+  /* top3 */
+  .rank { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .rank:last-child { border-bottom:none; }
+  .rank .no { width:26px; height:26px; border-radius:8px; background:#2a241e; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--gold); font-size:13px; }
+  .rank .nm { flex:1; font-size:14.5px; }
+  .review { padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; line-height:1.5; }
+  .review:last-child { border-bottom:none; }
+  .stars { color:var(--gold); font-size:12px; }
+  .weather-now { font-size:26px; font-weight:800; }
+  .src { font-size:11.5px; color:var(--mut); margin-top:14px; }
+  #login { max-width:380px; margin:60px auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DAILY BREW<span class="sub">사장님 대시보드</span></h1>
+  <div id="topbar"></div>
+</header>
+
+<div class="wrap">
+  <div id="login" class="card" style="display:none;">
+    <h2>사장님 로그인</h2>
+    <label>이메일</label><input id="email" type="email" />
+    <label>비밀번호</label><input id="pw" type="password" />
+    <div class="err" id="loginErr"></div>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button onclick="login()">로그인</button>
+      <button class="ghost" onclick="register()">회원가입</button>
+    </div>
+    <p class="muted" style="margin-top:12px;">대시보드는 로그인한 사장님만 볼 수 있습니다.</p>
+  </div>
+
+  <div id="dash" class="grid" style="display:none;"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+const esc = (s) => String(s).replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || '오류');
+  return data;
+};
+
+async function boot() {
+  const { user } = await api('/api/auth/me');
+  if (!user) {
+    $('#login').style.display = 'block';
+    $('#dash').style.display = 'none';
+    $('#topbar').innerHTML = '';
+    return;
+  }
+  $('#topbar').innerHTML = `<span class="muted">${esc(user.name)} 사장님</span> <button class="ghost" style="margin-left:10px;" onclick="logout()">로그아웃</button>`;
+  $('#login').style.display = 'none';
+  await renderDash();
+  $('#dash').style.display = 'grid';
+}
+
+async function renderDash() {
+  const d = await api('/api/dashboard');
+  const maxAmt = Math.max(...d.weekly.map((w) => w.amount), 1);
+  const bars = d.weekly.map((w, i) => {
+    const h = Math.round((w.amount / maxAmt) * 100);
+    const day = ['일','월','화','수','목','금','토'][new Date(w.date).getDay()];
+    const isLast = i === d.weekly.length - 1;
+    return `<div class="bar ${isLast ? 'today' : ''}" style="height:${h}%;"><span>${Math.round(w.amount/10000)}만</span><em>${day}</em></div>`;
+  }).join('');
+
+  $('#dash').innerHTML = `
+    <div class="card span12">
+      <h2>☀️ 오늘의 카페 브리핑 — ${d.today}</h2>
+      <ul class="brief">${d.briefing.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
+      <div class="src">데이터 소스: ${d.sources.join(' + ')}</div>
+    </div>
+
+    <div class="card span4">
+      <h2>오늘 매출</h2>
+      <div class="big">${won(d.todayAmt)}</div>
+      ${d.diffPct != null ? `<span class="delta ${d.diffPct >= 0 ? 'up' : 'down'}">${d.diffPct >= 0 ? '▲' : '▼'} 전일 대비 ${Math.abs(d.diffPct)}%</span>` : ''}
+      <div class="muted" style="margin-top:10px;">${d.categories.map((c) => `${esc(c.category)} ${won(c.amount)}`).join(' · ')}</div>
+    </div>
+
+    <div class="card span4">
+      <h2>성수동 날씨</h2>
+      ${d.weather ? `
+        <div class="weather-now">${d.weather.now}℃ <span style="font-size:15px; font-weight:500;">${esc(d.weather.desc)}</span></div>
+        <div class="muted" style="margin-top:8px;">최저 ${d.weather.min}℃ · 최고 ${d.weather.max}℃<br/>강수확률 ${d.weather.rainProb}%</div>
+      ` : '<div class="muted">날씨 API 일시 오류</div>'}
+    </div>
+
+    <div class="card span4">
+      <h2>이번 주 인기 메뉴 TOP3</h2>
+      ${d.top3.map((t, i) => `
+        <div class="rank"><div class="no">${i + 1}</div>
+          <div class="nm">${esc(t.menu_name)}<div class="muted">${t.qty}개</div></div>
+          <strong>${won(t.amount)}</strong></div>`).join('')}
+    </div>
+
+    <div class="card span8">
+      <h2>최근 7일 매출</h2>
+      <div class="bars">${bars}</div>
+      <div style="height:22px;"></div>
+    </div>
+
+    <div class="card span4">
+      <h2>최근 손님 리뷰</h2>
+      ${d.reviews.map((r) => `
+        <div class="review"><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+        <span class="muted">${r.date}</span><br/>${esc(r.content)}</div>`).join('')}
+    </div>`;
+}
+
+window.login = async () => {
+  try { await api('/api/auth/login', { method:'POST', body: JSON.stringify({ email:$('#email').value, password:$('#pw').value }) }); await boot(); }
+  catch (e) { $('#loginErr').textContent = e.message; }
+};
+window.register = async () => {
+  try { await api('/api/auth/register', { method:'POST', body: JSON.stringify({ email:$('#email').value, password:$('#pw').value, name:'사장님' }) }); await boot(); }
+  catch (e) { $('#loginErr').textContent = e.message; }
+};
+window.logout = async () => { await api('/api/auth/logout', { method:'POST' }); await boot(); };
+
+boot();
+</script>
+</body>
+</html>
