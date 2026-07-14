@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>망고 빙수 포스터 (TimTim 스타일)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // shop.madebytimtim.co.uk 실측 팔레트를 Tailwind 커스텀 컬러로 등록
+    // → bg-/text-/ring-/border- 접두사 전부에서 사용 가능
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'tt-magenta': '#F91360',  // 히어로 핫핑크
+            'tt-lavender': '#F7D6F6', // 서브 섹션 라벤더
+            'tt-sky': '#B4D2F7',      // 하늘색 필 버튼
+            'tt-cobalt': '#1E3AE8',   // 코발트 블루 블록
+            'tt-ink': 'rgb(18,18,18)',// 텍스트 블랙
+            'tt-cream': '#FBF6EC',    // 크림/오프화이트 종이
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <!-- @babel/standalone는 v7로 고정 (v8이면 빈 화면 이슈) -->
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+  <!-- shop.madebytimtim.co.uk 레퍼런스 폰트: Plus Jakarta Sans (+ 한글 폴백 Noto Sans KR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* Tailwind만으로 표현하기 어려운 커스텀 폰트/애니메이션 (색상은 tailwind.config에서 관리) */
+    body { margin: 0; }
+
+    /* Latin은 Jakarta, 한글은 Noto Sans KR로 자동 폴백 */
+    .font-jakarta { font-family: 'Plus Jakarta Sans', 'Noto Sans KR', sans-serif; }
+
+    /* 완전한 알약 버튼 (레퍼런스 border-radius:100px) */
+    .pill { border-radius: 100px; }
+
+    /* 종이/우편 소품 느낌의 점선 스티치 테두리 */
+    .stitch { border: 2px dashed rgba(18,18,18,0.18); }
+
+    /* 별 스티커가 톡톡 튀는 미세 애니메이션 */
+    @keyframes pop {
+      0%, 100% { transform: scale(1) rotate(0deg); }
+      50%      { transform: scale(1.12) rotate(8deg); }
+    }
+    .pop      { animation: pop 3.4s ease-in-out infinite; }
+    .pop-slow { animation: pop 4.6s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState } = React;
+
+    // ========================================
+    // 🎨 Design System — TimTim 편집숍 스타일 프리미티브
+    // ========================================
+
+    // 자간 넓은 소문자 캡션 라벨 (예: "summer limited")
+    function CaptionLabel({ children, className = "" }) {
+      return (
+        <span className={`font-jakarta font-medium uppercase text-[11px] sm:text-xs
+                          tracking-[0.32em] ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    // 노란 4갈래 스타버스트 스티커
+    function Sparkle({ className = "", size = 44 }) {
+      return (
+        <svg className={className} width={size} height={size} viewBox="0 0 100 100"
+             fill="none" aria-hidden="true">
+          <path d="M50 2 C54 34 66 46 98 50 C66 54 54 66 50 98 C46 66 34 54 2 50 C34 46 46 34 50 2 Z"
+                fill="#FFD84D" stroke="#121212" strokeWidth="3" strokeLinejoin="round" />
+          <circle cx="50" cy="50" r="7" fill="#121212" />
+        </svg>
+      );
+    }
+
+    // 완전한 알약 모양 하늘색 CTA 버튼 (검정 텍스트)
+    function PillButton({ children, onClick, className = "" }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`pill bg-tt-sky text-tt-ink font-jakarta font-semibold
+                      px-8 py-3.5 text-base sm:text-lg
+                      ring-2 ring-tt-ink/90
+                      shadow-[4px_4px_0_0_rgba(18,18,18,0.9)]
+                      transition-transform duration-150
+                      hover:-translate-y-0.5 active:translate-y-0
+                      focus:outline-none focus-visible:ring-4 ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    // 흰 카드 위에 사진을 올리는 프레임 (컬러 블록과 대비)
+    //   - 로딩 스켈레톤 / 로드 실패 대체 UI 처리
+    function PhotoCard({ src, alt }) {
+      const [status, setStatus] = useState('loading'); // loading | loaded | error
+
+      return (
+        <div className="relative bg-white p-3 pb-4 rounded-[18px]
+                        ring-1 ring-tt-ink/10
+                        shadow-[6px_8px_0_0_rgba(18,18,18,0.85)]">
+          <div className="relative w-full aspect-square rounded-[10px] overflow-hidden stitch bg-tt-cream">
+            {/* 로딩 스켈레톤 */}
+            {status === 'loading' && (
+              <div className="absolute inset-0 flex items-center justify-center
+                              bg-tt-cream animate-pulse">
+                <span className="font-jakarta text-tt-ink/40 text-sm">사진 불러오는 중…</span>
+              </div>
+            )}
+
+            {/* 로드 실패 대체 UI */}
+            {status === 'error' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2
+                              bg-tt-cream text-center px-6">
+                <span className="text-4xl">🥭</span>
+                <span className="font-jakarta font-semibold text-tt-ink">이미지를 불러오지 못했어요</span>
+                <span className="font-jakarta text-xs text-tt-ink/50 break-all">{src}</span>
+              </div>
+            )}
+
+            {/* 실제 사진 */}
+            <img
+              src={src}
+              alt={alt}
+              onLoad={() => setStatus('loaded')}
+              onError={() => setStatus('error')}
+              className={`w-full h-full object-cover transition-opacity duration-700
+                          ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
+            />
+          </div>
+
+          {/* 카드 하단 상품명·가격 (레퍼런스 "From the Print Shop" 카드 캡션) */}
+          <div className="mt-3 flex items-end justify-between px-1">
+            <div className="font-jakarta text-tt-ink leading-tight">
+              <div className="font-semibold text-sm sm:text-base">제철 애플망고 빙수</div>
+              <div className="text-[11px] text-tt-ink/55">100% 완숙 애플망고 · 수제 연유</div>
+            </div>
+            <div className="font-jakarta font-bold text-tt-ink text-lg sm:text-xl">₩12,900</div>
+          </div>
+
+          {/* 별 스티커를 카드 모서리에 포인트로 부착 */}
+          <Sparkle className="pop absolute -top-5 -right-5 drop-shadow" size={54} />
+          <Sparkle className="pop-slow absolute -bottom-4 -left-4" size={30} />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 포스터 섹션 컴포넌트
+    // ========================================
+
+    // 1) 히어로 — 핫핑크 컬러 블록 (캡션 → 헤드라인 → 서브 → CTA)
+    function HeroSection() {
+      return (
+        <section className="relative bg-tt-magenta px-7 pt-9 pb-10 overflow-hidden">
+          {/* 배경 장식 별 */}
+          <Sparkle className="pop absolute top-6 right-6 opacity-90" size={40} />
+          <Sparkle className="pop-slow absolute bottom-8 left-5 opacity-70" size={24} />
+
+          {/* 캡션 라벨 (자간 넓은 소문자) */}
+          <div className="flex items-center gap-2 text-white">
+            <span className="inline-block w-6 h-[2px] bg-white/90" />
+            <CaptionLabel>summer limited · 여름 한정</CaptionLabel>
+          </div>
+
+          {/* 큰 헤드라인 (semi-bold) */}
+          <h1 className="mt-4 font-jakarta font-semibold text-white leading-[0.95]">
+            <span className="block text-[64px] sm:text-[76px] tracking-tight">망고 빙수</span>
+            <span className="block mt-2 font-jakarta font-medium text-white/85
+                             text-sm sm:text-base tracking-[0.42em] uppercase">
+              Mango Bingsu
+            </span>
+          </h1>
+
+          {/* 서브 카피 */}
+          <p className="mt-5 font-jakarta text-white/95 text-[15px] sm:text-base leading-relaxed max-w-[300px]">
+            눈처럼 곱게 갈린 얼음 위,<br />
+            완숙 망고를 가득 올렸어요.
+          </p>
+
+          {/* CTA — 하늘색 필 버튼 */}
+          <div className="mt-7">
+            <PillButton onClick={() => alert('매장에서 만나요! 🥭 · 8시 반 EIGHT THIRTY CAFE')}>
+              지금 주문하기 →
+            </PillButton>
+          </div>
+        </section>
+      );
+    }
+
+    // 2) 쇼케이스 — 라벤더 컬러 블록 위 흰 카드 + 사진
+    function ShowcaseSection() {
+      return (
+        <section className="relative bg-tt-lavender px-8 pt-12 pb-10">
+          {/* 작은 캡션 */}
+          <div className="flex justify-center mb-6">
+            <CaptionLabel className="text-tt-ink/70">한 스푼에 시원한 여름</CaptionLabel>
+          </div>
+
+          {/* 흰 카드 위 실사진 */}
+          <PhotoCard
+            src="photos/mango-bingsu-real.jpg"
+            alt="유리그릇에 곱게 간 얼음과 망고 큐브, 민트 잎을 올린 실사 망고 빙수"
+          />
+
+          {/* 재료 태그 칩 */}
+          <div className="mt-8 flex flex-wrap justify-center gap-2">
+            {['제철 애플망고 100%', '수제 연유', '우유 얼음', '1인·2인 사이즈'].map((t) => (
+              <span key={t}
+                    className="font-jakarta text-xs font-medium text-tt-ink
+                               bg-white/70 pill px-3.5 py-1.5 ring-1 ring-tt-ink/15">
+                {t}
+              </span>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    // 3) 브랜딩 푸터 — 코발트/블랙 대비 바
+    function BrandFooter() {
+      return (
+        <section className="bg-tt-ink px-7 py-6 flex items-center justify-between">
+          <div className="font-jakarta text-white leading-tight">
+            <div className="font-semibold text-base tracking-wide">8시 반</div>
+            <div className="text-[11px] tracking-[0.3em] text-white/60 uppercase">Eight Thirty Cafe</div>
+          </div>
+          <Sparkle size={30} />
+        </section>
+      );
+    }
+
+    // ========================================
+    // 📄 포스터 컴포넌트 (TimTim 스타일)
+    // ========================================
+    function TimTimPoster() {
+      return (
+        <div className="w-full max-w-[440px] mx-auto rounded-[26px] overflow-hidden
+                        ring-2 ring-tt-ink/90
+                        shadow-[10px_14px_0_0_rgba(18,18,18,0.9)] bg-white">
+          <HeroSection />
+          <ShowcaseSection />
+          <BrandFooter />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      return (
+        <div className="min-h-screen w-full flex items-center justify-center
+                        bg-tt-cream p-4 sm:p-10 font-jakarta">
+          <TimTimPoster />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

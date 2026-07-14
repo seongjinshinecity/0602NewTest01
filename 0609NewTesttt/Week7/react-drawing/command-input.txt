@@ -1,0 +1,4 @@
+망고 빙수 포스터 그려줘 / 망고 빙수는 svg 로 신경써서 미니멀하게 그려줘
+react-drawing 여기에 실제 사진을 넣어서 포스터를 한개 더 만들어줘 (fal.ai로 생성한 사진 사용)
+index-photo.html 이걸 https://shop.madebytimtim.co.uk/ 디자인을 참고해서 새로운 파일로 만들어줘
+https://helloabt.com/index.html 사이트 비주얼 스타일(Antonio 압축서체·흑백 하이콘트라스트·네온그린 포인트)로 mango-bingsu-photo.html 새 파일 만들어줘

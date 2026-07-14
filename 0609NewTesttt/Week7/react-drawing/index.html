@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>망고 빙수 포스터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+  <style>
+    /* Tailwind으로 표현하기 어려운 커스텀 애니메이션 / 폰트 */
+    @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Jua&display=swap');
+
+    body { margin: 0; }
+    .font-title { font-family: 'Black Han Sans', sans-serif; }
+    .font-point { font-family: 'Jua', sans-serif; }
+    .font-body  { font-family: 'Gowun Dodum', sans-serif; }
+
+    /* 김/시원함이 퍼지는 은은한 펄스 */
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-10px) rotate(-2deg); }
+    }
+    .floaty { animation: floaty 5s ease-in-out infinite; }
+
+    @keyframes floaty-slow {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    .floaty-slow { animation: floaty-slow 7s ease-in-out infinite; }
+
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.9; }
+    }
+    .shimmer { animation: shimmer 4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState } = React;
+
+    // ========================================
+    // 🎨 SVG 파트 컴포넌트 (망고 빙수 일러스트 구성 요소)
+    //   - 각 요소를 컴포넌트로 분리해 가독성 확보
+    //   - 좌표계는 부모 <svg viewBox="0 0 400 460"> 기준
+    // ========================================
+
+    // 그라데이션 / 필터 정의 모음
+    function SvgDefs() {
+      return (
+        <defs>
+          {/* 망고 큐브 그라데이션 (노랑 → 주황) */}
+          <linearGradient id="mangoGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"  stopColor="#FFE05C" />
+            <stop offset="55%" stopColor="#FFB020" />
+            <stop offset="100%" stopColor="#FF8A00" />
+          </linearGradient>
+          <linearGradient id="mangoGradTop" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"  stopColor="#FFF0A0" />
+            <stop offset="100%" stopColor="#FFD24D" />
+          </linearGradient>
+          {/* 셰이브드 아이스 그라데이션 (흰색 → 연한 하늘/민트) */}
+          <linearGradient id="iceGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#FFFFFF" />
+            <stop offset="60%" stopColor="#EAF7FB" />
+            <stop offset="100%" stopColor="#CFEAF2" />
+          </linearGradient>
+          {/* 그릇 유리 그라데이션 */}
+          <linearGradient id="bowlGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#FFFFFF" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#D7EEF5" stopOpacity="0.95" />
+          </linearGradient>
+          {/* 연유 드리즐 */}
+          <linearGradient id="milkGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#FFFDF6" />
+            <stop offset="100%" stopColor="#FFF3D6" />
+          </linearGradient>
+          {/* 부드러운 그림자 */}
+          <radialGradient id="shadowGrad" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%"  stopColor="#0B7285" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#0B7285" stopOpacity="0" />
+          </radialGradient>
+          <filter id="softBlur" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2.2" />
+          </filter>
+        </defs>
+      );
+    }
+
+    // 얼음 결정: 수북히 쌓인 셰이브드 아이스 텍스처
+    //   겹친 다각형(각진 결정) + 곡선 윤곽으로 눈처럼 쌓인 느낌
+    function ShavedIce() {
+      // 표면 각진 결정 조각들 (플랫한 하이라이트/그림자 페어)
+      const facets = [
+        { p: "M120,150 L140,132 L158,150 L138,166 Z", fill: "#FFFFFF", o: 0.95 },
+        { p: "M150,140 L172,124 L192,142 L170,158 Z", fill: "#F1FAFD", o: 0.9 },
+        { p: "M185,132 L210,120 L228,140 L204,154 Z", fill: "#FFFFFF", o: 0.95 },
+        { p: "M222,138 L246,126 L262,148 L238,160 Z", fill: "#E7F5FA", o: 0.9 },
+        { p: "M255,150 L278,140 L288,162 L264,170 Z", fill: "#FFFFFF", o: 0.92 },
+        { p: "M132,178 L156,166 L172,186 L148,198 Z", fill: "#E3F3F8", o: 0.85 },
+        { p: "M168,184 L192,172 L210,192 L186,204 Z", fill: "#FFFFFF", o: 0.9 },
+        { p: "M204,188 L228,178 L244,198 L220,208 Z", fill: "#EAF7FB", o: 0.85 },
+        { p: "M240,182 L262,174 L276,194 L252,202 Z", fill: "#FFFFFF", o: 0.9 },
+      ];
+      return (
+        <g>
+          {/* 얼음 산 본체 윤곽 (봉긋한 곡선) */}
+          <path
+            d="M112,208
+               C108,168 132,150 150,148
+               C160,120 200,110 216,140
+               C240,116 286,132 284,166
+               C300,176 300,204 288,214
+               C260,232 140,232 112,208 Z"
+            fill="url(#iceGrad)"
+            stroke="#BFE3EC"
+            strokeWidth="1.5"
+          />
+          {/* 각진 결정 조각들 */}
+          {facets.map((f, i) => (
+            <path key={i} d={f.p} fill={f.fill} opacity={f.o} />
+          ))}
+          {/* 결정 사이 음영선 */}
+          <path d="M150,148 L150,206 M216,140 L214,208 M258,150 L262,208"
+                stroke="#CDE9F0" strokeWidth="1.2" fill="none" opacity="0.7" />
+          {/* 반짝이는 스파클 */}
+          <g className="shimmer">
+            <path d="M170,140 l2,-8 l2,8 l8,2 l-8,2 l-2,8 l-2,-8 l-8,-2 z" fill="#FFFFFF" />
+            <path d="M250,132 l1.5,-6 l1.5,6 l6,1.5 l-6,1.5 l-1.5,6 l-1.5,-6 l-6,-1.5 z" fill="#FFFFFF" />
+          </g>
+        </g>
+      );
+    }
+
+    // 망고 큐브 하나 (입체감: 윗면 + 옆면 + 하이라이트)
+    function MangoCube({ x, y, s = 26, rot = 0 }) {
+      return (
+        <g transform={`translate(${x},${y}) rotate(${rot})`}>
+          {/* 옆면 (어두운 주황) */}
+          <path d={`M0,${s*0.28} L${s*0.5},${s*0.56} L${s*0.5},${s} L0,${s*0.72} Z`}
+                fill="url(#mangoGrad)" />
+          <path d={`M${s*0.5},${s*0.56} L${s},${s*0.28} L${s},${s*0.72} L${s*0.5},${s} Z`}
+                fill="#F59300" />
+          {/* 윗면 (밝은 노랑) */}
+          <path d={`M0,${s*0.28} L${s*0.5},0 L${s},${s*0.28} L${s*0.5},${s*0.56} Z`}
+                fill="url(#mangoGradTop)" />
+          {/* 윗면 하이라이트 */}
+          <path d={`M${s*0.5},${s*0.08} L${s*0.82},${s*0.28} L${s*0.5},${s*0.46} L${s*0.2},${s*0.28} Z`}
+                fill="#FFFACC" opacity="0.7" />
+        </g>
+      );
+    }
+
+    // 그릇 위 / 얼음 위에 얹힌 망고 큐브 무리
+    function MangoCubes() {
+      const cubes = [
+        { x: 128, y: 120, s: 24, rot: -6 },
+        { x: 176, y: 104, s: 28, rot: 4 },
+        { x: 222, y: 112, s: 26, rot: -3 },
+        { x: 258, y: 128, s: 22, rot: 6 },
+        { x: 150, y: 186, s: 22, rot: 5 },
+        { x: 204, y: 190, s: 26, rot: -4 },
+        { x: 248, y: 178, s: 20, rot: 8 },
+      ];
+      return (
+        <g>
+          {cubes.map((c, i) => (
+            <MangoCube key={i} {...c} />
+          ))}
+        </g>
+      );
+    }
+
+    // 연유 드리즐 (얼음 위로 흘러내리는 부드러운 곡선)
+    function MilkDrizzle() {
+      return (
+        <g opacity="0.95">
+          <path
+            d="M150,150
+               C160,168 148,182 158,196
+               C166,208 156,220 168,228"
+            fill="none" stroke="url(#milkGrad)" strokeWidth="7"
+            strokeLinecap="round" />
+          <path
+            d="M244,146
+               C236,164 250,178 240,192
+               C232,204 244,216 234,226"
+            fill="none" stroke="url(#milkGrad)" strokeWidth="6"
+            strokeLinecap="round" />
+          <path
+            d="M198,158 C204,176 194,190 202,206"
+            fill="none" stroke="url(#milkGrad)" strokeWidth="5"
+            strokeLinecap="round" />
+        </g>
+      );
+    }
+
+    // 민트 잎 (꼭대기 장식)
+    function MintLeaf({ x, y, rot = 0, scale = 1 }) {
+      return (
+        <g transform={`translate(${x},${y}) rotate(${rot}) scale(${scale})`}>
+          <path d="M0,0 C-14,-6 -20,-24 -6,-34 C4,-24 8,-8 0,0 Z"
+                fill="#4CAF50" />
+          <path d="M0,0 C-11,-6 -15,-22 -6,-31"
+                fill="none" stroke="#2E7D32" strokeWidth="1.4" />
+          <path d="M0,0 C14,-4 22,-22 8,-34 C0,-22 -4,-8 0,0 Z"
+                fill="#66BB6A" />
+          <path d="M0,0 C11,-4 17,-20 8,-31"
+                fill="none" stroke="#388E3C" strokeWidth="1.4" />
+        </g>
+      );
+    }
+
+    // 유리 그릇
+    function Bowl() {
+      return (
+        <g>
+          {/* 그릇 볼(반투명 유리) */}
+          <path
+            d="M96,206
+               C96,206 120,206 200,206
+               C280,206 304,206 304,206
+               C304,206 300,256 262,278
+               C232,296 168,296 138,278
+               C100,256 96,206 96,206 Z"
+            fill="url(#bowlGrad)"
+            stroke="#B9E0EA" strokeWidth="2" />
+          {/* 유리 하이라이트 */}
+          <path d="M118,224 C124,250 144,266 168,272"
+                fill="none" stroke="#FFFFFF" strokeWidth="4"
+                strokeLinecap="round" opacity="0.8" />
+          {/* 그릇 굽(받침) */}
+          <path d="M172,296 L228,296 L236,318 L164,318 Z"
+                fill="url(#bowlGrad)" stroke="#B9E0EA" strokeWidth="2" />
+          <ellipse cx="200" cy="320" rx="52" ry="9"
+                   fill="#EAF7FB" stroke="#B9E0EA" strokeWidth="2" />
+        </g>
+      );
+    }
+
+    // 배경 장식: 둥둥 떠다니는 미니 망고 / 물방울
+    function FloatingBits() {
+      return (
+        <g>
+          <g className="floaty" style={{ transformOrigin: '60px 90px' }}>
+            <ellipse cx="60" cy="90" rx="18" ry="15" fill="#FFC94D" />
+            <ellipse cx="54" cy="84" rx="6" ry="4" fill="#FFE9A8" opacity="0.9" />
+          </g>
+          <g className="floaty-slow" style={{ transformOrigin: '344px 120px' }}>
+            <ellipse cx="344" cy="120" rx="14" ry="12" fill="#FFB020" />
+            <ellipse cx="339" cy="115" rx="5" ry="3.5" fill="#FFE9A8" opacity="0.9" />
+          </g>
+          <circle cx="40" cy="240" r="7" fill="#FFFFFF" opacity="0.6" />
+          <circle cx="360" cy="260" r="9" fill="#FFFFFF" opacity="0.55" />
+          <circle cx="330" cy="330" r="6" fill="#FFFFFF" opacity="0.5" />
+          <circle cx="66" cy="330" r="5" fill="#FFFFFF" opacity="0.5" />
+        </g>
+      );
+    }
+
+    // 망고 빙수 통합 일러스트
+    function MangoBingsuIllustration() {
+      return (
+        <svg viewBox="0 0 400 380" className="w-full h-auto"
+             role="img" aria-label="직접 그린 미니멀 망고 빙수 일러스트">
+          <SvgDefs />
+          {/* 바닥 그림자 */}
+          <ellipse cx="200" cy="330" rx="118" ry="24" fill="url(#shadowGrad)" />
+          <FloatingBits />
+          <Bowl />
+          <ShavedIce />
+          <MilkDrizzle />
+          <MangoCubes />
+          {/* 꼭대기 민트 */}
+          <MintLeaf x={206} y={112} rot={-8} scale={1.1} />
+          <MintLeaf x={182} y={118} rot={16} scale={0.85} />
+        </svg>
+      );
+    }
+
+    // ========================================
+    // 🎨 포스터 UI 컴포넌트
+    // ========================================
+
+    function Badge({ children }) {
+      return (
+        <span className="inline-block font-point text-sm sm:text-base tracking-wide
+                         bg-white/85 text-orange-600 rounded-full px-4 py-1.5
+                         shadow-sm ring-1 ring-orange-200">
+          {children}
+        </span>
+      );
+    }
+
+    // ========================================
+    // 📄 포스터 컴포넌트
+    // ========================================
+    function Poster() {
+      return (
+        <div className="relative w-full max-w-[440px] mx-auto
+                        rounded-[28px] overflow-hidden shadow-2xl
+                        bg-gradient-to-br from-sky-300 via-cyan-200 to-amber-100
+                        ring-1 ring-white/60">
+          {/* 배경 데코 원 */}
+          <div className="pointer-events-none absolute -top-16 -left-16 w-56 h-56
+                          rounded-full bg-white/25 blur-2xl" />
+          <div className="pointer-events-none absolute top-24 -right-20 w-60 h-60
+                          rounded-full bg-amber-200/40 blur-2xl" />
+          <div className="pointer-events-none absolute bottom-0 left-0 w-full h-40
+                          bg-gradient-to-t from-amber-100/70 to-transparent" />
+
+          <div className="relative px-7 pt-9 pb-8 flex flex-col items-center">
+            {/* 상단 카피 */}
+            <Badge>SUMMER LIMITED · 여름 한정</Badge>
+
+            {/* 타이틀 */}
+            <h1 className="mt-4 text-center leading-none">
+              <span className="block font-title text-6xl sm:text-7xl
+                               text-amber-500 drop-shadow-[0_3px_0_rgba(255,255,255,0.7)]">
+                망고 빙수
+              </span>
+              <span className="block font-point text-lg sm:text-xl text-cyan-700 mt-2 tracking-widest">
+                MANGO BINGSU
+              </span>
+            </h1>
+
+            {/* 일러스트 */}
+            <div className="w-full mt-1 mb-2">
+              <MangoBingsuIllustration />
+            </div>
+
+            {/* 카피 문구 */}
+            <p className="font-body text-center text-cyan-900/80 text-base sm:text-lg leading-relaxed">
+              눈처럼 곱게 갈린 얼음 위,<br />
+              완숙 망고를 가득 올렸어요.<br />
+              <span className="text-orange-600 font-point">한 스푼에 시원한 여름</span>
+            </p>
+
+            {/* 하단 정보 바 */}
+            <div className="mt-6 w-full flex items-center justify-between
+                            bg-white/80 backdrop-blur rounded-2xl px-5 py-3
+                            shadow-sm ring-1 ring-white/70">
+              <div className="font-body text-xs sm:text-sm text-cyan-800/70 leading-tight">
+                <div>제철 애플망고 100%</div>
+                <div>수제 연유 · 우유 얼음</div>
+              </div>
+              <div className="text-right">
+                <div className="font-point text-2xl sm:text-3xl text-orange-600">₩12,900</div>
+                <div className="font-body text-[11px] text-cyan-700/60">1인 · 2인 사이즈</div>
+              </div>
+            </div>
+
+            {/* 매장 표기 */}
+            <div className="mt-5 font-point text-cyan-700/70 text-sm tracking-[0.2em]">
+              8시 반 · EIGHT THIRTY CAFE
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      return (
+        <div className="min-h-screen w-full flex items-center justify-center
+                        bg-gradient-to-b from-sky-100 to-cyan-50 p-4 sm:p-8">
+          <Poster />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[입력 명령어 — 2026-07-14]
+
+index-photo.html(실사진 망고 빙수 포스터)에서 사용된 디자인 요소를,
+팀원들이 다른 포스터/페이지에서 재사용할 수 있도록 컴포넌트 단위 디자인 시스템으로 추출.
+
+- 새 폴더 design-system/ 에 CDN 기반(빌드 없음)으로 구성
+- 각 컴포넌트를 별도 .js 파일로 만들고 window.DS 네임스페이스에 등록
+  (전역 충돌 없이 <script type="text/babel" src="..."> 로 순서대로 로드)
+- 컴포넌트: Badge, PhotoFrame, FloatingDeco, PosterShell, PosterTitle, InfoBar
+  + tokens.js (색상/폰트/그림자/애니메이션 토큰)
+- 하드코딩 텍스트(망고 빙수, ₩12,900 등)는 전부 props로 일반화
+- index.html: 쇼케이스 문서 페이지 (타이틀 → 색상 팔레트 → 타이포 → 컴포넌트별 데모+코드)
+- README.md: 추출 출처, 폴더 구조, 로컬 서버 필요 이유, 재사용 방법
+- 스택: React 18.3.1 + @babel/standalone@7.26.4(v7 고정) + Tailwind CDN,
+  Google Fonts(Black Han Sans/Gowun Dodum/Jua)
+- 검증: 로컬 서버 + Playwright 렌더 확인, screenshots/showcase.png 저장, 콘솔 에러 0

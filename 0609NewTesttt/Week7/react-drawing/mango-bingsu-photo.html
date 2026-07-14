@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MANGO BINGSU — helloabt 스타일 포스터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <!-- @babel/standalone는 v7로 고정 (v8이면 text/babel이 ESM으로 주입돼 빈 화면 이슈) -->
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+  <style>
+    /* Antonio: 압축된 condensed sans — helloabt.com 헤드라인 서체 */
+    @import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+    body { margin: 0; background: #000; }
+
+    .font-head { font-family: 'Antonio', 'Noto Sans KR', sans-serif; }
+    .font-body { font-family: 'Inter', 'Noto Sans KR', sans-serif; }
+
+    /* helloabt의 강렬한 압축 헤드라인: 초대형 + 음수 자간(약 -4%) + 대문자 */
+    .head-compress {
+      letter-spacing: -0.04em;
+      line-height: 0.86;
+    }
+    .neon { color: rgb(57, 255, 20); }  /* #39FF14 */
+
+    /* 히어로 텍스트가 배경에 얹히는 느낌을 주는 상하 다크 그라데이션 */
+    .cinematic-fade {
+      background: linear-gradient(180deg,
+        rgba(0,0,0,0.55) 0%,
+        rgba(0,0,0,0.15) 32%,
+        rgba(0,0,0,0.35) 60%,
+        rgba(0,0,0,0.92) 100%);
+    }
+
+    /* 그레인 텍스처 — 시네마틱 에디토리얼 무드 */
+    .grain::after {
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none;
+      opacity: 0.10;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    /* 우측 세로 사이드 탭 */
+    .side-tab { writing-mode: vertical-rl; letter-spacing: 0.25em; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { useState } = React;
+
+    // ========================================
+    // 🎨 Design System — helloabt 톤 UI 프리미티브
+    //   (전부 프리젠테이셔널, 비즈니스 로직 없음)
+    // ========================================
+
+    // 카테고리 라벨 — 자간 넓은 소문자/대문자, 옵션으로 네온 그린
+    function Kicker({ children, neon = false, className = "" }) {
+      return (
+        <span className={`font-body text-[11px] sm:text-xs font-medium uppercase
+                          tracking-[0.35em] ${neon ? "neon" : ""} ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    // 반투명 화이트 필 내비게이션 바 (helloabt 상단 pill nav 차용)
+    function PillNav() {
+      const tabs = ["HOME", "MENU", "ABOUT", "STORE"];
+      return (
+        <nav className="flex items-center gap-1 rounded-full px-1.5 py-1.5
+                        bg-[rgba(244,244,244,0.35)] backdrop-blur-md
+                        ring-1 ring-white/25 shadow-lg"
+             aria-label="주요 메뉴">
+          {tabs.map((t) => (
+            <button key={t}
+              className="font-body text-[11px] sm:text-xs font-semibold uppercase tracking-wider
+                         text-black/85 rounded-full px-3 py-1.5
+                         hover:bg-white/50 transition-colors">
+              {t}
+            </button>
+          ))}
+          {/* 끝의 오렌지 포인트 필 버튼 */}
+          <button className="font-body text-[11px] sm:text-xs font-bold uppercase tracking-wider
+                             text-white bg-orange-500 rounded-full px-3.5 py-1.5
+                             hover:bg-orange-600 transition-colors shadow">
+            KOR
+          </button>
+        </nav>
+      );
+    }
+
+    // 우측 세로 사이드 탭 배지 (helloabt "W." / "Honors" 사이드 탭 응용)
+    function SideTab() {
+      return (
+        <div className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-30
+                        flex-col items-center gap-3">
+          <div className="side-tab font-head font-bold text-white/90 text-sm
+                          bg-black/70 ring-1 ring-white/20 px-2 py-4 rounded-l-lg">
+            8:30
+          </div>
+          <div className="side-tab font-body text-[10px] uppercase tracking-widest neon
+                          bg-black/70 ring-1 ring-white/20 px-2 py-4 rounded-l-lg">
+            SUMMER
+          </div>
+        </div>
+      );
+    }
+
+    // 실사진 로더 — 로딩 스켈레톤 / 로드 실패 대체 UI (index-photo.html 패턴 재사용)
+    function HeroPhoto({ src, alt }) {
+      const [status, setStatus] = useState('loading'); // loading | loaded | error
+      return (
+        <div className="absolute inset-0 overflow-hidden bg-neutral-900">
+          {status === 'loading' && (
+            <div className="absolute inset-0 flex items-center justify-center
+                            bg-gradient-to-br from-neutral-800 to-black animate-pulse">
+              <span className="font-body text-white/40 text-sm tracking-widest uppercase">Loading…</span>
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2
+                            bg-gradient-to-br from-neutral-800 to-black text-center px-6">
+              <span className="text-4xl">🥭</span>
+              <span className="font-body text-white/70 uppercase tracking-widest text-sm">Image not found</span>
+              <span className="font-body text-xs text-white/40 break-all">{src}</span>
+            </div>
+          )}
+          <img
+            src={src}
+            alt={alt}
+            onLoad={() => setStatus('loaded')}
+            onError={() => setStatus('error')}
+            className={`w-full h-full object-cover transition-opacity duration-700
+                        grayscale-[0.15] contrast-[1.05]
+                        ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
+          />
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 섹션 컴포넌트
+    // ========================================
+
+    // 히어로 — 풀블리드 사진 + 다크 그라데이션 + 초대형 멀티라인 Antonio 헤드라인
+    function Hero() {
+      return (
+        <header className="relative w-full min-h-screen overflow-hidden grain">
+          <HeroPhoto
+            src="photos/mango-bingsu-real.jpg"
+            alt="유리그릇에 곱게 간 얼음과 완숙 애플망고를 올린 실사 망고 빙수"
+          />
+          {/* 시네마틱 다크 페이드 (텍스트 가독성) */}
+          <div className="absolute inset-0 cinematic-fade" />
+
+          {/* 상단 바: 로고 + 필 내비 */}
+          <div className="relative z-20 flex items-center justify-between
+                          px-6 sm:px-10 pt-6">
+            <div className="font-head font-bold text-white text-xl sm:text-2xl
+                            uppercase tracking-tight">
+              8:30<span className="neon">.</span>
+            </div>
+            <PillNav />
+          </div>
+
+          {/* 히어로 카피 블록 */}
+          <div className="relative z-20 px-6 sm:px-10
+                          flex flex-col justify-end min-h-[calc(100vh-88px)] pb-16 sm:pb-20">
+            <Kicker neon className="mb-4">Summer Limited · 여름 한정</Kicker>
+
+            {/* 멀티라인 초대형 헤드라인 (helloabt "CRAFTING / A BETTER TOMORROW" 구성) */}
+            <h1 className="font-head head-compress font-bold uppercase text-white
+                           text-[19vw] sm:text-[15vw] lg:text-[11rem]">
+              <span className="block">Mango</span>
+              <span className="block">
+                Bing<span className="neon">su</span>
+              </span>
+            </h1>
+
+            {/* 서브 카피 */}
+            <p className="font-body text-white/85 text-base sm:text-lg max-w-xl mt-6 leading-relaxed">
+              눈처럼 곱게 갈린 얼음 위, 완숙 망고를 가득 올렸어요.
+              <br className="hidden sm:block" />
+              <span className="neon font-semibold"> 한 스푼에 시원한 여름.</span>
+            </p>
+
+            {/* 하단 메타 라인 */}
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2
+                            border-t border-white/20 pt-5">
+              <Kicker className="text-white/60">Eight Thirty Cafe</Kicker>
+              <Kicker className="text-white/60">Seasonal Dessert</Kicker>
+              <Kicker className="text-white/60 ml-auto">₩12,900</Kicker>
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    // ABOUT — 화이트 배경 + 블랙 텍스트, 96px급 헤드라인
+    function AboutSection() {
+      const rows = [
+        { k: "01", en: "Apple Mango 100%", ko: "제철 애플망고만 골라 완숙으로" },
+        { k: "02", en: "Handmade Condensed Milk", ko: "매일 끓여 만드는 수제 연유" },
+        { k: "03", en: "Milk Snow Ice", ko: "눈처럼 곱게 간 우유 얼음" },
+      ];
+      return (
+        <section className="relative w-full bg-white text-black grain
+                            px-6 sm:px-10 py-20 sm:py-28">
+          <div className="max-w-5xl mx-auto">
+            <Kicker className="text-black/50">— About the Bingsu</Kicker>
+            <h2 className="font-head head-compress font-bold uppercase
+                           text-[16vw] sm:text-[10vw] lg:text-[7rem] mt-3 mb-12">
+              About
+            </h2>
+
+            <div className="grid gap-0 divide-y divide-black/10 border-y border-black/10">
+              {rows.map((r) => (
+                <div key={r.k}
+                  className="flex items-baseline gap-4 sm:gap-8 py-6">
+                  <span className="font-head font-bold text-2xl sm:text-4xl text-black/25 w-12 shrink-0">
+                    {r.k}
+                  </span>
+                  <div className="flex-1">
+                    <div className="font-head font-semibold uppercase tracking-tight
+                                    text-xl sm:text-3xl">
+                      {r.en}
+                    </div>
+                    <div className="font-body text-black/55 text-sm sm:text-base mt-1">
+                      {r.ko}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 가격 블록 */}
+            <div className="mt-12 flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <Kicker className="text-black/50">Price</Kicker>
+                <div className="font-head font-bold text-6xl sm:text-8xl head-compress mt-2">
+                  ₩12,900
+                </div>
+              </div>
+              <div className="font-body text-black/55 text-sm sm:text-base text-right leading-relaxed">
+                <div className="font-semibold text-black uppercase tracking-wider">Two Sizes</div>
+                <div>1인 사이즈 · 2인 사이즈</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // ACTIVITY — 블랙 배경 + 화이트 텍스트, 사진 그리드
+    function ActivitySection() {
+      return (
+        <section className="relative w-full bg-black text-white grain
+                            px-6 sm:px-10 py-20 sm:py-28">
+          <div className="max-w-5xl mx-auto">
+            <Kicker neon>— Now Serving</Kicker>
+            <h2 className="font-head head-compress font-bold uppercase
+                           text-[15vw] sm:text-[9vw] lg:text-[6.5rem] mt-3 mb-12">
+              Activity
+            </h2>
+
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {/* 큰 메인 셀: 실사진 재사용 */}
+              <figure className="relative col-span-2 lg:col-span-2 aspect-[4/3]
+                                  overflow-hidden rounded-sm bg-neutral-900 group">
+                <img src="photos/mango-bingsu-real.jpg" alt="완성된 망고 빙수 한 그릇"
+                     className="w-full h-full object-cover grayscale-[0.1]
+                                transition-transform duration-700 group-hover:scale-105" />
+                <figcaption className="absolute bottom-3 left-4 font-body text-xs uppercase
+                                       tracking-widest text-white/80">
+                  Signature · 시그니처
+                </figcaption>
+              </figure>
+
+              {/* 텍스트 셀들 */}
+              <div className="flex flex-col justify-between rounded-sm bg-neutral-900 p-5 sm:p-6">
+                <Kicker neon>Texture</Kicker>
+                <p className="font-head font-semibold uppercase tracking-tight text-2xl sm:text-3xl mt-6">
+                  Snow<br/>Fine Ice
+                </p>
+              </div>
+              <div className="flex flex-col justify-between rounded-sm bg-neutral-900 p-5 sm:p-6">
+                <Kicker className="text-white/50">Topping</Kicker>
+                <p className="font-head font-semibold uppercase tracking-tight text-2xl sm:text-3xl mt-6">
+                  Ripe<br/>Mango
+                </p>
+              </div>
+              <div className="flex flex-col justify-center items-start rounded-sm
+                              bg-[rgb(57,255,20)] text-black p-5 sm:p-6 col-span-2 lg:col-span-1">
+                <span className="font-body text-[11px] uppercase tracking-[0.3em] font-bold">
+                  Limited
+                </span>
+                <p className="font-head font-bold uppercase tracking-tight text-3xl sm:text-4xl mt-3 head-compress">
+                  Summer<br/>Only
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // 푸터 — 블랙, 자간 넓은 화이트 브랜딩
+    function BrandFooter() {
+      return (
+        <footer className="relative w-full bg-black text-white grain
+                           px-6 sm:px-10 py-16 border-t border-white/10">
+          <div className="max-w-5xl mx-auto flex flex-col items-center text-center gap-3">
+            <div className="font-head font-bold uppercase head-compress
+                            text-[13vw] sm:text-7xl">
+              Eight Thirty
+            </div>
+            <div className="font-body uppercase text-white/60 text-sm tracking-[0.45em]">
+              8시 반 · Eight Thirty Cafe
+            </div>
+            <div className="font-body text-white/30 text-[11px] tracking-widest mt-4">
+              REF. helloabt.com — visual style study
+            </div>
+          </div>
+        </footer>
+      );
+    }
+
+    // ========================================
+    // 🚀 App — 풀블리드 멀티섹션 스크롤 페이지
+    //   (흑↔백 하이콘트라스트 교차 구조)
+    // ========================================
+    function App() {
+      return (
+        <main className="w-full bg-black">
+          <SideTab />
+          <Hero />
+          <AboutSection />
+          <ActivitySection />
+          <BrandFooter />
+        </main>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>여덟 시 반 디자인 시스템</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18.3.1 + Babel standalone v7 (v8이면 빈 화면 이슈 → 7.26.4 고정) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+
+  <style>
+    /* index-photo.html과 동일한 폰트 + 애니메이션 정의 */
+    @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Jua&display=swap');
+    body { margin: 0; }
+    .font-title { font-family: 'Black Han Sans', sans-serif; }
+    .font-point { font-family: 'Jua', sans-serif; }
+    .font-body  { font-family: 'Gowun Dodum', sans-serif; }
+
+    @keyframes sheen {
+      0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+      45%  { opacity: 0.55; }
+      100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+    }
+    .sheen { animation: sheen 6s ease-in-out infinite; }
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50%      { transform: translateY(-10px) rotate(-3deg); }
+    }
+    .floaty { animation: floaty 5s ease-in-out infinite; }
+    @keyframes floaty-slow {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+    .floaty-slow { animation: floaty-slow 7s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="root"></div>
+
+  <!-- ========================================
+       디자인 시스템 로드 순서:
+       1) tokens.js  2) 각 컴포넌트  3) 마지막에 쇼케이스 앱 (인라인)
+       모든 babel 스크립트에 data-presets="react" 지정
+       ======================================== -->
+  <script type="text/babel" data-presets="react" src="tokens.js"></script>
+  <script type="text/babel" data-presets="react" src="components/Badge.js"></script>
+  <script type="text/babel" data-presets="react" src="components/PhotoFrame.js"></script>
+  <script type="text/babel" data-presets="react" src="components/FloatingDeco.js"></script>
+  <script type="text/babel" data-presets="react" src="components/PosterShell.js"></script>
+  <script type="text/babel" data-presets="react" src="components/PosterTitle.js"></script>
+  <script type="text/babel" data-presets="react" src="components/InfoBar.js"></script>
+
+  <script type="text/babel" data-presets="react">
+    // ========================================
+    // React Hooks
+    // ========================================
+    const { tokens, Badge, PhotoFrame, FloatingDeco, PosterShell, PosterTitle, InfoBar } = window.DS;
+
+    // ========================================
+    // 🎨 문서 페이지 전용 프리미티브 (쇼케이스 UI용)
+    // ========================================
+    function Section({ id, no, title, desc, children }) {
+      return (
+        <section id={id} className="scroll-mt-20 mb-16">
+          <div className="mb-6">
+            <div className="flex items-center gap-3">
+              <span className="font-point text-orange-500 text-sm bg-orange-50 rounded-full px-3 py-0.5 ring-1 ring-orange-100">
+                {no}
+              </span>
+              <h2 className="font-title text-2xl sm:text-3xl text-slate-800">{title}</h2>
+            </div>
+            {desc && <p className="font-body text-slate-500 text-sm sm:text-base mt-2 leading-relaxed">{desc}</p>}
+          </div>
+          {children}
+        </section>
+      );
+    }
+
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white rounded-2xl ring-1 ring-slate-200 shadow-sm ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    // 컴포넌트 데모 블록: 이름 + 설명 + 라이브 예시 + 코드 스니펫
+    function Demo({ name, desc, children, code }) {
+      return (
+        <Card className="overflow-hidden mb-8">
+          <div className="px-5 sm:px-6 pt-5 pb-4 border-b border-slate-100">
+            <h3 className="font-point text-lg text-slate-800">
+              &lt;{name} /&gt;
+            </h3>
+            <p className="font-body text-slate-500 text-sm mt-1">{desc}</p>
+          </div>
+          {/* 라이브 프리뷰 (은은한 하늘색 배경으로 포스터 톤을 살림) */}
+          <div className="px-5 sm:px-6 py-8 bg-gradient-to-b from-sky-50 to-cyan-50/50 flex flex-wrap items-start justify-center gap-6">
+            {children}
+          </div>
+          {/* 코드 스니펫 */}
+          <pre className="text-[12px] sm:text-[13px] leading-relaxed bg-slate-900 text-slate-100 px-5 sm:px-6 py-4 overflow-x-auto">
+            <code className="font-mono whitespace-pre">{code}</code>
+          </pre>
+        </Card>
+      );
+    }
+
+    // 색상 스와치 카드
+    function Swatch({ name, cls, hex, use }) {
+      // bg-* 는 그대로, text-* 는 배경 프리뷰용으로 bg-* 로 치환
+      const bgCls = cls.startsWith('text-') ? cls.replace('text-', 'bg-') : cls;
+      return (
+        <Card className="overflow-hidden w-[150px]">
+          <div className={`h-16 ${bgCls} border-b border-slate-100`} />
+          <div className="px-3 py-2.5">
+            <div className="font-point text-sm text-slate-800">{name}</div>
+            <div className="font-mono text-[11px] text-slate-400 mt-0.5">{hex}</div>
+            <div className="font-body text-[11px] text-slate-500 mt-1 leading-snug">{use}</div>
+          </div>
+        </Card>
+      );
+    }
+
+    function SwatchGroup({ label, items }) {
+      return (
+        <div className="mb-6">
+          <div className="font-point text-slate-600 text-sm mb-3">{label}</div>
+          <div className="flex flex-wrap gap-3">
+            {items.map((c) => <Swatch key={c.name} {...c} />)}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 🧩 개별 데모 섹션
+    // ========================================
+    function ColorSection() {
+      const c = tokens.colors;
+      return (
+        <Section id="colors" no="02" title="색상 팔레트"
+          desc="원본 포스터의 배경 그라데이션(하늘 → 시안 → 앰버)과 포인트(오렌지), 반투명 화이트 서피스로 구성됩니다.">
+          <SwatchGroup label="Sky · 하늘" items={c.sky} />
+          <SwatchGroup label="Cyan · 시안" items={c.cyan} />
+          <SwatchGroup label="Amber · 앰버" items={c.amber} />
+          <SwatchGroup label="Orange · 포인트" items={c.orange} />
+          <SwatchGroup label="Surface · 반투명 화이트" items={c.surface} />
+        </Section>
+      );
+    }
+
+    function TypographySection() {
+      const rows = [
+        { ...tokens.fonts.title, sample: '망고 빙수', big: 'text-5xl' },
+        { ...tokens.fonts.point, sample: 'MANGO BINGSU · ₩12,900', big: 'text-3xl' },
+        { ...tokens.fonts.body,  sample: '눈처럼 곱게 갈린 얼음 위, 완숙 망고를 가득 올렸어요.', big: 'text-xl' },
+      ];
+      return (
+        <Section id="type" no="03" title="타이포그래피"
+          desc="Google Fonts 3종. 타이틀은 Black Han Sans, 포인트/가격은 Jua, 본문은 Gowun Dodum을 씁니다.">
+          <div className="space-y-4">
+            {rows.map((r) => (
+              <Card key={r.cls} className="px-5 sm:px-6 py-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <span className="font-point text-slate-800">{r.family}</span>
+                  <span className="font-mono text-xs text-slate-400">.{r.cls}</span>
+                </div>
+                <p className={`${r.cls} ${r.big} text-slate-800 leading-tight`}>{r.sample}</p>
+                <p className="font-body text-slate-500 text-sm mt-2">{r.use}</p>
+              </Card>
+            ))}
+          </div>
+        </Section>
+      );
+    }
+
+    function ComponentsSection() {
+      const photoSrc = '../photos/mango-bingsu-real.jpg';
+      return (
+        <Section id="components" no="04" title="컴포넌트"
+          desc="포스터를 이루는 6개 컴포넌트입니다. 텍스트/가격은 모두 props로 빼서 다른 메뉴에도 그대로 재사용할 수 있습니다.">
+
+          {/* Badge */}
+          <Demo
+            name="Badge"
+            desc="알약형 라벨. 여름 한정 · 신메뉴 등 짧은 강조 문구용."
+            code={`<Badge>SUMMER LIMITED · 여름 한정</Badge>\n<Badge>NEW · 신메뉴</Badge>`}
+          >
+            <Badge>SUMMER LIMITED · 여름 한정</Badge>
+            <Badge>NEW · 신메뉴</Badge>
+          </Demo>
+
+          {/* PosterTitle */}
+          <Demo
+            name="PosterTitle"
+            desc="2단 타이틀. 메인(한글) + 영문 서브를 props로 받습니다."
+            code={`<PosterTitle main="망고 빙수" sub="MANGO BINGSU" />\n<PosterTitle main="딸기 라떼" sub="STRAWBERRY LATTE" />`}
+          >
+            <PosterTitle main="망고 빙수" sub="MANGO BINGSU" />
+            <PosterTitle main="딸기 라떼" sub="STRAWBERRY LATTE" />
+          </Demo>
+
+          {/* InfoBar */}
+          <Demo
+            name="InfoBar"
+            desc="하단 정보 바. 좌측 설명 줄(lines) + 우측 가격(price/priceNote)."
+            code={`<InfoBar\n  lines={['제철 애플망고 100%', '수제 연유 · 우유 얼음']}\n  price="₩12,900" priceNote="1인 · 2인 사이즈" />`}
+          >
+            <div className="w-full max-w-[380px] space-y-4">
+              <InfoBar
+                lines={['제철 애플망고 100%', '수제 연유 · 우유 얼음']}
+                price="₩12,900" priceNote="1인 · 2인 사이즈" />
+              <InfoBar
+                lines={['국산 딸기 · 생우유', '휘핑 추가 가능']}
+                price="₩6,500" priceNote="ICE only" />
+            </div>
+          </Demo>
+
+          {/* PhotoFrame */}
+          <Demo
+            name="PhotoFrame"
+            desc="로딩/에러 상태가 있는 사진 프레임. sheen 광택 + 비네트 + 코너 라벨 + 캡션 포함."
+            code={`<PhotoFrame\n  src="../photos/mango-bingsu-real.jpg"\n  alt="실사 망고 빙수"\n  cornerLabel="🥭 REAL PHOTO"\n  caption="편집샵 스타일 · 45° food photography" />`}
+          >
+            <div className="w-full max-w-[300px]">
+              <PhotoFrame
+                src={photoSrc}
+                alt="실사 망고 빙수"
+                cornerLabel="🥭 REAL PHOTO"
+                caption="편집샵 스타일 · 45° food photography" />
+            </div>
+            <div className="w-full max-w-[300px]">
+              {/* 에러 상태 데모 (일부러 없는 경로) */}
+              <PhotoFrame
+                src="photos/__missing__.jpg"
+                alt="에러 상태 예시"
+                cornerLabel="에러 상태"
+                caption="onError → 안내 화면으로 전환" />
+            </div>
+          </Demo>
+
+          {/* FloatingDeco */}
+          <Demo
+            name="FloatingDeco"
+            desc="떠다니는 이모지 데코. PosterShell 안에 절대배치로 얹힙니다 (기본 3종). 아래는 상대배치 컨테이너에서의 미리보기."
+            code={`{/* PosterShell 안에서 자동 사용됨 */}\n<FloatingDeco />\n\n{/* 커스텀 */}\n<FloatingDeco items={[\n  { emoji: '🍓', className: 'floaty top-4 left-4 text-3xl' },\n  { emoji: '✨', className: 'floaty-slow top-2 right-4 text-2xl' },\n]} />`}
+          >
+            <div className="relative w-[220px] h-[140px] rounded-2xl bg-gradient-to-br from-sky-200 to-amber-100 ring-1 ring-white/60 overflow-hidden">
+              <FloatingDeco items={[
+                { emoji: '🥭', className: 'floaty top-6 left-6 text-3xl opacity-80' },
+                { emoji: '✨', className: 'floaty-slow top-4 right-6 text-2xl opacity-70' },
+                { emoji: '💧', className: 'floaty-slow bottom-6 left-10 text-xl opacity-60' },
+              ]} />
+            </div>
+          </Demo>
+
+          {/* PosterShell (조합) */}
+          <Demo
+            name="PosterShell"
+            desc="그라데이션 배경 카드 셸 + 배경 블롭 + FloatingDeco. 내부 콘텐츠는 children으로 받아 위 컴포넌트들을 조합합니다."
+            code={`<PosterShell>\n  <Badge>SUMMER LIMITED · 여름 한정</Badge>\n  <PosterTitle main="망고 빙수" sub="MANGO BINGSU" className="mt-4" />\n  <div className="w-full mt-4 mb-1">\n    <PhotoFrame src="../photos/mango-bingsu-real.jpg" alt="실사 망고 빙수" />\n  </div>\n  <InfoBar lines={[...]} price="₩12,900" priceNote="1인 · 2인 사이즈" className="mt-6" />\n</PosterShell>`}
+          >
+            <div className="w-full max-w-[380px]">
+              <PosterShell>
+                <Badge>SUMMER LIMITED · 여름 한정</Badge>
+                <PosterTitle main="망고 빙수" sub="MANGO BINGSU" className="mt-4" />
+                <div className="w-full mt-4 mb-1">
+                  <PhotoFrame
+                    src={photoSrc}
+                    alt="유리그릇에 곱게 간 얼음과 망고 큐브를 올린 실사 망고 빙수" />
+                </div>
+                <p className="font-body text-center text-cyan-900/80 text-base leading-relaxed mt-4">
+                  눈처럼 곱게 갈린 얼음 위,<br />완숙 망고를 가득 올렸어요.<br />
+                  <span className="text-orange-600 font-point">한 스푼에 시원한 여름</span>
+                </p>
+                <InfoBar
+                  className="mt-6"
+                  lines={['제철 애플망고 100%', '수제 연유 · 우유 얼음']}
+                  price="₩12,900" priceNote="1인 · 2인 사이즈" />
+                <div className="mt-5 font-point text-cyan-700/70 text-sm tracking-[0.2em]">
+                  8시 반 · EIGHT THIRTY CAFE
+                </div>
+              </PosterShell>
+            </div>
+          </Demo>
+        </Section>
+      );
+    }
+
+    // ========================================
+    // 🚀 App
+    // ========================================
+    function App() {
+      const navItems = [
+        { href: '#colors', label: '색상' },
+        { href: '#type', label: '타이포' },
+        { href: '#components', label: '컴포넌트' },
+      ];
+      return (
+        <div className="min-h-screen">
+          {/* 헤더 */}
+          <header className="relative overflow-hidden bg-gradient-to-br from-sky-300 via-cyan-200 to-amber-100">
+            <div className="pointer-events-none absolute -top-16 -left-16 w-56 h-56 rounded-full bg-white/25 blur-2xl" />
+            <div className="pointer-events-none absolute top-10 -right-16 w-60 h-60 rounded-full bg-amber-200/40 blur-2xl" />
+            <div className="relative max-w-5xl mx-auto px-5 sm:px-8 py-14">
+              <span className="font-point text-cyan-800/80 text-sm tracking-[0.2em]">
+                8시 반 · EIGHT THIRTY CAFE
+              </span>
+              <h1 className="font-title text-4xl sm:text-6xl text-amber-500 drop-shadow-[0_3px_0_rgba(255,255,255,0.7)] mt-3">
+                여덟 시 반 디자인 시스템
+              </h1>
+              <p className="font-body text-cyan-900/80 text-sm sm:text-lg mt-4 max-w-2xl leading-relaxed">
+                실사진 망고 빙수 포스터(<code className="font-mono text-cyan-800 bg-white/50 px-1.5 py-0.5 rounded">index-photo.html</code>)에서
+                추출한 컴포넌트 라이브러리입니다. 색상 · 폰트 · 6개 컴포넌트를 그대로 복사해 새 포스터에 재사용하세요.
+              </p>
+              <nav className="flex flex-wrap gap-2 mt-6">
+                {navItems.map((n) => (
+                  <a key={n.href} href={n.href}
+                    className="font-point text-sm text-orange-600 bg-white/85 rounded-full px-4 py-1.5 shadow-sm ring-1 ring-orange-200 hover:bg-white transition">
+                    {n.label}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </header>
+
+          {/* 본문 */}
+          <main className="max-w-5xl mx-auto px-5 sm:px-8 py-12">
+            {/* 01. 소개 / 사용법 요약 */}
+            <Section id="usage" no="01" title="시작하기"
+              desc="CDN 기반(빌드 도구 없음)입니다. 각 컴포넌트는 window.DS 네임스페이스에 등록되며, babel 스크립트를 순서대로 로드합니다.">
+              <Card className="px-5 sm:px-6 py-5">
+                <p className="font-body text-slate-600 text-sm leading-relaxed mb-4">
+                  <strong className="text-orange-600">로컬 서버 필수.</strong> babel의 <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">script src</code>는
+                  <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">file://</code>에서 CORS로 막힙니다.
+                  이 폴더에서 <code className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">python3 -m http.server</code> 실행 후 접속하세요.
+                </p>
+                <pre className="text-[12px] sm:text-[13px] leading-relaxed bg-slate-900 text-slate-100 px-5 py-4 rounded-xl overflow-x-auto">
+<code className="font-mono whitespace-pre">{`<!-- 로드 순서: tokens → 컴포넌트 → 앱 (모두 data-presets="react") -->
+<script type="text/babel" data-presets="react" src="tokens.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/Badge.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/PhotoFrame.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/FloatingDeco.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/PosterShell.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/PosterTitle.js"><\/script>
+<script type="text/babel" data-presets="react" src="components/InfoBar.js"><\/script>
+
+<script type="text/babel" data-presets="react">
+  const { Badge, PosterShell, PosterTitle, PhotoFrame, InfoBar } = window.DS;
+  // ... 여기서 조합
+<\/script>`}</code>
+                </pre>
+              </Card>
+            </Section>
+
+            <ColorSection />
+            <TypographySection />
+            <ComponentsSection />
+          </main>
+
+          {/* 푸터 */}
+          <footer className="border-t border-slate-200 bg-white">
+            <div className="max-w-5xl mx-auto px-5 sm:px-8 py-8 font-body text-sm text-slate-400 flex flex-wrap items-center justify-between gap-2">
+              <span>여덟 시 반 디자인 시스템 · index-photo.html 기반</span>
+              <span className="font-point text-cyan-700/60 tracking-[0.15em]">EIGHT THIRTY CAFE</span>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
