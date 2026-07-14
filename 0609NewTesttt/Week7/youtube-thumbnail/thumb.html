@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>YouTube Thumbnail</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    overflow: hidden;
+    background: #1B1A18;
+  }
+  .frame {
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    background:
+      radial-gradient(circle at 78% 32%, rgba(232,90,60,0.55), transparent 45%),
+      linear-gradient(120deg, #2B2A28 0%, #4A453D 55%, #7C7367 100%);
+  }
+  /* mock "space photo" block on the right, standing in for a real photo */
+  .photo {
+    position: absolute;
+    right: 0; top: 0;
+    width: 760px; height: 1080px;
+    background:
+      linear-gradient(180deg, rgba(27,26,24,0) 0%, rgba(27,26,24,0.75) 100%),
+      linear-gradient(105deg, #A69C8C 0%, #C9BEAE 40%, #8B8378 100%);
+  }
+  .photo::before, .photo::after {
+    content: "";
+    position: absolute;
+    border-radius: 6px;
+    background: rgba(43,42,40,0.55);
+  }
+  .photo::before { width: 210px; height: 320px; left: 90px; top: 380px; }
+  .photo::after { width: 150px; height: 480px; left: 340px; top: 260px; background: rgba(239,233,225,0.4); }
+
+  .badge {
+    position: absolute;
+    top: 70px; left: 74px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .avatar {
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    background: #EFE9E1;
+    color: #2B2A28;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 32px;
+  }
+  .channel {
+    color: #EFE9E1;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .main-copy {
+    position: absolute;
+    left: 74px; top: 250px;
+    width: 1080px;
+  }
+  .line1 {
+    font-size: 108px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: #EFE9E1;
+    line-height: 1.08;
+  }
+  .highlight {
+    color: #FF8A5C;
+  }
+  .line2 {
+    margin-top: 28px;
+    font-size: 44px;
+    font-weight: 700;
+    color: #EFE9E1;
+    background: rgba(0,0,0,0.28);
+    display: inline-block;
+    padding: 10px 26px;
+    border-radius: 10px;
+  }
+  .stamp {
+    position: absolute;
+    right: 60px; bottom: 56px;
+    font-size: 30px;
+    font-weight: 800;
+    color: #1B1A18;
+    background: #FF8A5C;
+    padding: 16px 30px;
+    border-radius: 999px;
+    transform: rotate(-4deg);
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="photo"></div>
+    <div class="badge">
+      <div class="avatar">mf</div>
+      <div class="channel">mf의 공간 탐구 生</div>
+    </div>
+    <div class="main-copy">
+      <div class="line1">성수동 팝업<br><span class="highlight">일주일 10곳</span> 다녀봄</div>
+      <div class="line2">이 정도면 인테리어 유행 다 보임</div>
+    </div>
+    <div class="stamp">VLOG #24</div>
+  </div>
+</body>
+</html>
