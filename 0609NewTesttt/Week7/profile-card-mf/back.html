@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>mf — Profile Card Back</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1080px;
+    height: 1350px;
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #2B2A28; /* Charcoal, inverted for back */
+    color: #EFE9E1;
+    overflow: hidden;
+  }
+  .card {
+    width: 1080px;
+    height: 1350px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 96px 96px 80px;
+  }
+  .heading {
+    font-size: 30px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #9C9284;
+    margin-bottom: 56px;
+  }
+  .portfolio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 44px;
+  }
+  .item {
+    border-top: 1px solid #4A453D;
+    padding-top: 28px;
+  }
+  .item-index {
+    font-size: 20px;
+    color: #8B8378;
+    margin-bottom: 10px;
+    letter-spacing: 0.08em;
+  }
+  .item-title {
+    font-size: 34px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+  .item-desc {
+    font-size: 21px;
+    color: #C9BEAE;
+    line-height: 1.5;
+    max-width: 800px;
+    font-weight: 400;
+  }
+  .bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .qr-block {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .qr {
+    width: 128px;
+    height: 128px;
+    background: #EFE9E1;
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    padding: 12px;
+    gap: 4px;
+  }
+  .qr div { background: #2B2A28; border-radius: 2px; }
+  .qr div:nth-child(3n+1) { background: transparent; }
+  .qr div:nth-child(7) , .qr div:nth-child(19) { background: transparent; }
+  .qr-label {
+    font-size: 20px;
+    color: #9C9284;
+    line-height: 1.5;
+  }
+  .qr-label b { color: #EFE9E1; display: block; font-size: 24px; margin-bottom: 4px; }
+  .footer-note {
+    font-size: 18px;
+    color: #6E675C;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="heading">Portfolio Highlights</div>
+
+    <div class="portfolio-list">
+      <div class="item">
+        <div class="item-index">01</div>
+        <div class="item-title">가상 공간 인터랙티브 디자인</div>
+        <div class="item-desc">언리얼 엔진 · Three.js 기반 웹 인터랙티브 공간 구축, 사용자 제스처·마우스 트래킹 기반 파티클 시스템 설계</div>
+      </div>
+      <div class="item">
+        <div class="item-index">02</div>
+        <div class="item-title">F&amp;B · Liquor 브랜드 아이덴티티</div>
+        <div class="item-desc">크래프트 비어 페스티벌 · 주류 어워즈 메인 엠블럼, 메달, 포스터 및 통합 브랜딩 가이드라인 제정</div>
+      </div>
+      <div class="item">
+        <div class="item-index">03</div>
+        <div class="item-title">그린테크 브랜딩 &amp; 3D 부스</div>
+        <div class="item-desc">신재생 에너지 기업 BI 개발, 'GreenEnerTEC' 전시장 가상 공간 부스 3D 시뮬레이션 디자인 전담</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="qr-block">
+        <div class="qr">
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+        </div>
+        <div class="qr-label"><b>Portfolio</b>mf-studio.kr/works</div>
+      </div>
+      <div class="footer-note">02 / 02 — BACK</div>
+    </div>
+  </div>
+</body>
+</html>

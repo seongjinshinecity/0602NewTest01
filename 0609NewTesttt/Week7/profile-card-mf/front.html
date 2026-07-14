@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>mf — Profile Card Front</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1080px;
+    height: 1350px;
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #EFE9E1; /* Sand Beige */
+    color: #2B2A28; /* Charcoal */
+    overflow: hidden;
+  }
+  .card {
+    width: 1080px;
+    height: 1350px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 96px 96px 80px;
+  }
+  /* subtle grid texture for "여백의 미" */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(#DFD6C8 1px, transparent 1px);
+    background-size: 100% 90px;
+    opacity: 0.35;
+  }
+  .top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .mark {
+    width: 116px;
+    height: 116px;
+    border-radius: 50%;
+    background: #7C7367; /* Warm Gray */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+    font-weight: 700;
+    color: #EFE9E1;
+    letter-spacing: -0.02em;
+  }
+  .role-tag {
+    font-size: 22px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8B8378;
+    border: 1px solid #C9BEAE;
+    padding: 12px 22px;
+    border-radius: 999px;
+  }
+  .middle {
+    position: relative;
+    z-index: 1;
+  }
+  .name {
+    font-size: 140px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .name-kr {
+    font-size: 34px;
+    color: #8B8378;
+    font-weight: 500;
+    margin-bottom: 40px;
+  }
+  .title {
+    font-size: 42px;
+    font-weight: 600;
+    margin-bottom: 36px;
+    color: #2B2A28;
+  }
+  .credo {
+    font-size: 26px;
+    line-height: 1.55;
+    color: #57524A;
+    max-width: 820px;
+    font-weight: 400;
+    border-left: 3px solid #7C7367;
+    padding-left: 28px;
+  }
+  .favorites {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 48px;
+  }
+  .chip {
+    font-size: 22px;
+    padding: 12px 24px;
+    border-radius: 999px;
+    background: #E3D9C8;
+    color: #4A453D;
+    font-weight: 500;
+  }
+  .bottom {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid #C9BEAE;
+    padding-top: 32px;
+  }
+  .contact-item {
+    font-size: 24px;
+    color: #4A453D;
+    margin-bottom: 10px;
+  }
+  .contact-item .label {
+    color: #8B8378;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-right: 14px;
+  }
+  .footer-note {
+    font-size: 18px;
+    color: #A69C8C;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <div class="mark">mf</div>
+      <div class="role-tag">Technical Space Designer</div>
+    </div>
+
+    <div class="middle">
+      <div class="name">mf</div>
+      <div class="name-kr">엠에프 · Technical Space Designer &amp; Branding Director</div>
+      <div class="title">선과 색으로 공간을 짓는 사람</div>
+      <div class="credo">
+        "가장 완벽한 기술은 인간의 시선에서 출발하고,<br>
+        가장 아름다운 디자인은 인간의 온기로 완성된다."
+      </div>
+      <div class="favorites">
+        <div class="chip">깊은 대화</div>
+        <div class="chip">가족과의 식사</div>
+        <div class="chip">낯선 도시 여행</div>
+        <div class="chip">영감 아카이브</div>
+        <div class="chip">꿈 일기</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div>
+        <div class="contact-item"><span class="label">Mail</span>hello@mf-studio.kr</div>
+        <div class="contact-item"><span class="label">IG</span>@mf.studio</div>
+      </div>
+      <div class="footer-note">01 / 02 — FRONT</div>
+    </div>
+  </div>
+</body>
+</html>
