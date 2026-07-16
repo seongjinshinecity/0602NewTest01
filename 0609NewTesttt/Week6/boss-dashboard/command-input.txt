@@ -1,2 +1,3 @@
 https://ruucm.notion.site/Auth-MCP-DB-App-cd47eb4baa8c83d595a681c219f42e23
 위에를 차례대로 해줘 (5개 퀘스트 배치 중 3번)
+(2026-07-17, 7주차 파이널 v1) 개인 프로젝트 v1 완성해줘 — 핵심 기능 1개(매출 수기 입력 폼) 끝까지 + Vercel 재배포 + 발표용 썸네일 1920×1080(Sonnet 서브 에이전트로 제작) + 30초 데모 영상. Supabase Week6-1 휴면 → cafe board 일시정지 후 재개로 해결.

@@ -42,6 +42,58 @@ async function getWeather() {
   };
 }
 
+// ── 매출 수기 입력 (v1 핵심 기능 — DEV.md Phase 2.5 "실사용의 관문")
+// 시드 데이터에서 실제 장부로 넘어가는 유일한 통로. 사장님이 마감 후 그날 판매를 직접 기록한다.
+app.post('/api/sales', requireAuth, async (req, res) => {
+  try {
+    const { date, menu_name, category, quantity, amount } = req.body ?? {};
+    const qty = Number(quantity), amt = Number(amount);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return res.status(400).json({ error: '날짜는 YYYY-MM-DD 형식이어야 합니다' });
+    if (!String(menu_name ?? '').trim()) return res.status(400).json({ error: '메뉴 이름을 입력해주세요' });
+    if (!String(category ?? '').trim()) return res.status(400).json({ error: '카테고리를 선택해주세요' });
+    if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: '수량은 1 이상의 정수여야 합니다' });
+    if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: '총 금액을 확인해주세요' });
+    const { rows: [sale] } = await pool.query(
+      `INSERT INTO cafe_sales (date, menu_name, category, quantity, amount)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, date::text, menu_name, category, quantity, amount::int`,
+      [date, String(menu_name).trim(), String(category).trim(), qty, amt]
+    );
+    res.status(201).json({ sale });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '매출 저장 실패', detail: err.message });
+  }
+});
+
+// 오늘 입력한 내역 확인·정정용 (같은 날짜의 행 목록 + 삭제)
+app.get('/api/sales', requireAuth, async (req, res) => {
+  try {
+    const date = String(req.query.date ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: '날짜는 YYYY-MM-DD 형식이어야 합니다' });
+    const { rows } = await pool.query(
+      `SELECT id, date::text, menu_name, category, quantity, amount::int
+       FROM cafe_sales WHERE date = $1::date ORDER BY id DESC`, [date]);
+    res.json({ sales: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '매출 조회 실패', detail: err.message });
+  }
+});
+
+app.delete('/api/sales/:id', requireAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: '잘못된 id' });
+    const { rowCount } = await pool.query(`DELETE FROM cafe_sales WHERE id = $1`, [id]);
+    if (!rowCount) return res.status(404).json({ error: '해당 매출 기록이 없습니다' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '매출 삭제 실패', detail: err.message });
+  }
+});
+
 // ── 대시보드 종합 API (로그인 필수 — 사장님 전용)
 app.get('/api/dashboard', requireAuth, async (_req, res) => {
   try {

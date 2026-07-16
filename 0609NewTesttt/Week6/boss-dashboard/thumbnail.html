@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>DAILY BREW — 카페 사장님 대시보드</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: #12100e;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+    color: #f3efe9;
+  }
+
+  .stage {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(217,168,90,0.14) 0%, rgba(217,168,90,0) 42%),
+      radial-gradient(circle at 12% 92%, rgba(199,107,132,0.10) 0%, rgba(199,107,132,0) 45%),
+      #12100e;
+  }
+
+  /* faint grid texture */
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(#332c25 1px, transparent 1px),
+      linear-gradient(90deg, #332c25 1px, transparent 1px);
+    background-size: 96px 96px;
+    opacity: 0.08;
+  }
+
+  /* ---------- LEFT: typography ---------- */
+  .left {
+    position: absolute;
+    left: 120px;
+    top: 0;
+    width: 900px;
+    height: 1080px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    width: fit-content;
+    padding: 10px 22px;
+    border: 1px solid #332c25;
+    border-radius: 999px;
+    background: #1d1915;
+    color: #d9a85a;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  .kicker .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #d9a85a;
+    box-shadow: 0 0 12px 2px rgba(217,168,90,0.7);
+  }
+
+  .title {
+    font-size: 108px;
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    color: #f3efe9;
+    margin-bottom: 8px;
+  }
+
+  .title .accent {
+    color: #d9a85a;
+  }
+
+  .subtitle {
+    font-size: 30px;
+    font-weight: 600;
+    color: #9a8f82;
+    margin-bottom: 44px;
+  }
+
+  .tagline-en {
+    font-size: 34px;
+    font-weight: 600;
+    color: #f3efe9;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    letter-spacing: -0.005em;
+  }
+
+  .tagline-kr {
+    font-size: 26px;
+    font-weight: 500;
+    color: #c76b84;
+    line-height: 1.6;
+    margin-bottom: 56px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .chip {
+    padding: 12px 24px;
+    border: 1px solid #332c25;
+    border-radius: 999px;
+    background: #1d1915;
+    color: #9a8f82;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  /* ---------- RIGHT: dashboard mockup ---------- */
+  .right {
+    position: absolute;
+    right: 100px;
+    top: 0;
+    width: 660px;
+    height: 1080px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .card {
+    background: #1d1915;
+    border: 1px solid #332c25;
+    border-radius: 16px;
+    padding: 28px 32px;
+  }
+
+  .card-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #9a8f82;
+    letter-spacing: 0.02em;
+    margin-bottom: 14px;
+  }
+
+  /* Revenue card */
+  .revenue-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .revenue-value {
+    font-size: 56px;
+    font-weight: 800;
+    color: #f3efe9;
+    letter-spacing: -0.01em;
+  }
+
+  .revenue-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(217,168,90,0.14);
+    color: #d9a85a;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  /* Weekly bar chart */
+  .bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    height: 120px;
+    margin-top: 6px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    gap: 10px;
+  }
+
+  .bar {
+    width: 100%;
+    border-radius: 6px 6px 3px 3px;
+    background: #332c25;
+  }
+
+  .bar-col.active .bar {
+    background: linear-gradient(180deg, #d9a85a 0%, #a97e3c 100%);
+  }
+
+  .bar-day {
+    font-size: 16px;
+    color: #9a8f82;
+    font-weight: 600;
+  }
+
+  .bar-col.active .bar-day {
+    color: #d9a85a;
+  }
+
+  /* Two-up row: weather + briefing */
+  .row-two {
+    display: flex;
+    gap: 24px;
+  }
+
+  .row-two .card {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .weather-main {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .weather-temp {
+    font-size: 48px;
+    font-weight: 800;
+    color: #f3efe9;
+  }
+
+  .weather-desc {
+    font-size: 20px;
+    font-weight: 600;
+    color: #9a8f82;
+  }
+
+  .weather-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffe3a8 0%, #d9a85a 60%, #a97e3c 100%);
+    flex-shrink: 0;
+  }
+
+  .briefing-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .briefing-line {
+    height: 14px;
+    border-radius: 7px;
+    background: #332c25;
+  }
+
+  .briefing-line.l1 { width: 100%; }
+  .briefing-line.l2 { width: 88%; }
+  .briefing-line.l3 { width: 62%; background: #d9a85a; opacity: 0.55; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    position: absolute;
+    left: 120px;
+    bottom: 56px;
+    font-size: 20px;
+    font-weight: 500;
+    color: #9a8f82;
+    letter-spacing: 0.01em;
+  }
+
+  .footer .sep {
+    color: #332c25;
+    margin: 0 12px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="left">
+    <div class="kicker"><span class="dot"></span>Personal Project · v1</div>
+
+    <div class="title">DAILY<br><span class="accent">BREW</span></div>
+    <div class="subtitle">카페 사장님 대시보드</div>
+
+    <div class="tagline-en">A morning briefing for solo café owners.</div>
+    <div class="tagline-kr">포스기·리뷰·날씨를 30초 브리핑 한 화면으로</div>
+
+    <div class="chips">
+      <div class="chip">Express</div>
+      <div class="chip">Supabase</div>
+      <div class="chip">Open-Meteo</div>
+      <div class="chip">Vercel</div>
+    </div>
+  </div>
+
+  <div class="right">
+
+    <div class="card">
+      <div class="card-label">오늘 매출</div>
+      <div class="revenue-row">
+        <div class="revenue-value">₩486,000</div>
+        <div class="revenue-delta">▲ 12%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">주간 매출 추이</div>
+      <div class="bars">
+        <div class="bar-col"><div class="bar" style="height:42%"></div><div class="bar-day">월</div></div>
+        <div class="bar-col"><div class="bar" style="height:58%"></div><div class="bar-day">화</div></div>
+        <div class="bar-col"><div class="bar" style="height:50%"></div><div class="bar-day">수</div></div>
+        <div class="bar-col"><div class="bar" style="height:70%"></div><div class="bar-day">목</div></div>
+        <div class="bar-col"><div class="bar" style="height:64%"></div><div class="bar-day">금</div></div>
+        <div class="bar-col"><div class="bar" style="height:88%"></div><div class="bar-day">토</div></div>
+        <div class="bar-col active"><div class="bar" style="height:100%"></div><div class="bar-day">일</div></div>
+      </div>
+    </div>
+
+    <div class="row-two">
+      <div class="card">
+        <div class="card-label">오늘 날씨</div>
+        <div class="weather-main">
+          <div class="weather-icon"></div>
+          <div>
+            <div class="weather-temp">27℃</div>
+            <div class="weather-desc">맑음</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">AI 브리핑</div>
+        <div class="briefing-lines">
+          <div class="briefing-line l1"></div>
+          <div class="briefing-line l2"></div>
+          <div class="briefing-line l3"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    AI 공장장 부트캠프 3기<span class="sep">—</span>Final Project v1<span class="sep">·</span>2026.07
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,12 +1,26 @@
-# ☕ 데일리브루 사장님 대시보드 — [Auth+MCP+DB+App] 보스 퀘스트
+# ☕ DAILY BREW — 카페 사장님 대시보드 (개인 프로젝트 v1)
 
-로그인한 사장님만 보는 카페 운영 대시보드. **데이터 소스 2개**(Supabase 운영 DB + 날씨 API)를
-서버가 종합해 **"오늘의 카페 브리핑"**을 만들어준다.
+> **A morning briefing for solo café owners.** — 포스기·리뷰·날씨를 30초 브리핑 한 화면으로.
+
+혼자 카페를 꾸리는 사장님이 아침에 열면 "오늘 매출 흐름 + 날씨 기반 준비 팁 + 체크할 리뷰"를
+브리핑 한 단락으로 보여주는 1인 사장님 전용 운영 화면. 6주차 보스 퀘스트 프로토타입을
+**7주차 파이널 퀘스트에서 v1으로 완성**했다 (기획서: `../personal-project/` MISSION·DEV·AUDIENCES).
 
 ## 🔗 배포 URL
 
 **https://boss-dashboard-virid.vercel.app**
 (회원가입 후 로그인하면 대시보드 진입 — 로그인 전엔 게이트만 보임)
+
+## v1 핵심 기능 — 매출 수기 입력 (7주차 완성)
+
+DEV.md Phase 2.5의 **"실사용의 관문"** — 시드 데이터에서 실제 장부로 넘어가는 기능.
+
+- 상단 **✏️ 매출 입력** 버튼 → 날짜·메뉴·카테고리·수량·총액 입력 → 저장 즉시 대시보드 반영
+- 같은 날짜의 입력 내역 목록 + 합계 + 삭제(정정) 지원
+- 서버 검증: 날짜 형식·수량 정수·금액 양수, 로그인(`requireAuth`) 필수
+- API: `POST /api/sales` · `GET /api/sales?date=` · `DELETE /api/sales/:id`
+
+발표용 썸네일: `screenshots/thumbnail-1920x1080.png` (`thumbnail.html` 렌더)
 
 ## 미션 매핑
 
@@ -40,9 +54,24 @@ cp ../shopping-mall-complete/.env .env   # DATABASE_URL
 npm start                                 # → http://localhost:3020
 ```
 
-## 스크린샷
+## 스크린샷 · 데모
+
 - `screenshots/01-login-gate.png` — 로그인 게이트 (비로그인)
 - `screenshots/02-dashboard-prod.png` — 배포판 대시보드 전체 (실시간 날씨 브리핑 포함)
+- `screenshots/03-v1-sales-entry-prod.jpg` — **v1 매출 수기 입력** (배포판, 입력 2건 + 대시보드 즉시 반영)
+- `screenshots/daily-brew-v1-demo.mp4` — **데모 영상 28초** (로그인 → 매출 입력 2건 → 대시보드 반영 → 차트/리뷰)
+- `screenshots/thumbnail-1920x1080.png` — 발표용 썸네일 (`thumbnail.html`)
+- `screenshots/agent-chat-v1.png` — 에이전트 대화 스크린샷
+
+## 회고 (v1)
+
+잘 된 것 — "기능 10개 반쪽보다 1개 완성"이라는 기획서 원칙을 지켰다. 매출 수기 입력 하나를
+검증·정정(삭제)·즉시 반영까지 끝까지 붙였고, 6주차 프로토타입 구조(Express+Supabase+세션)를
+그대로 재사용해서 구현 자체는 반나절이 안 걸렸다. 배포 파이프라인(Vercel)도 이미 있어서
+"배포 먼저"가 실제로 통했다. 아쉬운 것 — Supabase 무료 플랜 휴면 때문에 배포 URL이 500으로
+죽어 있었다는 걸 뒤늦게 알았다. 실사용(주 5회 아침 브리핑)이 시작되면 자동으로 안 생길 문제지만,
+"배포했다"와 "살아있다"는 다르다는 걸 배웠다. 다음은 DEV.md Phase 3의 LLM 브리핑과
+리뷰 수기 입력이다.
 
 ## 출처·연계
 - 운영 데이터는 [Context+Agent+DB] 퀘스트(`../cafe-ai-agent`)에서 시드한 동일 Supabase 테이블 재사용
