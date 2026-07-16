@@ -1,0 +1,17 @@
+{
+  "name": "karrot-clone",
+  "version": "1.0.0",
+  "description": "AI 공장장 부트캠프 7주차 — [Final] 당근마켓 클론 (상품 등록·검색·관심·1:1 채팅)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}
