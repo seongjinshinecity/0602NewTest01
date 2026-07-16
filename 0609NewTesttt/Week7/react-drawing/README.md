@@ -69,16 +69,11 @@
   - 푸터(블랙): 자간 넓은 "EIGHT THIRTY / 8시 반 · EIGHT THIRTY CAFE"
 - 사진은 실사진 버전과 **동일한 `photos/mango-bingsu-real.jpg`를 재사용**, 로딩 스켈레톤/로드 실패 대체 UI 처리
 
-### 5. QUARTER 인스타 게시 버전 — `index-quarter.html` (7주차 퀘스트 5 제출본)
+### 5. QUARTER 인스타 게시 버전 — 7주차 퀘스트 5 제출본 (→ `../../Week-8/quarter-poster/`로 이동)
 
-![QUARTER 망고 빙수 포스터](./screenshots/quarter-mango-poster-1080x1350.png)
-
-- **브랜딩**: 5주차 `my_cafe.md`의 **QUARTER** (블랙·스테인리스 미니멀 프리미엄, "시즌마다, 새로 짓다") — Q3 `COOL` 시즌 빙수 라인업에 맞춤
-- **사이즈**: 1080×1350 고정 (인스타 4:5) — Playwright 뷰포트 1080×1350으로 렌더 후 PNG 추출
-- **구성**: 후킹 카피 "여름엔, 망고." 1줄 + 실사진 55% + 가격/기간, 폰트 1종(Pretendard) · 컬러 3색(블랙/스틸실버/망고옐로)
-- **정적 HTML/CSS** (React 미사용 — 렌더 안정성 우선), 사진은 동일한 `photos/mango-bingsu-real.jpg` 재사용
-- **실게시**: [@quarterncoffee](https://www.instagram.com/quarterncoffee/) 피드 게시 완료 → [게시물](https://www.instagram.com/p/Da2-1Z5kneO/)
-  - 증빙: `screenshots/insta-quarter-post.jpg`(게시물), `screenshots/insta-quarter-profile.jpg`(프로필), `screenshots/agent-chat-quarter-poster.png`(에이전트 대화)
+5주차 `my_cafe.md`의 **QUARTER** 브랜딩으로 만든 1080×1350 인스타 게시 버전.
+파일·증빙 전부 [`Week-8/quarter-poster/`](../../Week-8/quarter-poster/)에 있다
+(인스타 실게시: [@quarterncoffee 게시물](https://www.instagram.com/p/Da2-1Z5kneO/)).
 
 ## 공통 특징
 
@@ -121,7 +116,6 @@ react-drawing/
 ├── index-photo.html                    # 실사진 버전 (단일 파일 React 앱)
 ├── index-timtim.html                   # TimTim 편집숍 스타일 버전 (단일 파일 React 앱)
 ├── mango-bingsu-photo.html             # helloabt 에디토리얼 스타일 버전 (단일 파일 React 앱)
-├── index-quarter.html                  # QUARTER 인스타 게시 버전 (정적 HTML, 1080×1350)
 ├── README.md                           # 이 문서
 ├── command-input.txt                   # 입력한 명령 기록
 ├── photos/
@@ -130,9 +124,7 @@ react-drawing/
     ├── mango-bingsu-poster.png             # SVG 버전 렌더링 캡처
     ├── mango-bingsu-poster-photo.png       # 실사진 버전 렌더링 캡처
     ├── mango-bingsu-poster-timtim.png      # TimTim 스타일 버전 렌더링 캡처
-    ├── mango-bingsu-photo-helloabt.png     # helloabt 스타일 버전 렌더링 캡처 (풀페이지)
-    ├── quarter-mango-poster-1080x1350.png  # QUARTER 버전 최종 이미지 (인스타 게시본)
-    ├── insta-quarter-post.jpg              # 인스타 게시물 증빙
-    ├── insta-quarter-profile.jpg           # 인스타 프로필 증빙
-    └── agent-chat-quarter-poster.png       # 에이전트 대화 스크린샷
+    └── mango-bingsu-photo-helloabt.png     # helloabt 스타일 버전 렌더링 캡처 (풀페이지)
 ```
+
+QUARTER 인스타 게시 버전(파일·증빙)은 `../../Week-8/quarter-poster/`로 이동.

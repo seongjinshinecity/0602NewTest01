@@ -20,7 +20,7 @@ DEV.md Phase 2.5의 **"실사용의 관문"** — 시드 데이터에서 실제 
 - 서버 검증: 날짜 형식·수량 정수·금액 양수, 로그인(`requireAuth`) 필수
 - API: `POST /api/sales` · `GET /api/sales?date=` · `DELETE /api/sales/:id`
 
-발표용 썸네일: `screenshots/thumbnail-1920x1080.png` (`thumbnail.html` 렌더)
+발표용 썸네일·데모 영상 등 v1 발표 자산: [`../../Week-8/daily-brew-v1/`](../../Week-8/daily-brew-v1/)
 
 ## 미션 매핑
 
@@ -58,10 +58,11 @@ npm start                                 # → http://localhost:3020
 
 - `screenshots/01-login-gate.png` — 로그인 게이트 (비로그인)
 - `screenshots/02-dashboard-prod.png` — 배포판 대시보드 전체 (실시간 날씨 브리핑 포함)
-- `screenshots/03-v1-sales-entry-prod.jpg` — **v1 매출 수기 입력** (배포판, 입력 2건 + 대시보드 즉시 반영)
-- `screenshots/daily-brew-v1-demo.mp4` — **데모 영상 28초** (로그인 → 매출 입력 2건 → 대시보드 반영 → 차트/리뷰)
-- `screenshots/thumbnail-1920x1080.png` — 발표용 썸네일 (`thumbnail.html`)
-- `screenshots/agent-chat-v1.png` — 에이전트 대화 스크린샷
+- v1 발표 자산 (→ [`../../Week-8/daily-brew-v1/`](../../Week-8/daily-brew-v1/)로 이동):
+  - `03-v1-sales-entry-prod.jpg` — **v1 매출 수기 입력** (배포판, 입력 2건 + 대시보드 즉시 반영)
+  - `daily-brew-v1-demo.mp4` — **데모 영상 28초** (로그인 → 매출 입력 2건 → 대시보드 반영 → 차트/리뷰)
+  - `thumbnail-1920x1080.png` — 발표용 썸네일 (`thumbnail.html`)
+  - `agent-chat-v1.png` — 에이전트 대화 스크린샷
 
 ## 회고 (v1)
 
