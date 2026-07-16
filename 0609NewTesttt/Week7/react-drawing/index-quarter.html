@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>QUARTER — 망고 빙수 포스터 (1080×1350)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1350px; overflow: hidden; }
+  body {
+    font-family: 'Pretendard', -apple-system, sans-serif;
+    background: #0E0E0E;
+    color: #F2F2F0;
+    position: relative;
+  }
+  /* ── 상단 브랜드 바 ── */
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 96px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 56px;
+    border-bottom: 1px solid rgba(242,242,240,0.18);
+  }
+  .q-mark {
+    width: 52px; height: 52px;
+    border: 2px solid #F2F2F0;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 800; letter-spacing: -1px;
+  }
+  .brand-name { font-size: 26px; font-weight: 700; letter-spacing: 12px; text-indent: 12px; }
+  .season-tag {
+    font-size: 17px; font-weight: 600; letter-spacing: 4px;
+    color: #B9BDC1;
+  }
+  /* ── 사진 (포스터의 55%) ── */
+  .photo-wrap {
+    position: absolute; top: 96px; left: 0; right: 0;
+    height: 745px;  /* 745/1350 ≈ 55% */
+    overflow: hidden;
+  }
+  .photo-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+    filter: saturate(1.08) contrast(1.05);
+  }
+  /* 하단으로 갈수록 블랙으로 녹아들기 */
+  .photo-wrap::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0; height: 220px;
+    background: linear-gradient(to bottom, rgba(14,14,14,0) 0%, #0E0E0E 100%);
+  }
+  /* 시즌 한정 배지 — 스테인리스 무드 */
+  .badge {
+    position: absolute; top: 40px; right: 56px;
+    padding: 12px 26px;
+    font-size: 19px; font-weight: 700; letter-spacing: 5px;
+    color: #0E0E0E;
+    background: linear-gradient(135deg, #E8EAEC 0%, #B9BDC1 45%, #DDE0E3 100%);
+    border-radius: 999px;
+  }
+  /* ── 하단 타이포 영역 ── */
+  .copy-area {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 780px;
+    padding: 0 56px 0;
+    display: flex; flex-direction: column;
+  }
+  .hook {
+    font-size: 112px; font-weight: 900; letter-spacing: -4px; line-height: 1.08;
+    margin-top: 24px;
+  }
+  .hook .mango { color: #FFB300; }
+  .sub-en {
+    margin-top: 18px;
+    font-size: 26px; font-weight: 600; letter-spacing: 10px;
+    color: #B9BDC1;
+  }
+  .divider {
+    margin-top: 32px;
+    height: 1px;
+    background: linear-gradient(to right, rgba(242,242,240,0.35), rgba(242,242,240,0.05));
+  }
+  .info-row {
+    margin-top: 26px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .info-left .name { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+  .info-left .desc { margin-top: 12px; font-size: 21px; font-weight: 400; color: #B9BDC1; letter-spacing: 0.5px; }
+  .price { font-size: 56px; font-weight: 900; letter-spacing: -2px; color: #FFB300; }
+  .price small { font-size: 24px; font-weight: 600; color: #B9BDC1; margin-left: 6px; letter-spacing: 2px; }
+  .footer {
+    position: absolute; left: 56px; right: 56px; bottom: 44px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 18px; letter-spacing: 3px; color: #7C8085;
+  }
+  .footer b { color: #B9BDC1; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="q-mark">Q</div>
+    <div class="brand-name">QUARTER</div>
+    <div class="season-tag">Q3 · COOL</div>
+  </div>
+
+  <div class="photo-wrap">
+    <img src="photos/mango-bingsu-real.jpg" alt="망고 빙수" />
+    <div class="badge">여름 시즌 한정</div>
+  </div>
+
+  <div class="copy-area">
+    <div class="hook">여름엔,<br /><span class="mango">망고.</span></div>
+    <div class="sub-en">MANGO BINGSU</div>
+    <div class="divider"></div>
+    <div class="info-row">
+      <div class="info-left">
+        <div class="name">망고 빙수</div>
+        <div class="desc">망고 100% · 곱게 간 우유 얼음 · 3분기 시즌이 끝나면 사라집니다</div>
+      </div>
+      <div class="price">18,000<small>KRW</small></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span><b>QUARTER</b> — 시즌마다, 새로 짓다</span>
+    <span>@quarterncoffee</span>
+  </div>
+</body>
+</html>
