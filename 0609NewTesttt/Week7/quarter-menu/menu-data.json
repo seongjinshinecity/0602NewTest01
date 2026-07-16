@@ -1,0 +1,105 @@
+{
+  "cafe_name": "QUARTER",
+  "items": [
+    {
+      "category": "COFFEE",
+      "name": "쿼터 아메리카노",
+      "price": 7000,
+      "ingredients": [
+        {"name": "스페셜티 원두 20g", "cost": 1300},
+        {"name": "정수·얼음", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "COFFEE",
+      "name": "스틸 라떼",
+      "price": 8000,
+      "ingredients": [
+        {"name": "콜드브루 원액 80ml", "cost": 1300},
+        {"name": "우유 200ml", "cost": 450},
+        {"name": "얼음", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "COFFEE",
+      "name": "니트로 콜드브루",
+      "price": 8500,
+      "ingredients": [
+        {"name": "콜드브루 원액 120ml", "cost": 1600},
+        {"name": "질소 차지", "cost": 200},
+        {"name": "컵·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "NON-COFFEE",
+      "name": "자몽 스파클",
+      "price": 8000,
+      "ingredients": [
+        {"name": "수제 자몽청 60g", "cost": 900},
+        {"name": "자몽 슬라이스", "cost": 500},
+        {"name": "탄산수 200ml", "cost": 350},
+        {"name": "얼음", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "NON-COFFEE",
+      "name": "청귤 에이드",
+      "price": 8000,
+      "ingredients": [
+        {"name": "제주 청귤청 70g", "cost": 1200},
+        {"name": "탄산수 200ml", "cost": 350},
+        {"name": "청귤 슬라이스", "cost": 300},
+        {"name": "얼음", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "NON-COFFEE",
+      "name": "애플민트 콜드 티",
+      "price": 7500,
+      "ingredients": [
+        {"name": "프리미엄 허브 블렌드", "cost": 900},
+        {"name": "생 애플민트·레몬", "cost": 600},
+        {"name": "얼음", "cost": 100},
+        {"name": "컵·빨대·부자재", "cost": 300}
+      ]
+    },
+    {
+      "category": "BINGSU & DESSERT",
+      "name": "망고 빙수 (시그니처)",
+      "price": 18000,
+      "ingredients": [
+        {"name": "애플망고 200g", "cost": 3800},
+        {"name": "우유 얼음 베이스 500g", "cost": 1000},
+        {"name": "연유·시럽", "cost": 350},
+        {"name": "애플민트 가니시", "cost": 150},
+        {"name": "용기·수저·부자재", "cost": 400}
+      ]
+    },
+    {
+      "category": "BINGSU & DESSERT",
+      "name": "흑임자 인절미 빙수",
+      "price": 15000,
+      "ingredients": [
+        {"name": "흑임자 페이스트 40g", "cost": 1200},
+        {"name": "우유 얼음 베이스 500g", "cost": 1000},
+        {"name": "인절미·콩고물", "cost": 800},
+        {"name": "연유", "cost": 250},
+        {"name": "용기·수저·부자재", "cost": 400}
+      ]
+    },
+    {
+      "category": "BINGSU & DESSERT",
+      "name": "Q3 콜라보 젤라또",
+      "price": 9500,
+      "ingredients": [
+        {"name": "콜라보 젤라또 2스쿱 (납품)", "cost": 2600},
+        {"name": "웨이퍼·가니시", "cost": 300},
+        {"name": "컵·스푼·부자재", "cost": 300}
+      ]
+    }
+  ]
+}

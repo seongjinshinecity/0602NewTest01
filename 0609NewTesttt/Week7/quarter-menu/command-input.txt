@@ -1,0 +1,1 @@
+(2026-07-17) 카톡 7주차 퀘스트 공지 파악하고 퀘스트 4 카페 메뉴판 만들어줘 — QUARTER(5주차 my_cafe.md) 브랜딩, Q3 COOL 시즌, 1080×1350, 시그니처 망고 빙수 강조 (summer-cafe-menu skill 사용, 산출물 4종: menu.md / recipes.md / menu-board.html+png / cost-sheet.xlsx)
