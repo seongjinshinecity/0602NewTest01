@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>명함 - 앞면</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 1063px;
+    height: 638px;
+    overflow: hidden;
+    background: #F5F1EA;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+    color: #2B2A28;
+    position: relative;
+  }
+
+  .card {
+    width: 1063px;
+    height: 638px;
+    padding: 84px 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .top {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .name {
+    font-size: 92px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #2B2A28;
+  }
+
+  .tagline {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #D9A85A;
+  }
+
+  .role-line {
+    font-size: 26px;
+    font-weight: 500;
+    color: #2B2A28;
+    opacity: 0.72;
+    letter-spacing: 0.01em;
+  }
+
+  .bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bottom .rule {
+    width: 64px;
+    height: 3px;
+    background: #2B2A28;
+    opacity: 0.35;
+    margin-bottom: 18px;
+  }
+
+  .contact {
+    font-size: 21px;
+    font-weight: 400;
+    color: #2B2A28;
+    opacity: 0.68;
+    letter-spacing: 0.01em;
+  }
+
+  @media print {
+    @page { size: 90mm 54mm; margin: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <div class="name">황성진</div>
+      <div class="tagline">AI로 카페를 짓는 사람</div>
+      <div class="role-line">여덟 시 반 (8:30AM) · Founder</div>
+    </div>
+    <div class="bottom">
+      <div class="rule"></div>
+      <div class="contact">010-3098-5348 &nbsp;/&nbsp; seongjin.hwang@griff.co.kr &nbsp;/&nbsp; @quarterncoffee</div>
+    </div>
+  </div>
+</body>
+</html>

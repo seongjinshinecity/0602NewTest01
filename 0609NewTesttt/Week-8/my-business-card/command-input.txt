@@ -1,0 +1,29 @@
+명함 앞/뒤 HTML 2개를 만들어줘. 부트캠프 퀘스트 "내 명함 만들기" 제출물이다.
+
+파일 위치:
+- /Users/hwangseongjin/Downloads/0602NewTest01/0609NewTesttt/Week-8/my-business-card/front.html
+- /Users/hwangseongjin/Downloads/0602NewTest01/0609NewTesttt/Week-8/my-business-card/back.html
+(폴더는 새로 만들어)
+
+공통 스펙:
+- 표준 명함 90×54mm. 화면 렌더 기준 정확히 1063×638px (300DPI 환산) — html,body { width:1063px; height:638px; overflow:hidden }
+- @media print { @page { size: 90mm 54mm; margin: 0 } } 포함, print-color-adjust: exact
+- 외부 리소스(웹폰트/CDN/이미지) 금지 — 인라인 CSS + 시스템 폰트(-apple-system, "Apple SD Gothic Neo", sans-serif)
+- 컬러 3색 이내: 차콜 #2B2A28 (바탕/텍스트), 웜 크림 #F5F1EA (바탕/텍스트), 모닝 골드 #D9A85A (강조 — 딱 한 요소에만)
+- 폰트 1패밀리, 웨이트 대비로만 위계. 흑백 출력해도 위계가 살아야 한다
+
+앞면 (front.html) — 크림 바탕 + 차콜 텍스트:
+- 이름: 황성진 (크게, 볼드)
+- 태그라인: "AI로 카페를 짓는 사람" — 이것만 모닝 골드로 강조 (유일한 강조)
+- 직함 줄: 여덟 시 반 (8:30AM) · Founder
+- 연락처(작게, 하단 정렬): 010-3098-5348 / seongjin.hwang@griff.co.kr / @quarterncoffee
+- 정보는 위 5가지(이름·태그라인·직함·전화·이메일·인스타 중 5개 이내로 압축)가 전부 — 더 추가하지 마
+- 여백을 아끼지 마 — 미니멀하게
+
+뒷면 (back.html) — 차콜 바탕 + 크림 텍스트:
+- 중앙에 큰 "8:30" 워드마크 (시계 콜론 느낌, 크림색, 초대형)
+- 그 아래 작은 슬로건 한 줄: "출근길의 커피, 여덟 시 반"
+- 우하단에 아주 작게 @quarterncoffee
+- 장식 최소, 타이포 중심
+
+완성 후 두 파일 경로만 반환해. 렌더 확인은 내가 한다.
