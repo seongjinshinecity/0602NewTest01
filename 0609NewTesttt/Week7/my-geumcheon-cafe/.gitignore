@@ -1,0 +1,6 @@
+.playwright-mcp/
+.stfolder/
+.DS_Store
+Nw7/.env
+Nw7/output/
+Nw7/node_modules/
